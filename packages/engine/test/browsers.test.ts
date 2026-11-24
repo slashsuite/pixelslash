@@ -1,3 +1,4 @@
+import { PNG } from "pngjs";
 import { afterAll, describe, expect, test } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -16,6 +17,13 @@ import {
 } from "../src/snapshot.ts";
 import { cleanupDev, png, tmpDir } from "./dev-fixtures.ts";
 
+/** A 16x16 solid red PNG. */
+function red(): Buffer {
+  const img = new PNG({ width: 16, height: 16 });
+  for (let i = 0; i < img.data.length; i += 4) img.data.set([255, 0, 0, 255], i);
+  return PNG.sync.write(img);
+}
+
 const dirs: string[] = [];
 const server = Bun.serve({
   port: 0,
@@ -24,6 +32,14 @@ const server = Bun.serve({
     const path = new URL(req.url).pathname;
     // An image whose request is never answered: the page loads, but never settles.
     if (path === "/never") return new Promise<Response>(() => {});
+    // A red square far below the fold, loaded lazily: the browser does not start it on its own.
+    if (path === "/red.png")
+      return new Response(red(), { headers: { "content-type": "image/png" } });
+    if (path === "/lazy")
+      return new Response(
+        '<!doctype html><body style="margin:0"><div style="height:6000px"></div><img src="/red.png" loading="lazy" width="16" height="16" style="display:block">',
+        { headers: { "content-type": "text/html" } },
+      );
     if (path === "/hangs")
       return new Response('<!doctype html><body><p>waiting</p><img src="/never">', {
         headers: { "content-type": "text/html" },
@@ -189,6 +205,29 @@ describe("a real chromium", () => {
     expect(left?.length).toBeGreaterThan(0);
   }, 60_000);
 
+  test("a lazy image below the fold is loaded, not waited on forever, and is in the shot", async () => {
+    const config = parseConfig({
+      ...base,
+      routes: ["/lazy"],
+      variants: [{ name: "small", browser: name, viewport: { width: 320, height: 200 } }],
+      stabilise: { timeoutMs: SETTLE_MS },
+    });
+    const session = await openCaptureSession(config, pinned);
+    const dir = await out();
+    try {
+      await captureInto(session, dir, undefined, { warn() {} });
+    } finally {
+      await session.close();
+    }
+    const shot = PNG.sync.read(Buffer.from(await Bun.file(join(dir, "lazy/small.png")).bytes()));
+    // Full page: the image sits at y 6000, past the distance chromium loads a lazy image ahead of the viewport, and is painted red.
+    const scale = shot.width / 320;
+    const y = Math.round(6008 * scale);
+    const x = Math.round(8 * scale);
+    const i = (y * shot.width + x) * 4;
+    expect([...shot.data.subarray(i, i + 3)]).toEqual([255, 0, 0]);
+  }, 60_000);
+
   test("fails a page that never settles with the settle timeout, not Playwright's", async () => {
     const config = parseConfig({
       ...base,
@@ -214,7 +253,10 @@ describe("a real chromium", () => {
     }
     if (!(failure instanceof CaptureError))
       throw new Error(`expected the capture to reject with a CaptureError, got ${String(failure)}`);
-    expect(failure.message).toMatch(/^capture settle exceeded \d+ms/);
+    // Named, so a run of hundreds of shots says which one never settled (and in which variant).
+    expect(failure.message).toMatch(
+      /^hangs \(small: light, 320x200\): capture settle exceeded \d+ms/,
+    );
     expect(failure.message.endsWith(RETRIED_ALONE)).toBe(true);
   }, 60_000);
 });

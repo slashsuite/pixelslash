@@ -231,7 +231,9 @@ describe(
       };
       const { warnings, error } = await run("/");
       const message = failure(error).message;
-      expect(message).toMatch(/^capture failed for http:\/\/127\.0\.0\.1:\d+\/: /);
+      expect(message).toMatch(
+        /^index \(desktop: [a-z]+, \d+x\d+\): capture failed for http:\/\/127\.0\.0\.1:\d+\/: /,
+      );
       expect(message).toContain("index (desktop)");
       expect(message).toContain("crashed during goto again");
       expect(message).toContain("the one retry was already spent");
@@ -246,7 +248,7 @@ describe(
       const { warnings, error } = await run("/hang", 600);
       expect(error).toBeInstanceOf(CaptureError);
       expect(failure(error).message).toMatch(
-        /^capture failed for .*\/hang: [\s\S]*; retried alone after the run and timed out again$/,
+        /^hang \(desktop: [a-z]+, \d+x\d+\): capture failed for .*\/hang: [\s\S]*; retried alone after the run and timed out again$/,
       );
       expect(warnings.filter((w) => /crashed/.test(w))).toEqual([]);
       expect(warnings.filter((w) => w.startsWith("retry: 1 shot timed out"))).toHaveLength(1);
