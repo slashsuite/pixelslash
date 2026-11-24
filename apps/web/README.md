@@ -247,11 +247,12 @@ that is never synced again keeps its old run until GitHub marks it stale.
 
 A PR gets one comment from PixelSlash for all of an org's projects connected to its repo, made by the
 first build that names it (`prNumber`) and edited in place by every later build of any of them. Each
-edit rebuilds the whole body from each project's newest build on the PR's newest commit: an overall
-title (`39 changes to review in 2 of 16 projects`), then a section per project with something to
-review (the model's summary or "Summary skipped", the counts, the three to five most changed shots as
+edit rebuilds the whole body from each project's newest build on the PR's newest commit with a
+verdict (one still uploading or diffing does not move it): an overall title
+(`39 changes to review in 2 of 16 projects`), then a section per project with changes or an error
+(the model's summary or "Summary skipped", the counts, the three to five most changed shots as
 links, and the build page link), then one line naming the projects with no visual changes. A repo
-with one project shows that project's section with no heading. Two projects' builds syncing at once
+with one commenting project shows its section with no heading. Two projects' builds syncing at once
 cannot drop a section: each sync reads the PR again after its edit and edits again when the body has
 moved on. The comment is keyed by org, repo (ignoring case) and PR number; comments that separate
 projects made on a PR before it was shared stay on GitHub as they were, and the oldest is the one

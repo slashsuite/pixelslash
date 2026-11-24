@@ -1,8 +1,10 @@
 import { describe, expect, test } from "vitest";
 import { setGithubComment } from "#/db/github-comment";
+import { setGithubRepo } from "#/db/orgs";
+import { call, newBuild } from "#/api/test-support";
 import { prComments } from "#/db/schema-pr-comments";
 import { sha } from "#/diff/test-builds";
-import type { GithubApp } from "./app";
+import { type GithubApp, field } from "./app";
 import { syncCheckRuns } from "./check-run";
 import { CHANGED, PLAIN, world } from "./test-world";
 
@@ -127,7 +129,7 @@ describe("one PR comment for every project on the repo", () => {
     expect(commentBodies(w)[0]).toContain("All changes accepted in 2 projects");
   });
 
-  test("a project with the comment off, or another org's project on the repo, gets no section", async () => {
+  test("a project with the comment off gets no section", async () => {
     const w = await world();
     const { docs } = await threeProjects(w);
     const theirs = await w.finalise(ofPr(CHANGED, docs));
@@ -137,6 +139,83 @@ describe("one PR comment for every project on the repo", () => {
 
     const [body = ""] = commentBodies(w);
     expect(body).not.toContain("docs");
-    expect(body).toContain("### PixelSlash: 1 change to review");
+    expect(body).toContain("### PixelSlash: 1 change to review in 1 project");
+    expect(body).toContain(`#### ${w.acme.project.name}: 1 change to review`);
+  });
+
+  test("a repo's other projects that have not built the head still get a named section", async () => {
+    const w = await world();
+    await w.linkProject("docs", "acme/web");
+    await w.finalise({ commit: sha(1), branch: "main", png: PLAIN });
+    await w.finalise(ofPr(CHANGED));
+
+    const [body = ""] = commentBodies(w);
+    expect(body).toContain(`#### ${w.acme.project.name}: 1 change to review`);
+  });
+
+  test("another org's project on the same repo keeps its own comment", async () => {
+    const w = await world();
+    await setGithubRepo(w.db, w.other.user.id, w.other.project.id, "acme/web");
+    for (const token of [undefined, w.other.token])
+      await w.finalise({ commit: sha(1), branch: "main", png: PLAIN, ...(token && { token }) });
+    await w.finalise(ofPr(CHANGED));
+    await w.finalise(ofPr(PLAIN, w.other.token));
+
+    expect(w.github.comments().size).toBe(2);
+    expect(await w.db.select().from(prComments)).toHaveLength(2);
+    const bodies = commentBodies(w);
+    expect(bodies.some((b) => b.includes("### PixelSlash: 1 change to review"))).toBe(true);
+    expect(bodies.some((b) => b.includes("### PixelSlash: No visual changes"))).toBe(true);
+    expect(bodies.every((b) => !b.includes("####"))).toBe(true);
+  });
+
+  test("a comment GitHub lost is not stored twice when another sync made the new one first", async () => {
+    const w = await world();
+    const built = await w.finalise(ofPr(CHANGED));
+    const [lost] = await w.db.select().from(prComments);
+    w.github.deleteComment(lost?.commentId ?? 0);
+
+    // Between our edit's 404 and our forgetting the lost id, another sync makes and stores the new one.
+    const inner = w.github.app({ timeoutMs: 50 });
+    const racing: GithubApp = {
+      async request(repo, method, path, body) {
+        const lostEdit = method === "PATCH" && path.endsWith(`/${lost?.commentId}`);
+        try {
+          return await inner.request(repo, method, path, body);
+        } finally {
+          if (lostEdit) {
+            const made = await inner.request(repo, "POST", "/repos/acme/web/issues/7/comments", {
+              body: "theirs",
+            });
+            const commentId = Number(field(made, "id"));
+            await w.db.update(prComments).set({ commentId });
+          }
+        }
+      },
+    };
+    const deps = { db: w.db, token: null, publicUrl: "https://pixelslash.test/" };
+    await syncCheckRuns({ ...deps, app: racing }, [built.id]);
+
+    const rows = await w.db.select().from(prComments);
+    expect(rows).toHaveLength(1);
+    expect([...w.github.comments().keys()]).toEqual([rows[0]?.commentId]);
+  });
+
+  test("a newer commit still uploading leaves the comment on the last commit with a verdict", async () => {
+    const w = await world();
+    await w.finalise({ commit: sha(1), branch: "main", png: PLAIN });
+    const built = await w.finalise(ofPr(CHANGED));
+    await call(
+      w.deps,
+      "POST /api/v1/builds",
+      w.acme.token,
+      newBuild({ commitSha: sha(3), branch: "feat/x", mergeBaseSha: sha(1), prNumber: 7 }),
+    );
+    await w.sync(await w.decide(built.id, "accepted"));
+
+    const [body = ""] = commentBodies(w);
+    expect(w.github.comments().size).toBe(1);
+    expect(body).toContain(`Build of \`${sha(2).slice(0, 7)}\``);
+    expect(body).toContain("### PixelSlash: All changes accepted");
   });
 });

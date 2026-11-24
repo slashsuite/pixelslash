@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, count, desc, eq, isNull, notInArray, sql } from "drizzle-orm";
 import { explaining } from "#/ai/explain-pending";
 import { type BuildCounts, countBuilds, emptyCounts } from "#/db/build-counts";
 import type { Db } from "#/db/db";
@@ -73,7 +73,7 @@ function summaryLines(summary: AiSummary | null, pending: boolean): string[] {
 }
 
 /** One project's newest build on the PR's head, with what its section shows. */
-export type ProjectBuild = {
+type ProjectBuild = {
   build: PrCommentBuild;
   projectName: string;
   counts: BuildCounts;
@@ -93,13 +93,13 @@ const sum = (all: ProjectBuild[], pick: (counts: BuildCounts) => number) =>
 
 /** The one-line total over the projects, e.g. "39 changes to review in 2 of 16 projects". */
 function overallTitle(all: ProjectBuild[]): string {
-  const [only] = all;
-  if (all.length === 1 && only) return titleOf(only.build, only.counts);
   const of = (n: number) =>
     n === all.length ? plural(n, "project") : `${n} of ${all.length} projects`;
+  // Only a build with a verdict is counted: an errored or re-diffing one may hold a partial count.
+  const decided = all.filter((p) => !diffing(p) && p.build.status !== "errored");
   const counted = (pick: (counts: BuildCounts) => number, what: string) => {
-    const total = sum(all, pick);
-    const showing = all.filter((p) => pick(p.counts) > 0).length;
+    const total = sum(decided, pick);
+    const showing = decided.filter((p) => pick(p.counts) > 0).length;
     return total > 0 ? [`${plural(total, "change")} ${what} in ${of(showing)}`] : [];
   };
   const errored = all.filter((p) => p.build.status === "errored").length;
@@ -115,9 +115,9 @@ function overallTitle(all: ProjectBuild[]): string {
   return `All changes accepted in ${of(all.filter((p) => !unchanged(p)).length)}`;
 }
 
-/** A project's summary, counts and shots; an errored build shows its title only. */
+/** A project's summary, counts and shots; an errored or still diffing build shows its title only. */
 function detailLines(p: ProjectBuild): string[] {
-  if (p.build.status === "errored") return [];
+  if (p.build.status === "errored" || diffing(p)) return [];
   return [
     ...summaryLines(p.summary, p.summaryPending),
     "",
@@ -131,18 +131,21 @@ const names = (all: ProjectBuild[]) => all.map((p) => plain(p.projectName)).join
 
 /**
  * The comment's Markdown, from each project's newest build on the PR's head (at least one). A repo
- * with one project reads as it did before projects shared the comment: no per-project heading.
+ * with one commenting project reads as it did before projects shared the comment: no per-project
+ * heading. With several, every section is named, even when only one of them built the head.
  */
-export function commentOf(all: ProjectBuild[], headSha: string): string {
+export function commentOf(all: ProjectBuild[], headSha: string, alone: boolean): string {
   const sha = `\`${headSha.slice(0, 7)}\``;
-  const title = [COMMENT_MARKER, `### PixelSlash: ${plain(overallTitle(all))}`, ""];
   const [only] = all;
-  if (all.length === 1 && only) {
+  if (alone && only) {
     const link = only.pageUrl ? `: [Review the build](${only.pageUrl})` : "";
+    const details = detailLines(only);
     return [
-      ...title,
-      ...detailLines(only),
-      ...(only.build.status === "errored" ? [] : [""]),
+      COMMENT_MARKER,
+      `### PixelSlash: ${plain(titleOf(only.build, only.counts))}`,
+      "",
+      ...details,
+      ...(details.length > 0 ? [""] : []),
       `Build of ${sha}${link}`,
     ].join("\n");
   }
@@ -157,7 +160,9 @@ export function commentOf(all: ProjectBuild[], headSha: string): string {
   const stillDiffing = all.filter(diffing);
   const noChange = all.filter(unchanged);
   return [
-    ...title,
+    COMMENT_MARKER,
+    `### PixelSlash: ${plain(overallTitle(all))}`,
+    "",
     ...sections,
     ...(stillDiffing.length > 0 ? [`Still diffing: ${names(stillDiffing)}.`, ""] : []),
     ...(noChange.length > 0 ? [`No visual changes: ${names(noChange)}.`, ""] : []),
@@ -179,13 +184,23 @@ const commentingOnRepo = (pr: PrKey) =>
 /** Newest first; `created_at` has a second's resolution, so the insert order (`rowid`) breaks a tie. */
 const newestFirst = [desc(builds.createdAt), desc(sql`${builds}.rowid`)] as const;
 
-/** The commit of the PR's newest build in any of the repo's projects: the PR's head as we know it. */
+/**
+ * The commit of the PR's newest build with a verdict in any of the repo's projects: the PR's head as
+ * we know it. A build still uploading or diffing does not move it, so the comment keeps the last
+ * verdict until the new commit has one.
+ */
 async function headOf(db: Db, pr: PrKey): Promise<string | null> {
   const [newest] = await db
     .select({ sha: builds.commitSha })
     .from(builds)
     .innerJoin(projects, eq(projects.id, builds.projectId))
-    .where(and(commentingOnRepo(pr), eq(builds.prNumber, pr.prNumber)))
+    .where(
+      and(
+        commentingOnRepo(pr),
+        eq(builds.prNumber, pr.prNumber),
+        notInArray(builds.status, ["uploading", "processing"]),
+      ),
+    )
     .orderBy(...newestFirst)
     .limit(1);
   return newest?.sha ?? null;
@@ -227,6 +242,12 @@ async function projectBuilds(
     picked.map((r) => r.id),
   );
   const now = Date.now();
+  // Shots are read only for a build whose section lists them: decided, with a change.
+  const shows = (status: string, id: string) =>
+    status !== "errored" &&
+    status !== "uploading" &&
+    status !== "processing" &&
+    (counts.get(id)?.changed ?? 0) > 0;
   return Promise.all(
     picked.map(async ({ aiSummary, queuedAt, projectName, ...row }) => {
       const build: PrCommentBuild = { ...row, repo, orgId: pr.orgId, comment: true };
@@ -236,18 +257,25 @@ async function projectBuilds(
         counts: counts.get(row.id) ?? emptyCounts(),
         summary: aiSummary ?? null,
         summaryPending: explaining(queuedAt ?? null, now),
-        shots: await mostChangedShots(db, row.id, NAMED_SHOTS),
+        shots: shows(row.status, row.id) ? await mostChangedShots(db, row.id, NAMED_SHOTS) : [],
         pageUrl: detailsUrlOf(deps.publicUrl, build),
       };
     }),
   );
 }
 
+/** How many of the org's projects on the repo comment: one keeps the single-project body. */
+async function commentingCount(db: Db, pr: PrKey): Promise<number> {
+  const [row] = await db.select({ n: count() }).from(projects).where(commentingOnRepo(pr));
+  return row?.n ?? 0;
+}
+
 /** The body as the PR stands now, from its head as it is now, or null when it has no build. */
 async function bodyOf(deps: PrCommentDeps, pr: PrKey, repo: RepoName): Promise<string | null> {
   const head = await headOf(deps.db, pr);
   const all = head === null ? [] : await projectBuilds(deps, pr, repo, head);
-  return head !== null && all.length > 0 ? commentOf(all, head) : null;
+  if (head === null || all.length === 0) return null;
+  return commentOf(all, head, (await commentingCount(deps.db, pr)) === 1);
 }
 
 const keyOfComment = (pr: PrKey) =>
@@ -272,7 +300,8 @@ async function editHeld(
   } catch (error) {
     // Deleted on GitHub: it is made again by the caller. Any other failure is the caller's to log.
     if (!(error instanceof GithubError && error.status === 404)) throw error;
-    await db.delete(prComments).where(key);
+    // Only the id that 404'd: another sync may already have stored the PR's new comment.
+    await db.delete(prComments).where(and(key, eq(prComments.commentId, held.id)));
     return false;
   }
 }
@@ -306,13 +335,13 @@ async function put({ db, client, repo }: Target, pr: PrKey, body: string): Promi
 }
 
 /**
- * How many times one sync writes the comment. Two projects' syncs can each read the PR, then
- * write in the other order, so the older body lands last; each sync reads the PR again after its
- * write and writes again when the body has moved on, a newer head included. The last write to land
- * is followed by a read that sees every build before it, so the comment converges on the PR as it
- * stands.
+ * The most times one sync writes the comment, a guard rather than a budget. Two projects' syncs can
+ * each read the PR, then write in the other order, so the older body lands last; each sync reads
+ * the PR again after its write and writes again until what it wrote is what it reads, a newer head
+ * included. A sync stops early only when the PR keeps changing under it this many times, and then
+ * each of those changes is a decision or a build whose own sync writes after it.
  */
-const WRITES = 3;
+const WRITES = 10;
 
 /**
  * Create or edit the PR's comment for a build that has a verdict. Nothing for a build with no PR,
