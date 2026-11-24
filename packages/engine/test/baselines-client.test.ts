@@ -71,24 +71,42 @@ describe("fetchBaselines", () => {
   });
 });
 
+/** A client for one image fetch; `warned` collects what it says before each retry. */
+const imageClient = (fetch: Client["fetch"], warned: string[] = []): Client => ({
+  fetch,
+  base: "https://ps.example",
+  token: "t",
+  warn: (m) => warned.push(m),
+  sleep: async () => {},
+});
+
 describe("baselinePng", () => {
+  const picked = {
+    id: "s0",
+    image_url: "/images/orgs/o/s0.png?exp=1&sig=secret",
+    fingerprint: {},
+    ignore: [],
+  };
+
   test("a refused image names its path, never the signature a CI log would then print", async () => {
-    const c: Client = {
-      fetch: async () => new Response("not found", { status: 404 }),
-      base: "https://ps.example",
-      token: "t",
-      warn: () => {},
-      sleep: async () => {},
-    };
-    const picked = {
-      id: "s0",
-      image_url: "/images/orgs/o/s0.png?exp=1&sig=secret",
-      fingerprint: {},
-      ignore: [],
-    };
+    const c = imageClient(async () => new Response("not found", { status: 404 }));
     await expect(baselinePng(c, picked)).rejects.toThrow(
       "upload failed: fetch baseline s0: GET /images/orgs/o/s0.png -> 404 not found",
     );
     await expect(baselinePng(c, picked)).rejects.not.toThrow(/sig=/);
+  });
+
+  test("a dropped connection names the path in every retry and the error, never the signature", async () => {
+    const warned: string[] = [];
+    const c = imageClient(async () => {
+      throw new Error("socket reset");
+    }, warned);
+    const failed = baselinePng(c, picked);
+    await expect(failed).rejects.toThrow(
+      "GET https://ps.example/images/orgs/o/s0.png: socket reset",
+    );
+    await expect(failed).rejects.not.toThrow(/sig=/);
+    expect(warned.length).toBeGreaterThan(0);
+    expect(warned.filter((m) => m.includes("sig="))).toEqual([]);
   });
 });

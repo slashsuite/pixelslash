@@ -109,12 +109,14 @@ async function attempt(client: Client, call: Call): Promise<Attempt> {
     "user-agent": USER_AGENT,
   };
   if (typeof body === "string") headers["content-type"] = "application/json";
+  // Messages drop the query: a baseline image's holds its signature, which a CI log must not print.
+  const shown = call.path.split("?")[0];
   let res: Response;
   try {
     const init = { method: call.method, headers, ...(body === undefined ? {} : { body }) };
     res = await client.fetch(`${client.base}${call.path}`, init);
   } catch (e) {
-    const message = `${call.method} ${client.base}${call.path}: ${e instanceof Error ? e.message : String(e)}`;
+    const message = `${call.method} ${client.base}${shown}: ${e instanceof Error ? e.message : String(e)}`;
     return { ok: false, message, transient: true };
   }
   if (res.ok) {
@@ -130,8 +132,7 @@ async function attempt(client: Client, call: Call): Promise<Attempt> {
   // from in front of the API (a proxy, a dev server) or from a Worker that died mid-request, so no
   // answer was given and another try may get one.
   const transient = [502, 503, 504].includes(res.status) || (res.status >= 500 && !fromApi);
-  // The query is dropped: a baseline image's holds its signature, which a CI log must not print.
-  const message = `${call.method} ${call.path.split("?")[0]} -> ${res.status} ${detail}`.trim();
+  const message = `${call.method} ${shown} -> ${res.status} ${detail}`.trim();
   return { ok: false, message, transient, status: res.status, ...(code ? { code } : {}) };
 }
 
