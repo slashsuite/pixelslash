@@ -101,6 +101,17 @@ describe("the combined review of a commit", () => {
     expect(body).toContain("- b: not run on this commit (unchanged)");
   });
 
+  test("a commit where every member skipped opens with them all not run, not a 404", async () => {
+    const w = await group(["a"]);
+    for (const subproject of [undefined, "a"]) {
+      const skip = newBuild({ commitSha: sha(2), branch: "feat/x", subproject, skipped: true });
+      expect((await call(w.deps, "POST /api/v1/builds", w.acme.token, skip)).status).toBe(201);
+    }
+    const review = await w.review();
+    expect(review.head).toMatchObject({ branch: "feat/x" });
+    expect(review.groups.map((g) => g.build)).toEqual([null, null]);
+  });
+
   test("accepting the last waiting change turns the group's status green", async () => {
     const w = await group(["a", "b"]);
     const a = await w.on("a");

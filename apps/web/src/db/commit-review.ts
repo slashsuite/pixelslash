@@ -1,4 +1,4 @@
-import { and, desc, eq, ne, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { awaitsDecision, holdsChange } from "#/lib/snapshot-groups";
 import { type MemberBuild, commitGroup } from "./commit-group";
 import type { Db } from "./db";
@@ -59,6 +59,17 @@ async function lastBuildOf(db: Db, projectId: string, commitSha: string) {
   return row ?? null;
 }
 
+/** The branch and PR of the newest build on the commit in any of `projectIds`, a skipped one included. */
+async function headOf(db: Db, projectIds: string[], commitSha: string) {
+  const [row] = await db
+    .select({ branch: builds.branch, prNumber: builds.prNumber })
+    .from(builds)
+    .where(and(inArray(builds.projectId, projectIds), eq(builds.commitSha, commitSha)))
+    .orderBy(desc(builds.createdAt), desc(sql`${builds}.rowid`))
+    .limit(1);
+  return row ?? null;
+}
+
 /** The commit's combined review for `topProjectId`, a top-level project: itself first, then its subprojects by name. */
 export async function commitReview(
   db: Db,
@@ -83,12 +94,13 @@ export async function commitReview(
       };
     }),
   );
-  const newest = views
-    .flatMap((v) => (v ? [v.build] : []))
-    .toSorted((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
   return {
     groups,
     totals: totalsOf(groups.flatMap((g) => g.snapshots)),
-    head: newest ? { branch: newest.branch, prNumber: newest.prNumber } : null,
+    head: await headOf(
+      db,
+      members.map((m) => m.projectId),
+      commitSha,
+    ),
   };
 }
