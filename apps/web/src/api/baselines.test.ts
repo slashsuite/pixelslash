@@ -6,6 +6,7 @@ import { builds } from "#/db/schema";
 import { KEY, META, branch, ciProject, noDiff, run } from "#/diff/test-ci";
 import { sha } from "#/diff/test-builds";
 import { RED, shot } from "#/diff/test-shots";
+import { serveSignedImage } from "#/storage/serve-image";
 import { call, idOf, setup } from "./test-support";
 
 /** `POST /api/v1/builds/:id/baselines` and its preview, and where a new project diffs (ob 1727). */
@@ -60,6 +61,49 @@ describe("the baselines endpoints", () => {
     const asked = await ask([{ ...KEY, name: "other", theme: "light" }]);
     const reply: { removed: unknown[] } = await asked.json();
     expect(reply.removed).toEqual([{ ...KEY, theme: "light" }]);
+  });
+
+  test("a branch's second upload can fetch its own earlier build's images long after it asked", async () => {
+    const held = await ciProject();
+    const deps = { ...held.deps, diff: noDiff };
+    // The branch's first build: main has none, so it has no baseline and fetches nothing.
+    const first = await run(
+      held,
+      held.acme.token,
+      { branch: "feat/x", commit: sha(1), png: white },
+      deps,
+    );
+    expect(first.pick.baseline).toBeNull();
+
+    // The next push opens a build and asks for every pick at once, as `pixelslash upload` does.
+    const opened = await call(
+      deps,
+      "POST /api/v1/builds",
+      held.acme.token,
+      JSON.stringify({ commitSha: sha(2), branch: "feat/x", clientDiff: true }),
+    );
+    const asked = await call(
+      deps,
+      `POST /api/v1/builds/${await idOf(opened)}/baselines`,
+      held.acme.token,
+      JSON.stringify({ keys: [{ ...KEY, theme: "light" }] }),
+    );
+    const { baselines }: { baselines: BaselinePick[] } = await asked.json();
+    const named = baselines.flatMap((b) => [b.baseline, b.accepted]).filter((p) => p !== null);
+    expect(named.map((p) => p.id)).toEqual([first.row.id]);
+
+    // It reaches a shot's baseline only when it gets to that shot: here half an hour in, as for a
+    // build of a few thousand shots. Every image the reply named is still served.
+    const later = Date.now() + 30 * 60 * 1000;
+    for (const p of named) {
+      const got = await serveSignedImage(new URL(p.image_url), {
+        secret: deps.imageSecret(),
+        store: held.blobs.store,
+        now: later,
+      });
+      expect({ url: p.image_url, status: got.status }).toEqual({ url: p.image_url, status: 200 });
+      expect(Buffer.from(await got.arrayBuffer()).equals(Buffer.from(white))).toBe(true);
+    }
   });
 
   test("another org's build is a 404 and a bad key is a 400", async () => {

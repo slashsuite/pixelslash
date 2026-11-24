@@ -1400,7 +1400,7 @@ A **pick** (from either `baselines` endpoint):
 ```
 
 - `baseline` is `null` for a new shot.
-- `image_url` expires after 5 minutes, like the snapshot `images` above.
+- `image_url` expires after 6 hours, the longest a GitHub Actions job runs: a client asks for every pick when the build opens and may reach a shot's baseline much later. Ask again for a fresh one.
 - `sha256` is the sha256 of the baseline's PNG (64 lowercase hex characters), or `null` for a shot stored before the server hashed uploads. It is also on `accepted`. A client whose own shot has the same hash holds the same bytes and need not fetch the image; with a `null` or absent `sha256` it fetches.
 - A shot is compared only when its fingerprint matches `fingerprint`.
 - The thresholds are the shot's own diff options as uploaded, so they are not in the reply.

@@ -8,6 +8,7 @@ import {
 } from "#/db/baselines";
 import type { Db } from "#/db/db";
 import type { DiffLocation } from "#/db/schema";
+import { BASELINE_URL_TTL_MS } from "#/storage/signed";
 import { API_VERSION, imageUrl } from "./read";
 import { BadRequest, object, parseNewBuild, parseSnapshotKey } from "./validate";
 
@@ -39,7 +40,8 @@ async function shotOf(ctx: BaselinesCtx, orgId: string, shot: BaselineSnapshot |
   if (!shot) return null;
   return {
     id: shot.id,
-    image_url: await imageUrl(ctx, orgId, shot.imageKey),
+    // Fetched when the run reaches this shot, which can be long after this reply.
+    image_url: await imageUrl(ctx, orgId, shot.imageKey, BASELINE_URL_TTL_MS),
     fingerprint: JSON.parse(shot.envFingerprint),
     ignore: shot.ignore,
     // The sha256 of the baseline's PNG, so a CLI holding the same bytes skips the download;
