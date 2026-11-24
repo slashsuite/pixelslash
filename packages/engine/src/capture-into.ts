@@ -46,8 +46,10 @@ export type Machine = { cores: number; load: number };
  * and then runs once more, alone, with nothing else shooting. Any other failure stops new items from
  * starting and is thrown once the ones already running have finished, so nothing is still shooting
  * when the caller closes the browser; the items set aside are then not retried. Every set-aside item
- * is retried, and those that time out again fail the run together: one with its message and
- * `RETRIED_ALONE`, several as one line each under a count, so the error lists every failed shot.
+ * is retried, and those that fail again (a timeout or any other capture error) fail the run together:
+ * one with its own message (a timeout's with `RETRIED_ALONE`), several as one line each under a
+ * count, so the error lists every failed shot. Anything that is not a `CaptureError` (a crash) is
+ * thrown at once.
  */
 async function mapLimit<T, R>(
   items: T[],
@@ -79,25 +81,29 @@ async function mapLimit<T, R>(
   if (failed) throw failed.reason;
   const solo = aside.toSorted((a, b) => a.i - b.i);
   if (solo.length > 0) announce(solo.map((a) => a.item));
-  const again: string[] = [];
+  const again: CaptureError[] = [];
   for (const { item, i } of solo) {
     try {
       results[i] = await fn(item);
     } catch (e) {
-      if (!(e instanceof CaptureTimeout)) throw e;
-      again.push(e.message);
+      if (!(e instanceof CaptureError)) throw e;
+      again.push(e);
     }
   }
-  if (again.length === 1) throw new CaptureError(`${again[0]}${RETRIED_ALONE}`);
+  const [only] = again;
+  if (again.length === 1 && only)
+    throw only instanceof CaptureTimeout
+      ? new CaptureError(`${only.message}${RETRIED_ALONE}`)
+      : only;
   if (again.length > 1)
     throw new CaptureError(
-      `${again.length} shots timed out again when retried alone after the run:\n${again.map((m) => `  ${m}`).join("\n")}`,
+      `${again.length} shots failed again when retried alone after the run:\n${again.map((e) => `  ${e.message}`).join("\n")}`,
     );
   return results;
 }
 
 /** A shot's name in a message: the route, then its variant's name, theme and viewport. */
-export function shotLabel(route: Route, variant: Variant): string {
+function shotLabel(route: Route, variant: Variant): string {
   const { width, height } = variant.viewport;
   return `${route.name} (${variant.name}: ${variant.theme}, ${width}x${height})`;
 }
@@ -107,9 +113,9 @@ export function shotLabel(route: Route, variant: Variant): string {
  * The class is kept: a `CaptureTimeout` stays one, so it is still set aside and retried alone.
  * Anything that is not a `CaptureError` (a crash, exit 7) passes through as it is.
  */
-function nameShot(e: unknown, label: string): unknown {
+export function nameShot(e: unknown, route: Route, variant: Variant): unknown {
   if (!(e instanceof CaptureError)) return e;
-  const message = `${label}: ${e.message}`;
+  const message = `${shotLabel(route, variant)}: ${e.message}`;
   return e instanceof CaptureTimeout ? new CaptureTimeout(message) : new CaptureError(message);
 }
 
@@ -184,7 +190,7 @@ export async function captureInto(
       const { png, ignore, media, composition, a11y, metrics, steps, reused } = await session
         .shoot(route, variant, { a11y: true, metrics: true, reuse })
         .catch((e: unknown) => {
-          throw nameShot(e, shotLabel(route, variant));
+          throw nameShot(e, route, variant);
         });
       const captureMs = elapsed(started);
       await mkdir(join(out, route.name), { recursive: true });

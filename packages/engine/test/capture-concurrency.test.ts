@@ -190,16 +190,17 @@ describe("a shot that times out is retried alone after the run (PS-474)", () => 
     expect(seen.running).toBe(0);
   });
 
-  test("every shot that times out again is named in the one error, with its variant (PS-699)", async () => {
-    const { fake, seen } = session(() => 5, undefined, 4, { "b/wide": 2, "d/narrow": 2 });
+  test("every shot that fails again is named in the one error, with its variant (PS-699)", async () => {
+    // b times out twice; d times out once, then fails some other way when retried alone.
+    const { fake, seen } = session(() => 5, "d/narrow", 4, { "b/wide": 2, "d/narrow": 1 });
     const out: string[] = [];
     await expect(
       captureInto(fake, await tmpDir(), 4, { warn: (m) => void out.push(m) }),
     ).rejects.toThrow(
       [
-        "2 shots timed out again when retried alone after the run:",
+        "2 shots failed again when retried alone after the run:",
         "  b (wide: light, 16x16): story b/wide did not render within 8000ms",
-        "  d (narrow: light, 8x16): story d/narrow did not render within 8000ms",
+        "  d (narrow: light, 8x16): capture settle exceeded on d/narrow",
       ].join("\n"),
     );
     expect(out).toEqual([
