@@ -88,8 +88,12 @@ export async function imageUrl(
   ctx: Pick<ReadCtx, "origin" | "imageSecret">,
   orgId: string,
   key: string | null,
+  ttl?: number,
 ): Promise<string | null> {
-  return key && `${ctx.origin}${await signedImagePath(`orgs/${orgId}/${key}`, ctx.imageSecret())}`;
+  return (
+    key &&
+    `${ctx.origin}${await signedImagePath(`orgs/${orgId}/${key}`, ctx.imageSecret(), Date.now(), ttl)}`
+  );
 }
 
 export function counts(c: BuildCounts) {

@@ -8,6 +8,15 @@
 /** Long enough to load a page and its thumbnails, short enough that a copied URL goes stale. */
 export const SIGNED_URL_TTL_MS = 5 * 60 * 1000;
 
+/**
+ * A baseline link the API hands an upload or a check (`POST .../baselines`). The CLI asks for every
+ * pick when the build opens and fetches each image only when it reaches that shot, so the link must
+ * outlast the whole run, not a page load: with 5 minutes, an upload of a few hundred shots failed
+ * on a 404 once it had run past the expiry. Six hours is the longest a GitHub Actions job runs. The
+ * reply goes only to the token holder, never to a page.
+ */
+export const BASELINE_URL_TTL_MS = 6 * 60 * 60 * 1000;
+
 const encoder = new TextEncoder();
 
 function base64url(bytes: Uint8Array): string {
@@ -36,8 +45,9 @@ export async function signedImagePath(
   key: string,
   secret: string,
   now = Date.now(),
+  ttl = SIGNED_URL_TTL_MS,
 ): Promise<string> {
-  const expires = now + SIGNED_URL_TTL_MS;
+  const expires = now + ttl;
   const sig = await hmac(secret, payload(expires, key));
   return `/images/${key}?exp=${expires}&sig=${sig}`;
 }

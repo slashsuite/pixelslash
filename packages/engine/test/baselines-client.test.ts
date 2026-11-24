@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { fetchBaselines } from "../src/baselines-client.ts";
+import { baselinePng, fetchBaselines } from "../src/baselines-client.ts";
 import type { SnapshotEntry } from "../src/snapshot.ts";
 import type { Client } from "../src/upload-client.ts";
 import { entry } from "./upload-fixtures.ts";
@@ -68,5 +68,27 @@ describe("fetchBaselines", () => {
     await expect(fetchBaselines({ ...bare, verb: "check" }, { path }, entries(1))).rejects.toThrow(
       "check failed: fetch baselines: the server's reply has no baselines",
     );
+  });
+});
+
+describe("baselinePng", () => {
+  test("a refused image names its path, never the signature a CI log would then print", async () => {
+    const c: Client = {
+      fetch: async () => new Response("not found", { status: 404 }),
+      base: "https://ps.example",
+      token: "t",
+      warn: () => {},
+      sleep: async () => {},
+    };
+    const picked = {
+      id: "s0",
+      image_url: "/images/orgs/o/s0.png?exp=1&sig=secret",
+      fingerprint: {},
+      ignore: [],
+    };
+    await expect(baselinePng(c, picked)).rejects.toThrow(
+      "upload failed: fetch baseline s0: GET /images/orgs/o/s0.png -> 404 not found",
+    );
+    await expect(baselinePng(c, picked)).rejects.not.toThrow(/sig=/);
   });
 });

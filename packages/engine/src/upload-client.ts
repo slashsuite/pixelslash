@@ -130,7 +130,8 @@ async function attempt(client: Client, call: Call): Promise<Attempt> {
   // from in front of the API (a proxy, a dev server) or from a Worker that died mid-request, so no
   // answer was given and another try may get one.
   const transient = [502, 503, 504].includes(res.status) || (res.status >= 500 && !fromApi);
-  const message = `${call.method} ${call.path} -> ${res.status} ${detail}`.trim();
+  // The query is dropped: a baseline image's holds its signature, which a CI log must not print.
+  const message = `${call.method} ${call.path.split("?")[0]} -> ${res.status} ${detail}`.trim();
   return { ok: false, message, transient, status: res.status, ...(code ? { code } : {}) };
 }
 
