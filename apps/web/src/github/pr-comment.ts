@@ -242,12 +242,13 @@ async function projectBuilds(
     picked.map((r) => r.id),
   );
   const now = Date.now();
-  // Shots are read only for a build whose section lists them: decided, with a change.
+  // Shots are skipped only where no section lists them: errored, still diffing, or passed unchanged.
+  // A build of new shots alone has no `changed` but lists them, so `changed` alone is not the test.
   const shows = (status: string, id: string) =>
     status !== "errored" &&
     status !== "uploading" &&
     status !== "processing" &&
-    (counts.get(id)?.changed ?? 0) > 0;
+    !(status === "passed" && (counts.get(id)?.changed ?? 0) === 0);
   return Promise.all(
     picked.map(async ({ aiSummary, queuedAt, projectName, ...row }) => {
       const build: PrCommentBuild = { ...row, repo, orgId: pr.orgId, comment: true };

@@ -218,4 +218,16 @@ describe("one PR comment for every project on the repo", () => {
     expect(body).toContain(`Build of \`${sha(2).slice(0, 7)}\``);
     expect(body).toContain("### PixelSlash: All changes accepted");
   });
+
+  test("a build of new shots alone still lists them in its section", async () => {
+    const w = await world();
+    const docs = await w.linkProject("docs", "acme/web");
+    await w.finalise({ commit: sha(1), branch: "main", png: PLAIN, token: docs });
+    await w.finalise(ofPr(PLAIN));
+    await w.finalise(ofPr(PLAIN, docs));
+
+    const [body = ""] = commentBodies(w);
+    expect(body).toContain(`#### ${w.acme.project.name}:`);
+    expect(body).toContain("new shot");
+  });
 });
