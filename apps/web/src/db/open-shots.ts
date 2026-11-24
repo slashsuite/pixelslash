@@ -19,6 +19,8 @@ export type ChangedShot = {
   /** `new` is a shot with nothing to compare against, or one carrying a change new on main (PS-284). */
   kind: "changed" | "new";
   changedPixels: number;
+  /** Blocks that moved with their content intact: not in `changedPixels`. */
+  movedBlocks: number;
 };
 
 /**
@@ -49,18 +51,23 @@ export async function mostChangedShots(
   return rows
     .filter(holdsChange)
     .map(
-      ({ id, name, viewport, theme, diffStatus, mainDiffStatus, diffResult, mainDiffResult }) => ({
-        id,
-        name,
-        viewport,
-        theme,
-        kind: kindOf(diffStatus, mainDiffStatus),
-        changedPixels: (diffStatus === "changed" ? diffResult : mainDiffResult)?.changedPixels ?? 0,
-      }),
+      ({ id, name, viewport, theme, diffStatus, mainDiffStatus, diffResult, mainDiffResult }) => {
+        const result = diffStatus === "changed" ? diffResult : mainDiffResult;
+        return {
+          id,
+          name,
+          viewport,
+          theme,
+          kind: kindOf(diffStatus, mainDiffStatus),
+          changedPixels: result?.changedPixels ?? 0,
+          movedBlocks: result?.regions.filter((r) => r.kind === "moved").length ?? 0,
+        };
+      },
     )
     .toSorted(
       (a, b) =>
         b.changedPixels - a.changedPixels ||
+        b.movedBlocks - a.movedBlocks ||
         a.name.localeCompare(b.name) ||
         a.viewport.localeCompare(b.viewport),
     )

@@ -2,13 +2,15 @@
 /**
  * `bun run bench:check` (ob 1488): PixelSlash alone, on both corpora, against the last committed
  * results file, read from git HEAD so a run of `bun run bench` cannot move its own baseline. Exits 1, and prints the delta, when real changes caught fall or noise or identical
- * pairs flagged rise on either corpus. No VM and no browser: it reads the committed PNGs.
+ * pairs flagged rise on either corpus, or when a bench/moves/ pair is not reported as the move it
+ * holds (moves.ts). No VM and no browser: it reads the committed PNGs.
  *
  *   bun bench/src/check.ts [--baseline <results.json>]
  */
 import { relative } from "node:path";
 import { BENCH_DIR, byCorpus, loadCorpora } from "./corpus.ts";
 import { guard } from "./guard.ts";
+import { checkMoves } from "./moves.ts";
 import { runPixelslash } from "./pixelslash.ts";
 import { committedResults, loadResults, summarise, type ResultsFile } from "./results-json.ts";
 import { say, warn } from "./say.ts";
@@ -48,7 +50,11 @@ function main(): number {
     `${base.name} (PixelSlash ${base.results.pixelslashCommit})`,
   );
   say(report.text);
-  return report.regressed ? 1 : 0;
+  const moves = checkMoves();
+  for (const failure of moves.failures) warn(`moves: ${failure}`);
+  if (moves.failures.length === 0)
+    say(`moves: ok, ${moves.cases} moved-block pairs reported as moves`);
+  return report.regressed || moves.failures.length > 0 ? 1 : 0;
 }
 
 try {

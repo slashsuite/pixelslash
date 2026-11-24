@@ -26,6 +26,10 @@ function changePrompt(diff: DiffSummary): string {
     .filter((r) => r.kind === "change")
     .slice(0, MAX_BOXES)
     .map((r) => `- x ${r.x}, y ${r.y}, ${r.w}x${r.h} px`);
+  const moves = diff.regions
+    .filter((r) => r.kind === "moved")
+    .slice(0, MAX_BOXES)
+    .map((r) => `- x ${r.x}, y ${r.y}, ${r.w}x${r.h} px: ${r.why ?? "moved"}`);
   const size = diff.sizeChanged
     ? `The page size changed from ${diff.mainWidth}x${diff.mainHeight} to ${diff.branchWidth}x${diff.branchHeight}.`
     : "";
@@ -33,6 +37,9 @@ function changePrompt(diff: DiffSummary): string {
     "IMAGE 1 is a screenshot of a page as it is on main. IMAGE 2 is the same page on a branch.",
     boxes.length > 0
       ? `A pixel diff found changes in these boxes on IMAGE 2:\n${boxes.join("\n")}`
+      : "",
+    moves.length > 0
+      ? `These boxes on IMAGE 2 moved with their content unchanged:\n${moves.join("\n")}`
       : "",
     size,
     "Describe what changed from IMAGE 1 to IMAGE 2 in one plain sentence, as a reviewer would say it.",

@@ -1,12 +1,13 @@
 #!/usr/bin/env bun
 /**
- * Render a corpus (ob 1477): `bun bench/src/generate.ts [--set main|holdout] [case-name-part...]`.
+ * Render a corpus (ob 1477): `bun bench/src/generate.ts [--set main|holdout|moves] [case-name-part...]`.
  * Each case is rendered from the fixture pages of its set with Playwright's Chromium, and written
  * to the set's directory: `main` is cases.ts over bench/fixtures/ into bench/corpus/, `holdout` is
  * holdout-cases.ts over bench/fixtures-holdout/ into bench/corpus-holdout/. The PNGs are
  * committed, so the benchmark itself does not need a browser; re-run this only to change a corpus
  * (name the new cases, so the committed ones are not re-rendered). It fails if an `identical` pair
- * differs or a `noise`/`real` pair does not.
+ * differs or a `noise`/`real` pair does not. `moves` is moves-cases.ts over bench/fixtures/ into
+ * bench/moves/, the pairs `moves.ts` checks.
  */
 import { mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -15,14 +16,15 @@ import { PNG } from "pngjs";
 import type { CaseDef, Dither, Variant } from "./case-kit.ts";
 import { CASES } from "./cases.ts";
 import { roundTripJpeg, roundTripWebp } from "./lossy.ts";
-import { BENCH_DIR, CORPORA, type CaseLabel, type CorpusId } from "./corpus.ts";
+import { BENCH_DIR, CORPORA, MOVES_DIR, type CaseLabel, type CorpusId } from "./corpus.ts";
 import { HOLDOUT_CASES } from "./holdout-cases.ts";
+import { MOVE_CASES } from "./moves-cases.ts";
 import type { Rect } from "./regions.ts";
 import type { Size } from "./lossy.ts";
 import { say, warn } from "./say.ts";
 
 type GenSet = {
-  id: CorpusId;
+  id: CorpusId | "moves";
   cases: CaseDef[];
   /** `<page>.html` lives here. */
   pages: string;
@@ -52,7 +54,16 @@ const SETS: GenSet[] = [
       inbox: { width: 680, height: 400 },
     },
   },
+  {
+    id: "moves",
+    cases: MOVE_CASES,
+    pages: join(BENCH_DIR, "fixtures"),
+    // Shorter than the dashboard, so a full-page shot grows when a gap does.
+    viewports: { dashboard: { width: 640, height: 360 } },
+  },
 ];
+
+const outDir = (id: GenSet["id"]): string => (id === "moves" ? MOVES_DIR : CORPORA[id]);
 const FONTCONFIGS = join(BENCH_DIR, "fixtures", "fontconfig");
 const REPO = join(BENCH_DIR, "..");
 
@@ -202,6 +213,7 @@ function labelFor(def: CaseDef, base: Render, head: Render): CaseLabel {
     const rects = [...base.rects, ...head.rects];
     label.box = union(rects, Math.max(a.width, b.width), Math.max(a.height, b.height));
   }
+  if (def.move) label.move = def.move;
   return label;
 }
 
@@ -230,11 +242,12 @@ function pruneStale(set: GenSet, corpusDir: string): void {
 
 function parseArgs(argv: string[]): { set: GenSet; only: string[] } {
   const only = [...argv];
-  let id: CorpusId = "main";
+  let id: GenSet["id"] = "main";
   const at = only.indexOf("--set");
   if (at !== -1) {
     const value = only[at + 1];
-    if (value !== "main" && value !== "holdout") throw new Error("--set takes main or holdout");
+    if (value !== "main" && value !== "holdout" && value !== "moves")
+      throw new Error("--set takes main, holdout or moves");
     id = value;
     only.splice(at, 2);
   }
@@ -245,7 +258,7 @@ function parseArgs(argv: string[]): { set: GenSet; only: string[] } {
 
 async function main() {
   const { set, only } = parseArgs(process.argv.slice(2));
-  const corpusDir = CORPORA[set.id];
+  const corpusDir = outDir(set.id);
   const defs =
     only.length > 0 ? set.cases.filter((c) => only.some((o) => c.name.includes(o))) : set.cases;
   const browsers = new Map<string, Browser>();

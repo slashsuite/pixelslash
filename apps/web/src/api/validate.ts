@@ -14,6 +14,7 @@ import {
   type FlakyPolicy,
   type IgnoreRect,
   type RegionKind,
+  type RegionMove,
 } from "#/db/schema";
 
 import { BadRequest, bad } from "./errors";
@@ -239,7 +240,7 @@ export function parseCiInput(raw: unknown): CiInput | null {
 /** The most captures a flake record may name, the first included; a record over it is dropped. */
 export const MAX_FLAKE_RUNS = 10;
 const MAX_FLAKE_REGIONS = 200;
-const REGION_KINDS: readonly RegionKind[] = ["change", "noise", "shift"];
+const REGION_KINDS: readonly RegionKind[] = ["change", "noise", "shift", "moved"];
 
 function isFlakyPolicy(v: unknown): v is FlakyPolicy {
   return FLAKY_POLICIES.some((p) => p === v);
@@ -259,6 +260,22 @@ function int(v: unknown, where: string, min: number, max = Number.MAX_SAFE_INTEG
   return v;
 }
 
+/** A moved region's move, as the engine wrote it: whole px, and its source box on Main. */
+function parseMove(v: unknown, where: string): RegionMove {
+  const m = object(v, where);
+  const from = object(m.from, `${where}.from`);
+  return {
+    dx: int(m.dx, `${where}.dx`, Number.MIN_SAFE_INTEGER),
+    dy: int(m.dy, `${where}.dy`, Number.MIN_SAFE_INTEGER),
+    from: {
+      x: int(from.x, `${where}.from.x`, 0),
+      y: int(from.y, `${where}.from.y`, 0),
+      w: int(from.w, `${where}.from.w`, 0),
+      h: int(from.h, `${where}.from.h`, 0),
+    },
+  };
+}
+
 function parseRegion(v: unknown, where: string): DiffRegion {
   const r = object(v, where);
   const kind = REGION_KINDS.find((k) => k === r.kind);
@@ -273,6 +290,7 @@ function parseRegion(v: unknown, where: string): DiffRegion {
     kind,
   };
   if (r.why !== undefined) region.why = text(r.why, `${where}.why`, 200);
+  if (kind === "moved" && r.move !== undefined) region.move = parseMove(r.move, `${where}.move`);
   return region;
 }
 

@@ -11,6 +11,7 @@ export const REGION_COLOURS: Record<DiffRegion["kind"], string> = {
   change: "#dc2626",
   noise: "#d97706",
   shift: "#2563eb",
+  moved: "#16a34a",
 };
 
 /**
@@ -42,6 +43,12 @@ export function RegionBoxes({
   );
 }
 
+/** A box's title after its kind: a moved block says how it moved, the rest their changed px. */
+function regionWhat(region: DiffRegion): string {
+  if (region.kind === "moved") return region.why ?? "moved intact";
+  return `${region.changedPixels} px${region.why ? ` · ${region.why}` : ""}`;
+}
+
 /** One region's box; its title carries the model's label and sentence when it gave one (ob 1473). */
 function RegionBox({ region }: { region: DiffRegion }) {
   const note = useRegionNote(region);
@@ -58,10 +65,11 @@ function RegionBox({ region }: { region: DiffRegion }) {
       fillOpacity={0.12}
       stroke={REGION_COLOURS[region.kind]}
       strokeWidth={2}
+      strokeDasharray={region.kind === "moved" ? "6 4" : undefined}
       vectorEffect="non-scaling-stroke"
     >
       {/* One string: a title of several text nodes does not hydrate (React #418). */}
-      <title>{`${region.kind}: ${region.changedPixels} px${region.why ? ` · ${region.why}` : ""}${ai}`}</title>
+      <title>{`${region.kind}: ${regionWhat(region)}${ai}`}</title>
     </rect>
   );
 }

@@ -136,12 +136,12 @@
   "measure": "b956b3b587c4a9b4"
  },
  "corpus/noise-hinting-full-vs-lcd-article": {
-  "changedPixels": 25127,
-  "antialiased": 12074,
-  "regions": 2,
-  "overlay": "eb83f842179b4656f303956b210bb24bba31f4c076e32225ddac9714b67f5af7",
-  "diff": "c3ee29fe74f0a266",
-  "measure": "c3ee29fe74f0a266"
+  "changedPixels": 24939,
+  "antialiased": 11916,
+  "regions": 3,
+  "overlay": "984f19fdd7de12ac135c4f32edf21684211811cdc19d4a9e597bf645ea374e45",
+  "diff": "45ccccfab5cfe395",
+  "measure": "45ccccfab5cfe395"
  },
  "corpus/noise-hinting-none-vs-full-dashboard": {
   "changedPixels": 7466,
@@ -248,20 +248,20 @@
   "measure": "cc7242e07542c190"
  },
  "corpus/noise-subpixel-glyphs-article": {
-  "changedPixels": 10819,
-  "antialiased": 9039,
-  "regions": 1,
-  "overlay": "f90a3f0951b8bd03e460a944e04219b75ea750a61fa00d96d80af8c253ce69d6",
-  "diff": "9d7b7e78fc884bba",
-  "measure": "9d7b7e78fc884bba"
+  "changedPixels": 127,
+  "antialiased": 61,
+  "regions": 5,
+  "overlay": "f7b7c5b98bf3f74911397bc8cc0a5adbeb4ee3818d5725c69aa2c199e8b24a20",
+  "diff": "d8e69da8826a0b4f",
+  "measure": "d8e69da8826a0b4f"
  },
  "corpus/noise-subpixel-glyphs-dashboard": {
-  "changedPixels": 1247,
-  "antialiased": 1466,
-  "regions": 4,
-  "overlay": "282d38a2f4965b1c57f3f49494cd268315f41c8a02558ad19c700b0e24d5021f",
-  "diff": "3680a8c6e496c2b6",
-  "measure": "3680a8c6e496c2b6"
+  "changedPixels": 936,
+  "antialiased": 296,
+  "regions": 5,
+  "overlay": "a431ceb731cbe68ac8e90827c7963270137d5ccc24675a21843a279734a0caf4",
+  "diff": "49e38d110dbe8563",
+  "measure": "49e38d110dbe8563"
  },
  "corpus/noise-webp75-form": {
   "changedPixels": 12327,
@@ -288,12 +288,12 @@
   "measure": "8cdb738839dfd33f"
  },
  "corpus/real-border-1px-stat": {
-  "changedPixels": 10276,
-  "antialiased": 3722,
-  "regions": 1,
-  "overlay": "75c24b58305a8b343138a93e8107880b4065c6965ea88c5354fce191ff29401c",
-  "diff": "a1f38718955598bb",
-  "measure": "a1f38718955598bb"
+  "changedPixels": 4352,
+  "antialiased": 1461,
+  "regions": 2,
+  "overlay": "b894c1fe1b3be488b2e0fbc0f1e521ba587555a369af219183942ff3a3974159",
+  "diff": "a7aff6131d333a83",
+  "measure": "a7aff6131d333a83"
  },
  "corpus/real-colour-1step-button": {
   "changedPixels": 0,
@@ -448,12 +448,12 @@
   "measure": "0f9649dd9fdda734"
  },
  "corpus/real-missing-row-reflow": {
-  "changedPixels": 22862,
-  "antialiased": 1778,
-  "regions": 1,
-  "overlay": "c06ea96788f3398ad6bc9f33c930d4595f259c87c88365edd14938db5b874225",
-  "diff": "c0169ca9f15ef45a",
-  "measure": "c0169ca9f15ef45a"
+  "changedPixels": 7184,
+  "antialiased": 1173,
+  "regions": 3,
+  "overlay": "90f08099d8b1ed5cdfc2facd2f9a3fe7d9bd33cd14718b811251ea17c441faa6",
+  "diff": "d9c49249d18ceae2",
+  "measure": "d9c49249d18ceae2"
  },
  "corpus/real-reflow-article-narrower": {
   "changedPixels": 40897,
@@ -464,28 +464,28 @@
   "measure": "c678fb916c282043"
  },
  "corpus/real-reflow-form-row-stack": {
-  "changedPixels": 18963,
-  "antialiased": 3078,
-  "regions": 1,
-  "overlay": "01c6080e115c8cfbdd0c2258c5804ab0c52ade2b52645011471883346a993ec1",
-  "diff": "9dcdc8da9d8ca612",
-  "measure": "9dcdc8da9d8ca612"
+  "changedPixels": 910,
+  "antialiased": 671,
+  "regions": 3,
+  "overlay": "4b64559291d0c232180a368fae0fda62dfa2bacb6c2dc367d7b8edf844ba7231",
+  "diff": "0c052a1982075c7d",
+  "measure": "0c052a1982075c7d"
  },
  "corpus/real-reflow-nav-right": {
-  "changedPixels": 808,
-  "antialiased": 1018,
-  "regions": 2,
-  "overlay": "d179566fd8b543fa0296551b92091f4ec7461d7cc2ca544064d1fe6cd1bad389",
-  "diff": "20c303ca56e80174",
-  "measure": "20c303ca56e80174"
+  "changedPixels": 573,
+  "antialiased": 722,
+  "regions": 3,
+  "overlay": "381c12187e49ef1d2d1b415de56cc017edab3d8f7cd4191799a1c999da3a0784",
+  "diff": "1e452e06b9059dfe",
+  "measure": "1e452e06b9059dfe"
  },
  "corpus/real-reflow-stats-column": {
-  "changedPixels": 64508,
-  "antialiased": 4535,
-  "regions": 1,
-  "overlay": "4406abd9ec5eb43924485b88af4b1b0f2a4324c647e2cf911f3fa6bfad1bc0e9",
-  "diff": "9b9ce0723ba66c3f",
-  "measure": "9b9ce0723ba66c3f"
+  "changedPixels": 52853,
+  "antialiased": 3980,
+  "regions": 5,
+  "overlay": "db25ccf06e5b0aa52db3d4b42bb30a91ed1f8e7b0033b8599af970d31ec219bb",
+  "diff": "d901b3010d100ed6",
+  "measure": "d901b3010d100ed6"
  },
  "corpus/real-size-append-paragraph": {
   "changedPixels": 0,
@@ -504,52 +504,52 @@
   "measure": "229dd9db89ed3949"
  },
  "corpus/real-spacing-button-padding-1px": {
-  "changedPixels": 274,
-  "antialiased": 434,
-  "regions": 1,
-  "overlay": "3fb200d896793a2eb667c98ecda787210540e331100e854a92e608665d23d072",
-  "diff": "96961a13faee469e",
-  "measure": "96961a13faee469e"
+  "changedPixels": 3,
+  "antialiased": 59,
+  "regions": 2,
+  "overlay": "eb5c293977a8c21841a256d4f9569706e2284753adea0e5eaab712a89265551d",
+  "diff": "e5098e54e093318a",
+  "measure": "e5098e54e093318a"
  },
  "corpus/real-spacing-form-gap-1px": {
-  "changedPixels": 9460,
-  "antialiased": 2391,
-  "regions": 1,
-  "overlay": "a317a0081711ffeb350fa5afb324d4377e673fe78f54279c993c806bd0da7d51",
-  "diff": "ced5980e595c4c8b",
-  "measure": "ced5980e595c4c8b"
+  "changedPixels": 0,
+  "antialiased": 0,
+  "regions": 5,
+  "overlay": "c47f018891713ff8dc51ac20b2a125d57e1439eb7257e926d1a8cc6428f92ef2",
+  "diff": "0988a8b4db5282f2",
+  "measure": "0988a8b4db5282f2"
  },
  "corpus/real-spacing-list-gap-1px": {
-  "changedPixels": 3815,
-  "antialiased": 1390,
-  "regions": 1,
-  "overlay": "dccbc63d10d647909ad8251132bca4d785b25d974eecbd2af492442ebb43bcd6",
-  "diff": "d1440fe5e81e1bf3",
-  "measure": "d1440fe5e81e1bf3"
+  "changedPixels": 0,
+  "antialiased": 8,
+  "regions": 2,
+  "overlay": "526e7fc503b82c4fd0e52704fc4b6135200c8a98d2838e15fbac44812d9f08b1",
+  "diff": "e0ddf61e81862184",
+  "measure": "e0ddf61e81862184"
  },
  "corpus/real-spacing-paragraph-margin-1px": {
-  "changedPixels": 7337,
-  "antialiased": 6190,
-  "regions": 1,
-  "overlay": "bf690b2ede1301833e75c46235d6f5ae403f65646c5ef9b89e56a6ec2e259c5b",
-  "diff": "4dbfba2a2d26ff02",
-  "measure": "4dbfba2a2d26ff02"
+  "changedPixels": 13,
+  "antialiased": 19,
+  "regions": 4,
+  "overlay": "6b04632774775ca3fa9197c5742e549f1d6acd6124a64b1207448f750b8bb399",
+  "diff": "9cb4704d70d713a9",
+  "measure": "9cb4704d70d713a9"
  },
  "corpus/real-text-button-longer": {
-  "changedPixels": 1320,
-  "antialiased": 273,
-  "regions": 1,
-  "overlay": "5627ab6bedc0ca8bf85dc668080ac8a968299982093affe291b8c551ab0b53c1",
-  "diff": "45c5319d4bc5835c",
-  "measure": "45c5319d4bc5835c"
+  "changedPixels": 1155,
+  "antialiased": 150,
+  "regions": 2,
+  "overlay": "7a3bfbffa7c50d18aa20c043bc7a4ff8fc7270b15052823c6140736dd5819ea9",
+  "diff": "9fcbec57037450fd",
+  "measure": "9fcbec57037450fd"
  },
  "corpus/real-text-lede": {
-  "changedPixels": 1186,
-  "antialiased": 352,
-  "regions": 1,
-  "overlay": "11274a23558363b6c19c53bb092fe045507dda71c5fb8f03a79b3b4b28c716cc",
-  "diff": "255f90c9286c2d33",
-  "measure": "255f90c9286c2d33"
+  "changedPixels": 255,
+  "antialiased": 77,
+  "regions": 3,
+  "overlay": "b2cfa8dc7b24ff50482ad7972a63b9e1b6e027e5955f02da1a5eb84767834695",
+  "diff": "b34e0905bc2c440a",
+  "measure": "b34e0905bc2c440a"
  },
  "corpus/real-text-number": {
   "changedPixels": 58,
@@ -568,12 +568,12 @@
   "measure": "916e1b60ed0429d9"
  },
  "corpus/real-text-word": {
-  "changedPixels": 1481,
-  "antialiased": 935,
-  "regions": 1,
-  "overlay": "8aea0b4ad4ce230d9fecfa14af4aac3f65a931601bb79b1991497855a49adcf8",
-  "diff": "77961ce14de2bbe0",
-  "measure": "77961ce14de2bbe0"
+  "changedPixels": 149,
+  "antialiased": 88,
+  "regions": 3,
+  "overlay": "1cd75a2199c45d765811114169c353156afd0842f3f79e689f9e7cf1674e1b1e",
+  "diff": "2aa4a2a587e5cd77",
+  "measure": "2aa4a2a587e5cd77"
  },
  "corpus-holdout/identical-inbox": {
   "changedPixels": 0,
@@ -856,20 +856,20 @@
   "measure": "aecbc2aa8bae06ad"
  },
  "corpus-holdout/noise-subpixel-glyphs-pricing": {
-  "changedPixels": 729,
-  "antialiased": 1706,
+  "changedPixels": 97,
+  "antialiased": 117,
   "regions": 4,
-  "overlay": "48168fe3d9398176f3fd7a2c7e2281a54404abe8ece1fde981489f6020b270e5",
-  "diff": "7be7637b74bb3635",
-  "measure": "7be7637b74bb3635"
+  "overlay": "a1fbf63375f7f7f77b33f954854d0ee8c60bd4b7bfb6feee29214bacd28060ac",
+  "diff": "9a83d4e906a4f5d1",
+  "measure": "9a83d4e906a4f5d1"
  },
  "corpus-holdout/noise-subpixel-glyphs-settings": {
-  "changedPixels": 1238,
-  "antialiased": 1497,
-  "regions": 3,
-  "overlay": "68acad29777adba411c1d56f55d64cc9aa5b68fcbf208c98a2dd4087943a5606",
-  "diff": "4ed76083ce3f6e7d",
-  "measure": "4ed76083ce3f6e7d"
+  "changedPixels": 514,
+  "antialiased": 468,
+  "regions": 5,
+  "overlay": "ec9a3499d73b245cd7d5d3381414609b18fcffdef29947f145ec5d2e663c8005",
+  "diff": "4eeb687b16bef8a2",
+  "measure": "4eeb687b16bef8a2"
  },
  "corpus-holdout/noise-webp85-inbox": {
   "changedPixels": 15549,
@@ -904,12 +904,12 @@
   "measure": "446f7b809241be86"
  },
  "corpus-holdout/real-border-1px-pricing": {
-  "changedPixels": 14539,
-  "antialiased": 6171,
-  "regions": 1,
-  "overlay": "95e5d91569e6cfc062ae6a051f42cdc56f233ef27de73da5015b5f9b61fb9fc6",
-  "diff": "cc91270093088231",
-  "measure": "cc91270093088231"
+  "changedPixels": 11511,
+  "antialiased": 5349,
+  "regions": 2,
+  "overlay": "20e3c99f2b698028390198c56af21de05dc6d0bb57647bf629fd847570a9ef53",
+  "diff": "2c166ef2eeeed5e4",
+  "measure": "2c166ef2eeeed5e4"
  },
  "corpus-holdout/real-border-1px-settings": {
   "changedPixels": 721,
@@ -1088,36 +1088,36 @@
   "measure": "f285eb425da7bf8b"
  },
  "corpus-holdout/real-missing-row-reflow-inbox": {
-  "changedPixels": 25571,
-  "antialiased": 3235,
-  "regions": 1,
-  "overlay": "d659774e6554185bf45ddb5959cec16a86da8d5ae062de11e34a1aecdfbaf13d",
-  "diff": "7502908c0e7b8f9c",
-  "measure": "7502908c0e7b8f9c"
+  "changedPixels": 3641,
+  "antialiased": 1245,
+  "regions": 6,
+  "overlay": "d1ef8a4d1fddb598fb29e589f5deec42ef220c4364493b99c1e9a0f0bd6f6bcf",
+  "diff": "6d95587da0332f52",
+  "measure": "6d95587da0332f52"
  },
  "corpus-holdout/real-missing-row-reflow-pricing": {
-  "changedPixels": 37469,
-  "antialiased": 5071,
-  "regions": 1,
-  "overlay": "65caf87ed40a89ac6a513be99ae033a9fb7cd5b5255913d44cae2238d4e80df2",
-  "diff": "950d558012322714",
-  "measure": "950d558012322714"
+  "changedPixels": 20656,
+  "antialiased": 3578,
+  "regions": 8,
+  "overlay": "931b4e02f8bba0e40714bc339637210fb11b260fe98a3c29e23cb8962cea22a7",
+  "diff": "4cb57c5f65ec7363",
+  "measure": "4cb57c5f65ec7363"
  },
  "corpus-holdout/real-missing-row-reflow-settings": {
-  "changedPixels": 21553,
-  "antialiased": 2551,
-  "regions": 1,
-  "overlay": "e513868795d694a18b764839c7d63276359c335ccd8f8cc38f239ea7771007f4",
-  "diff": "535d727570305d0b",
-  "measure": "535d727570305d0b"
+  "changedPixels": 4736,
+  "antialiased": 955,
+  "regions": 4,
+  "overlay": "1c71447fa4323bf4d633d6ea2246cc6ba7dd731375532ad4b7d9937359dbcae6",
+  "diff": "615215053b408dcc",
+  "measure": "615215053b408dcc"
  },
  "corpus-holdout/real-reflow-stack-inbox": {
-  "changedPixels": 160633,
-  "antialiased": 9970,
-  "regions": 1,
-  "overlay": "ad98418f5d951dd9c9bb9dd78aec2f4c7198fe39c389e87162fa0dad93576550",
-  "diff": "58cfd12931c1a31c",
-  "measure": "58cfd12931c1a31c"
+  "changedPixels": 92054,
+  "antialiased": 5958,
+  "regions": 7,
+  "overlay": "a632b2ee4b39b56a0887ee13ec6f46b7fde7e2651feb492a1f0aa99078b28333",
+  "diff": "437aef6c279be536",
+  "measure": "437aef6c279be536"
  },
  "corpus-holdout/real-reflow-stack-pricing": {
   "changedPixels": 76875,
@@ -1128,12 +1128,12 @@
   "measure": "d479aa063d608a4e"
  },
  "corpus-holdout/real-reflow-stack-settings": {
-  "changedPixels": 51785,
-  "antialiased": 7193,
-  "regions": 1,
-  "overlay": "2679b2bd70d56d8a41f7b67377ccfa904795abcc16a4b25e6c289df321850cff",
-  "diff": "08857c44dc46f034",
-  "measure": "08857c44dc46f034"
+  "changedPixels": 8998,
+  "antialiased": 2305,
+  "regions": 6,
+  "overlay": "2e52a07f39f4b560bf0bbf178fe6f2495d87e2ae9100771401654f72e24672a5",
+  "diff": "3124f5bab52e3cea",
+  "measure": "3124f5bab52e3cea"
  },
  "corpus-holdout/real-size-append-inbox": {
   "changedPixels": 0,
@@ -1160,52 +1160,52 @@
   "measure": "ee8f34fb6dab654d"
  },
  "corpus-holdout/real-spacing-gap-1px-inbox": {
-  "changedPixels": 6467,
-  "antialiased": 3039,
-  "regions": 1,
-  "overlay": "139f4475e820f8a28cab08e341f281d128aab9cf0574192ddd86a49bb3cfabde",
-  "diff": "b5b1f881837ab702",
-  "measure": "b5b1f881837ab702"
+  "changedPixels": 0,
+  "antialiased": 132,
+  "regions": 3,
+  "overlay": "995f58c1b945ac2cd39606cee0e31800b59ba2f51d34e8d27805b0a67dee8280",
+  "diff": "0cfedad67ba8e7db",
+  "measure": "0cfedad67ba8e7db"
  },
  "corpus-holdout/real-spacing-gap-1px-pricing": {
-  "changedPixels": 6645,
-  "antialiased": 2857,
+  "changedPixels": 0,
+  "antialiased": 0,
   "regions": 1,
-  "overlay": "7941140d8302858ffa39eff6a97e315e1050d23093cfdbd1a24a325f44d7762f",
-  "diff": "953441929b119797",
-  "measure": "953441929b119797"
+  "overlay": "a9c3990076489a9b83cc534c34829ebc31a86af9dadcf77f343d41582ee449e4",
+  "diff": "b5d1134cafb147e6",
+  "measure": "b5d1134cafb147e6"
  },
  "corpus-holdout/real-spacing-gap-1px-settings": {
-  "changedPixels": 4828,
-  "antialiased": 1721,
-  "regions": 1,
-  "overlay": "b4a16d83ad71c7cc4ab1c9ef811385be43546aa19864f657a71f46da2700f15e",
-  "diff": "7b05e95240fc330d",
-  "measure": "7b05e95240fc330d"
+  "changedPixels": 0,
+  "antialiased": 0,
+  "regions": 2,
+  "overlay": "3aa8a7aa5a6f2e4ff68624717420f1fb1cb826950047f247b5c24cd211942855",
+  "diff": "e23c47b85e1c15a5",
+  "measure": "e23c47b85e1c15a5"
  },
  "corpus-holdout/real-spacing-padding-1px-inbox": {
-  "changedPixels": 64,
-  "antialiased": 93,
+  "changedPixels": 0,
+  "antialiased": 28,
   "regions": 1,
-  "overlay": "5f46e69771991fc399727e47adf1fca6ae6110ea626915f7c002aba73aee5a75",
-  "diff": "2f26d399abaf0571",
-  "measure": "2f26d399abaf0571"
+  "overlay": "995f58c1b945ac2cd39606cee0e31800b59ba2f51d34e8d27805b0a67dee8280",
+  "diff": "ee6a4f84bca09a78",
+  "measure": "ee6a4f84bca09a78"
  },
  "corpus-holdout/real-spacing-padding-1px-pricing": {
-  "changedPixels": 70,
-  "antialiased": 80,
+  "changedPixels": 0,
+  "antialiased": 54,
   "regions": 1,
-  "overlay": "fc5a88e7b4c9327a8a7b192f323a29807180169c7ac46732f726680769e91c62",
-  "diff": "80d72abb881fc267",
-  "measure": "80d72abb881fc267"
+  "overlay": "a9c3990076489a9b83cc534c34829ebc31a86af9dadcf77f343d41582ee449e4",
+  "diff": "b42e79d13bb9e1cb",
+  "measure": "b42e79d13bb9e1cb"
  },
  "corpus-holdout/real-spacing-padding-1px-settings": {
-  "changedPixels": 455,
-  "antialiased": 396,
+  "changedPixels": 0,
+  "antialiased": 61,
   "regions": 1,
-  "overlay": "dc9dd8f6c103b48b4074481e37548154bb3a4ac7372d1c64b6911bcc84f58d73",
-  "diff": "d66e354061cbbe83",
-  "measure": "d66e354061cbbe83"
+  "overlay": "3aa8a7aa5a6f2e4ff68624717420f1fb1cb826950047f247b5c24cd211942855",
+  "diff": "a1607846df5b14fb",
+  "measure": "a1607846df5b14fb"
  },
  "corpus-holdout/real-text-number-inbox": {
   "changedPixels": 21,

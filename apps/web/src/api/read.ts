@@ -142,6 +142,8 @@ export function regionOf(r: DiffRegion) {
     antialiased_pixels: r.antialiasedPixels,
     kind: r.kind,
     why: r.why ?? null,
+    // A `moved` region only: how far the block moved and where it sat on Main.
+    move: r.move ? { dx: r.move.dx, dy: r.move.dy, from: r.move.from } : null,
   };
 }
 

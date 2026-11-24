@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Rect } from "./regions.ts";
-import type { Label } from "./case-kit.ts";
+import type { Label, Move } from "./case-kit.ts";
 
 export const BENCH_DIR = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -18,6 +18,8 @@ export const CORPORA: Record<CorpusId, string> = {
   main: join(BENCH_DIR, "corpus"),
   holdout: join(BENCH_DIR, "corpus-holdout"),
 };
+/** The moved-block pairs: not a scored corpus (Argos has no verdict on them), `moves.ts` checks them. */
+export const MOVES_DIR = join(BENCH_DIR, "moves");
 
 export type CaseLabel = {
   label: Label;
@@ -27,6 +29,8 @@ export type CaseLabel = {
   height: number;
   /** `real` cases: the ground-truth changed region. */
   box?: Rect;
+  /** The `moves` set: the move the pair holds. */
+  move?: Move;
 };
 
 export type CorpusCase = CaseLabel & { name: string; dir: string; corpus: CorpusId };
@@ -42,14 +46,27 @@ function isLabel(v: unknown): v is Label {
 export function parseLabel(text: string): CaseLabel {
   const raw: unknown = JSON.parse(text);
   if (!isRecord(raw)) throw new Error("label.json is not an object");
-  const { label, kind, page, width, height, box } = raw;
+  const { label, kind, page, width, height, box, move } = raw;
   if (!isLabel(label)) throw new Error(`bad label: ${String(label)}`);
   if (typeof kind !== "string" || typeof page !== "string") throw new Error("bad kind/page");
   if (typeof width !== "number" || typeof height !== "number") throw new Error("bad size");
-  const parsed: CaseLabel = { label, kind, page, width, height };
-  if (box !== undefined) parsed.box = parseRect(box);
+  const parsed: CaseLabel = { label, kind, page, width, height, ...optional(box, move) };
   if (label === "real" && !parsed.box) throw new Error("a real case needs a box");
   return parsed;
+}
+
+/** The label's optional fields, each only when label.json has it. */
+function optional(box: unknown, move: unknown): Pick<CaseLabel, "box" | "move"> {
+  return {
+    ...(box === undefined ? {} : { box: parseRect(box) }),
+    ...(move === undefined ? {} : { move: parseMove(move) }),
+  };
+}
+
+function parseMove(raw: unknown): Move {
+  if (!isRecord(raw) || !Number.isInteger(raw.dx) || !Number.isInteger(raw.dy))
+    throw new Error("move needs integer dx and dy");
+  return { dx: Number(raw.dx), dy: Number(raw.dy) };
 }
 
 function parseRect(raw: unknown): Rect {

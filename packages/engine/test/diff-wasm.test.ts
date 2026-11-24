@@ -48,6 +48,8 @@ const pairOf = (name: string): [Buffer, Buffer] => [
  * What pngjs's `diffPngs` and `measurePngs` returned for each corpus pair before PS-210, from
  * `packages/engine/test/fixtures/pngjs-golden.json`: the whole result hashed (the overlay as its
  * sha256), and the counts and the overlay's sha256 in the clear so a mismatch says what moved.
+ * The pairs with a block that moved intact were refreshed when moved regions came in: their red
+ * and their counts no longer hold the moved pixels.
  */
 type Golden = {
   changedPixels: number;

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { Raster } from "../src/diff-probe.ts";
-import { measuredDiff } from "../src/measured.ts";
+import { measure as measureCounts } from "../src/measured.ts";
 import { newField, PIXEL_CHANGED } from "../src/regions.ts";
 import { softPage, textBlock } from "./soft-page.ts";
 
@@ -34,25 +34,19 @@ function measure(main: Raster, branch: Raster) {
   const width = Math.max(main.width, branch.width);
   const height = Math.max(main.height, branch.height);
   const overlay: Raster = { width, height, data: new Uint8Array(width * height * 4) };
-  const encoded: Raster[] = [];
-  const d = measuredDiff(
+  const d = measureCounts(
     [main, branch],
     overlay,
     { changedPixels, antialiased: 0, ignoredPixels: 0, ignored: [], field },
-    {
-      encode: (o) => {
-        encoded.push(o);
-        return Buffer.from("png");
-      },
-    },
+    {},
   );
-  return { d, changedPixels, overlay, encoded };
+  return { d, changedPixels, overlay };
 }
 
 const main = () => text(OVERLAP.width, OVERLAP.height, 0);
 
-/** `measuredDiff` called directly, as the WASM path calls it: the rasters, the counts and an overlay the size of the larger shot. */
-describe("measuredDiff on a size mismatch", () => {
+/** `measure` called directly, as the WASM path calls it: the rasters, the counts and an overlay the size of the larger shot. */
+describe("measure on a size mismatch", () => {
   test("the same two shots at equal size are a rendering shift (the label this must not get)", () => {
     const { d } = measure(main(), text(OVERLAP.width, OVERLAP.height, 0.5));
     expect(d.regions.map((r) => r.kind)).toEqual(["shift"]);
@@ -72,11 +66,9 @@ describe("measuredDiff on a size mismatch", () => {
     },
   );
 
-  test("is changed, and encodes the overlay it was given", () => {
-    const { d, overlay, encoded } = measure(main(), text(300, 160, 0.5));
+  test("is changed", () => {
+    const { d } = measure(main(), text(300, 160, 0.5));
     expect(d.changed).toBe(true);
-    expect(encoded[0]).toBe(overlay);
-    expect(d.overlay.toString()).toBe("png");
     expect(d.settledBy).toBe("measured");
   });
 

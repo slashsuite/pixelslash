@@ -62,8 +62,9 @@ function regionLabel(r: Region, i: number): string {
     noise: `noise (${r.why ?? "scattered"})`,
     shift: `shifted (${r.why ?? "moved alike"})`,
     change: "changed",
+    moved: r.why ?? "moved, content identical",
   }[r.kind];
-  return `#${i + 1} ${r.x},${r.y} ${r.w}x${r.h} · ${r.changedPixels} changed px · ${what}`;
+  return `#${i + 1} ${r.x},${r.y} ${r.w}x${r.h}${r.kind === "moved" ? "" : ` · ${r.changedPixels} changed px`} · ${what}`;
 }
 
 function regionSummary(regions: Region[], specks: Specks): string {
@@ -71,6 +72,8 @@ function regionSummary(regions: Region[], specks: Specks): string {
   const noise = regions.filter((r) => r.kind === "noise").length;
   const shifted = regions.filter((r) => r.kind === "shift").length;
   const parts = [`${changed} changed ${changed === 1 ? "region" : "regions"}`];
+  const moved = regions.filter((r) => r.kind === "moved").length;
+  if (moved > 0) parts.push(`${moved} moved`);
   if (shifted > 0) parts.push(`${shifted} shifted`);
   if (noise > 0) parts.push(`${noise} noise`);
   if (specks.count > 0)

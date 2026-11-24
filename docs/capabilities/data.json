@@ -385,7 +385,7 @@
       "label": "Changed regions, not just a pixel count",
       "ps": {
         "v": "y",
-        "note": "boxes, changes up to 48px apart merge (24px grown from each side), speck floor",
+        "note": "boxes, changes up to 48px apart merge (24px grown from each side), speck floor; a block moved by whole pixels with its content intact is one `moved` region (dx, dy and its source box), and only what really changed is counted",
         "commit": "cad8b76"
       },
       "t": {

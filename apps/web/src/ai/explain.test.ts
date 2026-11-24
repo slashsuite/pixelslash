@@ -27,6 +27,16 @@ import type { ModelFetch } from "./model";
  * OpenAI-compatible endpoint: nothing here reaches a real one.
  */
 
+/** A 60x30 block of 3 px cells at `top`, no two rows alike: content a move can be found in. */
+const rows = (top: number) =>
+  Array.from({ length: 30 * 20 }, (_, n) => ({
+    x: 60 + (n % 20) * 3,
+    y: top + Math.floor(n / 20),
+    w: 3,
+    h: 1,
+    rgb: [(n * 37) % 256, (n * 91) % 256, 200] as [number, number, number],
+  }));
+
 describe("explaining changed regions (ob 1473)", () => {
   test("one call per change region, each with that region's three crops only", async () => {
     const ctx = await context();
@@ -121,6 +131,34 @@ describe("explaining changed regions (ob 1473)", () => {
     const row = await onlyShot(ctx, build);
     expect(sent).toHaveLength(2);
     expect(row.diffResult?.sizeChanged).toBe(true);
+    expect(row.aiReview?.regions.every((r) => r.label === "noise")).toBe(true);
+    expect(row.aiReview?.autoPassed).toBe(false);
+    expect(row.reviewState).toBe("pending");
+    expect(build.status).toBe("changes");
+  });
+
+  test("a shot with a block that moved intact is never auto-passed: the model saw only the red", async () => {
+    const ctx = await context();
+    await withModel(ctx, true);
+    const { modelFetch } = stubModel();
+    // The block sits 4 px lower on the branch.
+    await upload(ctx, {
+      branch: "main",
+      commit: sha(1),
+      shots: [{ png: shot({ width: W, height: H, blocks: rows(30) }) }],
+    });
+    const build = await upload(
+      ctx,
+      {
+        branch: "feat/x",
+        commit: sha(2),
+        mergeBase: sha(1),
+        shots: [{ png: shot({ width: W, height: H, blocks: rows(34) }) }],
+      },
+      { modelFetch },
+    );
+    const row = await onlyShot(ctx, build);
+    expect(row.diffResult?.regions.map((r) => r.kind)).toContain("moved");
     expect(row.aiReview?.regions.every((r) => r.label === "noise")).toBe(true);
     expect(row.aiReview?.autoPassed).toBe(false);
     expect(row.reviewState).toBe("pending");

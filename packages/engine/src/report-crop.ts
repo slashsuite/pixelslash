@@ -14,12 +14,13 @@ export const CROP_PADDING = 24;
 export type Crop = { x: number; y: number; w: number; h: number };
 
 /**
- * The box the zoomed crop shows: the `change` regions' union plus padding, clipped to the overlap
- * of the two shots so the non-overlap is never drawn as changed. Noise and shift regions do not
- * make a shot changed, so they do not pull the crop; none left means nothing to zoom on.
+ * The box the zoomed crop shows: the `change` and `moved` regions' union plus padding, clipped to
+ * the overlap of the two shots so the non-overlap is never drawn as changed. Noise and shift
+ * regions do not make a shot changed, so they do not pull the crop; none left means nothing to
+ * zoom on.
  */
 export function changeCrop(regions: Region[], overlapW: number, overlapH: number): Crop | null {
-  const changed = regions.filter((r) => r.kind === "change");
+  const changed = regions.filter((r) => r.kind === "change" || r.kind === "moved");
   if (changed.length === 0) return null;
   const left = Math.max(0, Math.min(...changed.map((r) => r.x)) - CROP_PADDING);
   const top = Math.max(0, Math.min(...changed.map((r) => r.y)) - CROP_PADDING);
@@ -56,6 +57,8 @@ export const BOX_CSS = `.ignore { position: absolute; box-sizing: border-box; po
     .box.change { border: 2px solid #ffd400; }
     .box.noise { border: 1px dashed #8a8a8a; }
     .box.shift { border: 2px dotted #4dd0e1; }
+    .box.moved { border: 2px dashed #7bd88f; }
     .regions { margin: 12px 0 0; padding: 0 0 0 20px; color: #ccc; font-size: 12px; }
     .regions .noise { color: #888; }
-    .regions .shift { color: #4dd0e1; }`;
+    .regions .shift { color: #4dd0e1; }
+    .regions .moved { color: #7bd88f; }`;

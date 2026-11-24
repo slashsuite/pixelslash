@@ -31,7 +31,16 @@ export function newField(width: number, height: number): DiffField {
   };
 }
 
-export type RegionKind = "change" | "noise" | "shift";
+export type RegionKind = "change" | "noise" | "shift" | "moved";
+
+/** A rectangle in pixels, top-left origin. */
+type Rect = { x: number; y: number; w: number; h: number };
+
+/**
+ * A block that moved by whole pixels with its content intact (a `moved` region). The region's own
+ * box is where the block sits on Branch, clipped to the overlap; `from` is where it sat on Main.
+ */
+type Move = { dx: number; dy: number; from: Rect };
 
 export type Region = {
   x: number;
@@ -42,10 +51,16 @@ export type Region = {
   changedPixels: number;
   /** Differing pixels inside the box that are anti-aliased edges. */
   antialiasedPixels: number;
-  /** `noise` and `shift` regions are kept for the reviewer but do not make a run changed. */
+  /**
+   * `noise` and `shift` regions are kept for the reviewer but do not make a run changed. A `moved`
+   * region does: its pixels are Main's, moved, so they are not painted red or counted in the run's
+   * `changedPixels`, but the region keeps them and the floors weigh them.
+   */
   kind: RegionKind;
-  /** Why a `noise` or `shift` region was called so; absent on a `change`. */
+  /** Why a `noise`, `shift` or `moved` region was called so; absent on a `change`. */
   why?: string;
+  /** On a `moved` region only: how far the block moved, and where it came from. */
+  move?: Move;
 };
 
 export type RegionOptions = {

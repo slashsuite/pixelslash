@@ -109,9 +109,15 @@ A **`change` region** is a region that survives the speck and noise filters and 
 
 A region whose content moved by a fraction of a pixel, all alike (`maxShift`, 0 to 1; default 0.9), is labelled `shift`: the region's own box fits one sub-pixel shift on both axes, that fit explains at least a quarter of its colour difference, and the edge tiles in a 24px halo around the box agree with the same shift; a whole pixel moved, or a neighbour that stayed put, keeps it a `change`. `shift` regions are kept in `regions`, are drawn in their own style, and do not make the run `changed`.
 
+### Moved blocks
+
+A block that moved by whole pixels with its content intact (a gap grew, so everything under it moved down 4 px) is labelled `moved`, not painted as changed. The engine looks for moves inside the `change` regions, rows first and then columns, and this works when the shot's height changed too. A run of at least 12 lines whose content matches Main's at one offset is a block; the block, across the move, is at least 12 px; and the content must have left its old place on Branch, so a copy is still a `change`. The block's pixels that match Main at the offset are taken out of the run's `changedPixels` and the overlay, so red is only what really changed, such as the strip the block left behind, and the regions are found again from what is left. The `moved` region keeps them as its own `changedPixels`, so the floors weigh a move as they weighed it before it was found.
+
+A `moved` region carries `move`: `{ dx, dy, from }`, the move in whole px (one axis is 0) and `from`, the box on Main the content came from (the region's box less the move). Its `why` reads `moved down 4 px, content identical` (or `content the same within the threshold`, when the pixels match within it rather than exactly, or `content otherwise the same`, when a few pixels of some lines do not match; those stay changed and red), and it is drawn as a calm dashed outline in the report, the review app and the PR comment. A shot whose only difference is a moved block is still `changed` (unless the floors below say it is too small, as they would have when it was red): something moved, and somebody should see it.
+
 ### When a run is `changed`
 
-`changed` is true when the sizes differ or a `change` region survives. The numbers were chosen on `bench/corpus` (see `bench/README.md`).
+`changed` is true when the sizes differ, or a `change` or `moved` region survives and clears the floors. The numbers were chosen on `bench/corpus` (see `bench/README.md`).
 
 ## Tuning the diff
 
@@ -139,7 +145,7 @@ A **floor** is a minimum: a run whose surviving `change` regions add up to less 
 
 ### How the floors combine
 
-The floors combine with the region verdict, not beside it: they are measured on the pixels of the `change` regions that survive (noise and shift regions and specks never count), so a run is `changed` only when the sizes differ, or those surviving pixels are at least `--min-changed-pixels` and their share of the overlap is at least `--min-changed-ratio`.
+The floors combine with the region verdict, not beside it: they are measured on the pixels of the `change` and `moved` regions that survive (noise and shift regions and specks never count), so a run is `changed` only when the sizes differ, or those surviving pixels are at least `--min-changed-pixels` and their share of the overlap is at least `--min-changed-ratio`.
 
 The counts are still reported when a floor says the shot is not changed.
 
@@ -1329,7 +1335,7 @@ A **snapshot**:
 - `carried_from` is set on an unchanged shot that carries an open change from an earlier build (see "What a shot is compared against" above).
 - `approved_earlier` is set on an unchanged shot whose change was already accepted on this branch.
 - `flake_id` is the flake the shot is labelled with, or `null`; `flaky_policy` is the policy it was sent with (`review`, `skip`, or `null` for none, which is `review`); `skipped_flaky` is whether its change is skipped as flaky (see "Flaky shots").
-- `diff_result` is `null` until the diff has measured it. Its regions are in image px.
+- `diff_result` is `null` until the diff has measured it. Its regions are in image px. A region's `kind` is `change`, `noise`, `shift` or `moved`; `move` is `{ dx, dy, from: { x, y, w, h } }` on a `moved` region ([Moved blocks](#moved-blocks)) and `null` on every other.
 
 ```json
 {
@@ -1345,7 +1351,7 @@ A **snapshot**:
   "diff_status": "changed",
   "diff_result": {
     "changed_pixels": 144, "antialiased_pixels": 0, "ignored_pixels": 0, "ignored": [], "specks": 0,
-    "regions": [{ "x": 8, "y": 8, "w": 12, "h": 12, "changed_pixels": 144, "antialiased_pixels": 0, "kind": "change", "why": null }],
+    "regions": [{ "x": 8, "y": 8, "w": 12, "h": 12, "changed_pixels": 144, "antialiased_pixels": 0, "kind": "change", "why": null, "move": null }],
     "width": 1280, "height": 720, "main_width": 1280, "main_height": 720,
     "branch_width": 1280, "branch_height": 720, "size_changed": false
   },
@@ -1438,7 +1444,7 @@ A **flake**:
   "updated_at": "2026-10-22T09:00:00.000Z",
   "evidence": [{
     "build_id": "…", "snapshot_id": "…",
-    "runs": 3, "differed": [2], "regions": [{ "run": 2, "regions": [{ "x": 8, "y": 8, "w": 12, "h": 12, "changed_pixels": 144, "antialiased_pixels": 0, "kind": "change", "why": null }] }],
+    "runs": 3, "differed": [2], "regions": [{ "run": 2, "regions": [{ "x": 8, "y": 8, "w": 12, "h": 12, "changed_pixels": 144, "antialiased_pixels": 0, "kind": "change", "why": null, "move": null }] }],
     "engine_version": "0.1.0", "policy": "review",
     "at": "2026-10-22T09:00:00.000Z",
     "images": { "head": "https://<server>/images/…", "runs": [{ "run": 2, "url": "https://<server>/images/…" }, { "run": 3, "url": "…" }] },

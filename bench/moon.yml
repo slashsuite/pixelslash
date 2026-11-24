@@ -28,6 +28,7 @@ tasks:
       - "src/**/*.ts"
       - "corpus/**/*"
       - "corpus-holdout/**/*"
+      - "moves/**/*"
       - "results/*.json"
       - "package.json"
       - "/bun.lock"
@@ -36,6 +37,8 @@ tasks:
       - "/packages/engine/src/diff-options.ts"
       - "/packages/engine/src/regions.ts"
       - "/packages/engine/src/shift.ts"
+      - "/packages/engine/src/moved.ts"
+      - "/packages/engine/src/measured.ts"
     options:
       runFromWorkspaceRoot: true
   corpus:

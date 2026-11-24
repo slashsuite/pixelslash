@@ -54,7 +54,9 @@ export async function checkFlake(
     Promise.all(
       taken.map(async ({ png, ignore }, i) => {
         const diff = await pooledDiff(first, png, shot.diff, { main: shot.ignore, branch: ignore });
-        const regions = diff.changed ? diff.regions.filter((r) => r.kind === "change") : [];
+        const regions = diff.changed
+          ? diff.regions.filter((r) => r.kind === "change" || r.kind === "moved")
+          : [];
         return { run: i + 2, png, differed: diff.changed, regions };
       }),
     ),

@@ -207,7 +207,8 @@ describe("regions", () => {
     test("a whole pixel is a real move", () => {
       const d = diffPngs(png(shiftedText(0)), png(shiftedText(1)));
       expect(d.regions.length).toBeGreaterThan(0);
-      expect(d.regions.every((r) => r.kind === "change")).toBe(true);
+      // Whole pixels: a real move, so `change`, or `moved` where the block moved intact.
+      expect(d.regions.every((r) => r.kind === "change" || r.kind === "moved")).toBe(true);
       expect(d.changed).toBe(true);
     });
 

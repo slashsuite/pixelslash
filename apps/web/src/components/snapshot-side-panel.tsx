@@ -21,6 +21,7 @@ import { TwinsRow } from "#/components/twins";
 import type { SnapshotView } from "#/db/review";
 import type { DiffOptions } from "#/db/schema";
 import { formatDateTime, formatNumber, formatPercent } from "#/lib/format";
+import { regionCounts } from "#/lib/region-counts";
 import { awaitsDecision } from "#/lib/snapshot-groups";
 import type { TwinEntry } from "#/lib/twins";
 
@@ -81,7 +82,7 @@ function Summary({ snapshot }: { snapshot: SnapshotView }) {
       </Text>
     );
   } else {
-    const boxes = result.regions.filter((region) => region.kind === "change").length;
+    const { boxes, moved } = regionCounts(result);
     body = (
       <KeyValueList>
         <KeyValue label="Changed px">
@@ -90,6 +91,7 @@ function Summary({ snapshot }: { snapshot: SnapshotView }) {
           </span>
         </KeyValue>
         <KeyValue label="Changed regions">{boxes}</KeyValue>
+        {moved > 0 ? <KeyValue label="Moved intact">{moved}</KeyValue> : null}
       </KeyValueList>
     );
   }

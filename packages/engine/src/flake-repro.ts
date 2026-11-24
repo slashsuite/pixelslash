@@ -19,6 +19,7 @@ export const CAUSE_WORDS: Record<FlakeCause, string> = {
   size: "size change",
   change: "real change",
   shift: "sub-pixel shift",
+  moved: "moved block",
   noise: "noise",
 };
 
@@ -46,7 +47,7 @@ export type Repro = {
 
 function causesOf(sized: boolean, regions: Region[]): FlakeCause[] {
   const kinds = new Set(regions.map((r) => r.kind));
-  const order: RegionKind[] = ["change", "shift", "noise"];
+  const order: RegionKind[] = ["change", "moved", "shift", "noise"];
   return [...(sized ? (["size"] as const) : []), ...order.filter((k) => kinds.has(k))];
 }
 
@@ -95,7 +96,9 @@ export async function measureRepro(shots: Shoot[], options: DiffOptions): Promis
     runs,
     differed: differing.map((r) => r.run),
     stable: differing.length === 0,
-    area: bounds(differing.flatMap((r) => r.regions.filter((g) => g.kind === "change"))),
+    area: bounds(
+      differing.flatMap((r) => r.regions.filter((g) => g.kind === "change" || g.kind === "moved")),
+    ),
   };
 }
 

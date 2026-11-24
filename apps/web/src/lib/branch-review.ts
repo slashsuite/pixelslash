@@ -1,6 +1,7 @@
 import type { SnapshotView } from "#/db/review";
 import type { DiffResult, DiffStatus } from "#/db/schema";
 import { formatNumber } from "./format";
+import { movedSuffix, regionCounts } from "./region-counts";
 import { groupOf } from "./snapshot-groups";
 
 /**
@@ -90,8 +91,8 @@ export function mainSummary(shots: BranchShot[], reviewable: boolean): MainSumma
 }
 
 function boxes(result: DiffResult): string {
-  const n = result.regions.filter((region) => region.kind === "change").length;
-  return `${formatNumber(result.changedPixels)} px in ${n} box${n === 1 ? "" : "es"}`;
+  const { boxes: n, moved } = regionCounts(result);
+  return `${formatNumber(result.changedPixels)} px in ${n} box${n === 1 ? "" : "es"}${movedSuffix(moved)}`;
 }
 
 /**

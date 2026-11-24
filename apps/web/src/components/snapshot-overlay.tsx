@@ -20,6 +20,7 @@ const KINDS = [
   { kind: "change", tone: "danger" },
   { kind: "noise", tone: "warn" },
   { kind: "shift", tone: "info" },
+  { kind: "moved", tone: "positive" },
 ] as const;
 
 /** The top layer's opacity, 0 to 100: held by the viewer so the toolbar's range and the image share it. */

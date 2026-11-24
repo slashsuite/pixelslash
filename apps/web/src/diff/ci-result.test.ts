@@ -53,6 +53,40 @@ describe("checkCiResult", () => {
     expect(check(sent)).toThrow(reason);
   });
 
+  /**
+   * A block that moved down 4 px: the box on Branch, its source on Main 4 px higher. It keeps the
+   * pixels it explains, which the engine leaves out of the run's changedPixels.
+   */
+  const box = { x: 30, y: 20, w: 20, h: 16 };
+  const moved = {
+    ...real.regions[0],
+    ...box,
+    kind: "moved",
+    changedPixels: real.changedPixels,
+    antialiasedPixels: 0,
+  };
+  const withMove = (move: unknown, kind = "moved") =>
+    upload({ ...real, regions: [...real.regions, { ...moved, kind, move }] });
+  const down4 = { dx: 0, dy: 4, from: { ...box, y: 16 } };
+
+  test("a moved region and its move are stored as sent", () => {
+    const stored = checkCiResult(withMove(down4), b, {});
+    expect(stored.diffResult.regions.at(-1)).toMatchObject({ kind: "moved", move: down4 });
+  });
+
+  test.each([
+    ["a moved region with no move", withMove(undefined), /move must be an object/],
+    ["a move on two axes", withMove({ ...down4, dx: 2 }), /exactly one axis/],
+    [
+      "a source that is not the box less the move",
+      withMove({ ...down4, from: box }),
+      /less the move/,
+    ],
+    ["a move on a change region", withMove(down4, "change"), /only for a moved region/],
+  ])("refuses %s", (_what, sent, reason) => {
+    expect(check(sent)).toThrow(reason);
+  });
+
   test("a result for a baseline the server did not pick is stale", () => {
     expect(() => checkCiResult(upload(real), { ...b, id: "other" }, {})).toThrow(/^stale baseline/);
   });
