@@ -15,7 +15,6 @@ export {
 import { nestProjects } from "./project-tree";
 import { type DiffLocation, builds, members, orgs, projects, users } from "./schema";
 import { invites } from "./schema-invites";
-import { prComments } from "./schema-pr-comments";
 import type { User } from "./users";
 
 export type Org = typeof orgs.$inferSelect;
@@ -353,7 +352,5 @@ export async function setGithubRepo(
   // A run id belongs to the repo it was made in: another repo gets new runs on the next sync.
   if (project.githubRepo?.toLowerCase() !== githubRepo?.toLowerCase()) {
     await db.update(builds).set({ checkRunId: null }).where(eq(builds.projectId, projectId));
-    // So is a comment id: the PRs of another repo get comments of their own.
-    await db.delete(prComments).where(eq(prComments.projectId, projectId));
   }
 }

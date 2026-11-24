@@ -97,6 +97,7 @@ type BuildRow = SyncedBuild & {
   commitSha: string;
   checkRunId: number | null;
   repo: RepoName;
+  orgId: string;
   /** "PixelSlash", or "PixelSlash / <project>" when the repo has several projects. */
   checkName: string;
   prNumber: number | null;
@@ -150,8 +151,9 @@ async function loadBuild(db: Db, buildId: string): Promise<BuildRow | null> {
   return {
     ...rest,
     repo: top.repo,
+    orgId: top.orgId,
     checkName: checkNameOf(top.name, linked?.n ?? 0),
-    // One PR comment edited by every subproject's build would show whichever synced last.
+    // The PR comment speaks for top-level projects: a subproject's build is in its parent's status.
     comment: top.comment && parentProjectId === null,
     topProjectId,
   };

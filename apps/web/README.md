@@ -245,9 +245,17 @@ that is never synced again keeps its old run until GitHub marks it stale.
 
 ### The pull request comment (PS-82)
 
-A build uploaded for a PR (`prNumber`) gets one comment on it, edited in place by every later build
-of the PR: the model's summary or "Summary skipped", the counts, the three to five most changed shots
-as links, and the build page link. Text and links only; no shot goes to GitHub. It is sent
+A PR gets one comment from PixelSlash for all of an org's projects connected to its repo, made by the
+first build that names it (`prNumber`) and edited in place by every later build of any of them. Each
+edit rebuilds the whole body from each project's newest build on the PR's newest commit: an overall
+title (`39 changes to review in 2 of 16 projects`), then a section per project with something to
+review (the model's summary or "Summary skipped", the counts, the three to five most changed shots as
+links, and the build page link), then one line naming the projects with no visual changes. A repo
+with one project shows that project's section with no heading. Two projects' builds syncing at once
+cannot drop a section: each sync reads the PR again after its edit and edits again when the body has
+moved on. The comment is keyed by org, repo (ignoring case) and PR number; comments that separate
+projects made on a PR before it was shared stay on GitHub as they were, and the oldest is the one
+kept and edited. Text and links only; no shot goes to GitHub. It is sent
 with the same client as the commit status (the App, or the token), only to the project's connected repo,
 and only when the project's "Comment on pull requests" setting (on by default) is on. A failed
 comment call is logged and never changes a build's verdict. The App needs `pull_requests: write`
