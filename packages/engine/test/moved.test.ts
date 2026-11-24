@@ -110,6 +110,15 @@ describe("moved blocks", () => {
     expect(d.changedPixels).toBe(0);
     expect(d.regions.map((r) => r.kind)).toEqual(["moved"]);
     expect(d.changed).toBe(true);
+    // The floors weigh the pixels the move explains, as they weighed them when they were red.
+    const weighed = d.regions[0]?.changedPixels ?? 0;
+    expect(weighed).toBeGreaterThan(0);
+    const [main, branch] = [
+      readFileSync(join(dir, "base.png")),
+      readFileSync(join(dir, "head.png")),
+    ];
+    expect(measurePngs(main, branch, { minChangedPixels: weighed }).changed).toBe(true);
+    expect(measurePngs(main, branch, { minChangedPixels: weighed + 1 }).changed).toBe(false);
   });
 
   test("a bordered card whose blank rows look the same moved or not is still a move", () => {

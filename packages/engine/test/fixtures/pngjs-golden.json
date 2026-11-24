@@ -140,8 +140,8 @@
   "antialiased": 11916,
   "regions": 3,
   "overlay": "984f19fdd7de12ac135c4f32edf21684211811cdc19d4a9e597bf645ea374e45",
-  "diff": "0c978451e42fb0d1",
-  "measure": "0c978451e42fb0d1"
+  "diff": "45ccccfab5cfe395",
+  "measure": "45ccccfab5cfe395"
  },
  "corpus/noise-hinting-none-vs-full-dashboard": {
   "changedPixels": 7466,
@@ -252,16 +252,16 @@
   "antialiased": 61,
   "regions": 5,
   "overlay": "f7b7c5b98bf3f74911397bc8cc0a5adbeb4ee3818d5725c69aa2c199e8b24a20",
-  "diff": "9ec71d5eb77dca6f",
-  "measure": "9ec71d5eb77dca6f"
+  "diff": "d8e69da8826a0b4f",
+  "measure": "d8e69da8826a0b4f"
  },
  "corpus/noise-subpixel-glyphs-dashboard": {
   "changedPixels": 936,
   "antialiased": 296,
   "regions": 5,
   "overlay": "a431ceb731cbe68ac8e90827c7963270137d5ccc24675a21843a279734a0caf4",
-  "diff": "6f2493af0f43c0f0",
-  "measure": "6f2493af0f43c0f0"
+  "diff": "49e38d110dbe8563",
+  "measure": "49e38d110dbe8563"
  },
  "corpus/noise-webp75-form": {
   "changedPixels": 12327,
@@ -292,8 +292,8 @@
   "antialiased": 1461,
   "regions": 2,
   "overlay": "b894c1fe1b3be488b2e0fbc0f1e521ba587555a369af219183942ff3a3974159",
-  "diff": "7e52db28c1d5fa3f",
-  "measure": "7e52db28c1d5fa3f"
+  "diff": "a7aff6131d333a83",
+  "measure": "a7aff6131d333a83"
  },
  "corpus/real-colour-1step-button": {
   "changedPixels": 0,
@@ -452,8 +452,8 @@
   "antialiased": 1173,
   "regions": 3,
   "overlay": "90f08099d8b1ed5cdfc2facd2f9a3fe7d9bd33cd14718b811251ea17c441faa6",
-  "diff": "9def0cf5c03c312f",
-  "measure": "9def0cf5c03c312f"
+  "diff": "d9c49249d18ceae2",
+  "measure": "d9c49249d18ceae2"
  },
  "corpus/real-reflow-article-narrower": {
   "changedPixels": 40897,
@@ -468,24 +468,24 @@
   "antialiased": 671,
   "regions": 3,
   "overlay": "4b64559291d0c232180a368fae0fda62dfa2bacb6c2dc367d7b8edf844ba7231",
-  "diff": "662a54c4bb76b5c6",
-  "measure": "662a54c4bb76b5c6"
+  "diff": "0c052a1982075c7d",
+  "measure": "0c052a1982075c7d"
  },
  "corpus/real-reflow-nav-right": {
   "changedPixels": 573,
   "antialiased": 722,
   "regions": 3,
   "overlay": "381c12187e49ef1d2d1b415de56cc017edab3d8f7cd4191799a1c999da3a0784",
-  "diff": "b802045ab4e8ff4b",
-  "measure": "b802045ab4e8ff4b"
+  "diff": "1e452e06b9059dfe",
+  "measure": "1e452e06b9059dfe"
  },
  "corpus/real-reflow-stats-column": {
   "changedPixels": 52853,
   "antialiased": 3980,
   "regions": 5,
   "overlay": "db25ccf06e5b0aa52db3d4b42bb30a91ed1f8e7b0033b8599af970d31ec219bb",
-  "diff": "29e9269901425af9",
-  "measure": "29e9269901425af9"
+  "diff": "d901b3010d100ed6",
+  "measure": "d901b3010d100ed6"
  },
  "corpus/real-size-append-paragraph": {
   "changedPixels": 0,
@@ -508,48 +508,48 @@
   "antialiased": 59,
   "regions": 2,
   "overlay": "eb5c293977a8c21841a256d4f9569706e2284753adea0e5eaab712a89265551d",
-  "diff": "8812cda262f63857",
-  "measure": "8812cda262f63857"
+  "diff": "e5098e54e093318a",
+  "measure": "e5098e54e093318a"
  },
  "corpus/real-spacing-form-gap-1px": {
   "changedPixels": 0,
   "antialiased": 0,
   "regions": 5,
   "overlay": "c47f018891713ff8dc51ac20b2a125d57e1439eb7257e926d1a8cc6428f92ef2",
-  "diff": "87f4c8579ea339e3",
-  "measure": "87f4c8579ea339e3"
+  "diff": "0988a8b4db5282f2",
+  "measure": "0988a8b4db5282f2"
  },
  "corpus/real-spacing-list-gap-1px": {
   "changedPixels": 0,
   "antialiased": 8,
   "regions": 2,
   "overlay": "526e7fc503b82c4fd0e52704fc4b6135200c8a98d2838e15fbac44812d9f08b1",
-  "diff": "19906e8344a9b018",
-  "measure": "19906e8344a9b018"
+  "diff": "e0ddf61e81862184",
+  "measure": "e0ddf61e81862184"
  },
  "corpus/real-spacing-paragraph-margin-1px": {
   "changedPixels": 13,
   "antialiased": 19,
   "regions": 4,
   "overlay": "6b04632774775ca3fa9197c5742e549f1d6acd6124a64b1207448f750b8bb399",
-  "diff": "3da1a287bb636e86",
-  "measure": "3da1a287bb636e86"
+  "diff": "9cb4704d70d713a9",
+  "measure": "9cb4704d70d713a9"
  },
  "corpus/real-text-button-longer": {
   "changedPixels": 1155,
   "antialiased": 150,
   "regions": 2,
   "overlay": "7a3bfbffa7c50d18aa20c043bc7a4ff8fc7270b15052823c6140736dd5819ea9",
-  "diff": "604c266df94ca7d0",
-  "measure": "604c266df94ca7d0"
+  "diff": "9fcbec57037450fd",
+  "measure": "9fcbec57037450fd"
  },
  "corpus/real-text-lede": {
   "changedPixels": 255,
   "antialiased": 77,
   "regions": 3,
   "overlay": "b2cfa8dc7b24ff50482ad7972a63b9e1b6e027e5955f02da1a5eb84767834695",
-  "diff": "3f4e3030add56890",
-  "measure": "3f4e3030add56890"
+  "diff": "b34e0905bc2c440a",
+  "measure": "b34e0905bc2c440a"
  },
  "corpus/real-text-number": {
   "changedPixels": 58,
@@ -572,8 +572,8 @@
   "antialiased": 88,
   "regions": 3,
   "overlay": "1cd75a2199c45d765811114169c353156afd0842f3f79e689f9e7cf1674e1b1e",
-  "diff": "eb376ac32d26455e",
-  "measure": "eb376ac32d26455e"
+  "diff": "2aa4a2a587e5cd77",
+  "measure": "2aa4a2a587e5cd77"
  },
  "corpus-holdout/identical-inbox": {
   "changedPixels": 0,
@@ -860,16 +860,16 @@
   "antialiased": 117,
   "regions": 4,
   "overlay": "a1fbf63375f7f7f77b33f954854d0ee8c60bd4b7bfb6feee29214bacd28060ac",
-  "diff": "36d3659cc5f123c7",
-  "measure": "36d3659cc5f123c7"
+  "diff": "9a83d4e906a4f5d1",
+  "measure": "9a83d4e906a4f5d1"
  },
  "corpus-holdout/noise-subpixel-glyphs-settings": {
   "changedPixels": 514,
   "antialiased": 468,
   "regions": 5,
   "overlay": "ec9a3499d73b245cd7d5d3381414609b18fcffdef29947f145ec5d2e663c8005",
-  "diff": "17d194cee17b2746",
-  "measure": "17d194cee17b2746"
+  "diff": "4eeb687b16bef8a2",
+  "measure": "4eeb687b16bef8a2"
  },
  "corpus-holdout/noise-webp85-inbox": {
   "changedPixels": 15549,
@@ -908,8 +908,8 @@
   "antialiased": 5349,
   "regions": 2,
   "overlay": "20e3c99f2b698028390198c56af21de05dc6d0bb57647bf629fd847570a9ef53",
-  "diff": "5533cf29222086fd",
-  "measure": "5533cf29222086fd"
+  "diff": "2c166ef2eeeed5e4",
+  "measure": "2c166ef2eeeed5e4"
  },
  "corpus-holdout/real-border-1px-settings": {
   "changedPixels": 721,
@@ -1092,32 +1092,32 @@
   "antialiased": 1245,
   "regions": 6,
   "overlay": "d1ef8a4d1fddb598fb29e589f5deec42ef220c4364493b99c1e9a0f0bd6f6bcf",
-  "diff": "70c34b7b89f24220",
-  "measure": "70c34b7b89f24220"
+  "diff": "6d95587da0332f52",
+  "measure": "6d95587da0332f52"
  },
  "corpus-holdout/real-missing-row-reflow-pricing": {
   "changedPixels": 20656,
   "antialiased": 3578,
   "regions": 8,
   "overlay": "931b4e02f8bba0e40714bc339637210fb11b260fe98a3c29e23cb8962cea22a7",
-  "diff": "65425a6aa216ebb7",
-  "measure": "65425a6aa216ebb7"
+  "diff": "4cb57c5f65ec7363",
+  "measure": "4cb57c5f65ec7363"
  },
  "corpus-holdout/real-missing-row-reflow-settings": {
   "changedPixels": 4736,
   "antialiased": 955,
   "regions": 4,
   "overlay": "1c71447fa4323bf4d633d6ea2246cc6ba7dd731375532ad4b7d9937359dbcae6",
-  "diff": "b7d639cd88393421",
-  "measure": "b7d639cd88393421"
+  "diff": "615215053b408dcc",
+  "measure": "615215053b408dcc"
  },
  "corpus-holdout/real-reflow-stack-inbox": {
   "changedPixels": 92054,
   "antialiased": 5958,
   "regions": 7,
   "overlay": "a632b2ee4b39b56a0887ee13ec6f46b7fde7e2651feb492a1f0aa99078b28333",
-  "diff": "1017b6797ff1bc81",
-  "measure": "1017b6797ff1bc81"
+  "diff": "437aef6c279be536",
+  "measure": "437aef6c279be536"
  },
  "corpus-holdout/real-reflow-stack-pricing": {
   "changedPixels": 76875,
@@ -1132,8 +1132,8 @@
   "antialiased": 2305,
   "regions": 6,
   "overlay": "2e52a07f39f4b560bf0bbf178fe6f2495d87e2ae9100771401654f72e24672a5",
-  "diff": "71172f75bcf1dba5",
-  "measure": "71172f75bcf1dba5"
+  "diff": "3124f5bab52e3cea",
+  "measure": "3124f5bab52e3cea"
  },
  "corpus-holdout/real-size-append-inbox": {
   "changedPixels": 0,
@@ -1164,48 +1164,48 @@
   "antialiased": 132,
   "regions": 3,
   "overlay": "995f58c1b945ac2cd39606cee0e31800b59ba2f51d34e8d27805b0a67dee8280",
-  "diff": "37527c7225dc8ebc",
-  "measure": "37527c7225dc8ebc"
+  "diff": "0cfedad67ba8e7db",
+  "measure": "0cfedad67ba8e7db"
  },
  "corpus-holdout/real-spacing-gap-1px-pricing": {
   "changedPixels": 0,
   "antialiased": 0,
   "regions": 1,
   "overlay": "a9c3990076489a9b83cc534c34829ebc31a86af9dadcf77f343d41582ee449e4",
-  "diff": "96a78d5d1f893e8a",
-  "measure": "96a78d5d1f893e8a"
+  "diff": "b5d1134cafb147e6",
+  "measure": "b5d1134cafb147e6"
  },
  "corpus-holdout/real-spacing-gap-1px-settings": {
   "changedPixels": 0,
   "antialiased": 0,
   "regions": 2,
   "overlay": "3aa8a7aa5a6f2e4ff68624717420f1fb1cb826950047f247b5c24cd211942855",
-  "diff": "b9e3a52b3498f445",
-  "measure": "b9e3a52b3498f445"
+  "diff": "e23c47b85e1c15a5",
+  "measure": "e23c47b85e1c15a5"
  },
  "corpus-holdout/real-spacing-padding-1px-inbox": {
   "changedPixels": 0,
   "antialiased": 28,
   "regions": 1,
   "overlay": "995f58c1b945ac2cd39606cee0e31800b59ba2f51d34e8d27805b0a67dee8280",
-  "diff": "bf45d86ef18dd944",
-  "measure": "bf45d86ef18dd944"
+  "diff": "ee6a4f84bca09a78",
+  "measure": "ee6a4f84bca09a78"
  },
  "corpus-holdout/real-spacing-padding-1px-pricing": {
   "changedPixels": 0,
   "antialiased": 54,
   "regions": 1,
   "overlay": "a9c3990076489a9b83cc534c34829ebc31a86af9dadcf77f343d41582ee449e4",
-  "diff": "77d7993bf73789cb",
-  "measure": "77d7993bf73789cb"
+  "diff": "b42e79d13bb9e1cb",
+  "measure": "b42e79d13bb9e1cb"
  },
  "corpus-holdout/real-spacing-padding-1px-settings": {
   "changedPixels": 0,
   "antialiased": 61,
   "regions": 1,
   "overlay": "3aa8a7aa5a6f2e4ff68624717420f1fb1cb826950047f247b5c24cd211942855",
-  "diff": "cfd7ce7a001d0006",
-  "measure": "cfd7ce7a001d0006"
+  "diff": "a1607846df5b14fb",
+  "measure": "a1607846df5b14fb"
  },
  "corpus-holdout/real-text-number-inbox": {
   "changedPixels": 21,

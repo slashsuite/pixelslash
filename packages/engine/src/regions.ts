@@ -53,7 +53,8 @@ export type Region = {
   antialiasedPixels: number;
   /**
    * `noise` and `shift` regions are kept for the reviewer but do not make a run changed. A `moved`
-   * region does make it changed, but its pixels are not counted as changed: they are Main's, moved.
+   * region does: its pixels are Main's, moved, so they are not painted red or counted in the run's
+   * `changedPixels`, but the region keeps them and the floors weigh them.
    */
   kind: RegionKind;
   /** Why a `noise`, `shift` or `moved` region was called so; absent on a `change`. */

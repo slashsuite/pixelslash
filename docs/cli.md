@@ -111,13 +111,13 @@ A region whose content moved by a fraction of a pixel, all alike (`maxShift`, 0 
 
 ### Moved blocks
 
-A block that moved by whole pixels with its content intact (a gap grew, so everything under it moved down 4 px) is labelled `moved`, not painted as changed. The engine looks for moves inside the `change` regions, rows first and then columns, and this works when the shot's height changed too. A run of at least 12 lines whose content matches Main's at one offset is a block; the block, across the move, is at least 12 px; and the content must have left its old place on Branch, so a copy is still a `change`. The block's pixels that match Main at the offset are taken out of `changedPixels` and the overlay, so red is only what really changed, such as the strip the block left behind, and the regions are found again from what is left.
+A block that moved by whole pixels with its content intact (a gap grew, so everything under it moved down 4 px) is labelled `moved`, not painted as changed. The engine looks for moves inside the `change` regions, rows first and then columns, and this works when the shot's height changed too. A run of at least 12 lines whose content matches Main's at one offset is a block; the block, across the move, is at least 12 px; and the content must have left its old place on Branch, so a copy is still a `change`. The block's pixels that match Main at the offset are taken out of the run's `changedPixels` and the overlay, so red is only what really changed, such as the strip the block left behind, and the regions are found again from what is left. The `moved` region keeps them as its own `changedPixels`, so the floors weigh a move as they weighed it before it was found.
 
-A `moved` region carries `move`: `{ dx, dy, from }`, the move in whole px (one axis is 0) and `from`, the box on Main the content came from (the region's box less the move). Its `why` reads `moved down 4 px, content identical` (or `content the same within the threshold`, when the pixels match within it rather than exactly, or `content otherwise the same`, when a few pixels of some lines do not match; those stay changed and red), and it is drawn as a calm dashed outline in the report, the review app and the PR comment. A shot whose only difference is a moved block is still `changed`: something moved, and somebody should see it.
+A `moved` region carries `move`: `{ dx, dy, from }`, the move in whole px (one axis is 0) and `from`, the box on Main the content came from (the region's box less the move). Its `why` reads `moved down 4 px, content identical` (or `content the same within the threshold`, when the pixels match within it rather than exactly, or `content otherwise the same`, when a few pixels of some lines do not match; those stay changed and red), and it is drawn as a calm dashed outline in the report, the review app and the PR comment. A shot whose only difference is a moved block is still `changed` (unless the floors below say it is too small, as they would have when it was red): something moved, and somebody should see it.
 
 ### When a run is `changed`
 
-`changed` is true when the sizes differ, a `change` region survives, or a block `moved`. The numbers were chosen on `bench/corpus` (see `bench/README.md`).
+`changed` is true when the sizes differ, or a `change` or `moved` region survives and clears the floors. The numbers were chosen on `bench/corpus` (see `bench/README.md`).
 
 ## Tuning the diff
 
@@ -145,7 +145,7 @@ A **floor** is a minimum: a run whose surviving `change` regions add up to less 
 
 ### How the floors combine
 
-The floors combine with the region verdict, not beside it: they are measured on the pixels of the `change` regions that survive (noise and shift regions and specks never count), so a run is `changed` only when the sizes differ, a block moved, or those surviving pixels are at least `--min-changed-pixels` and their share of the overlap is at least `--min-changed-ratio`.
+The floors combine with the region verdict, not beside it: they are measured on the pixels of the `change` and `moved` regions that survive (noise and shift regions and specks never count), so a run is `changed` only when the sizes differ, or those surviving pixels are at least `--min-changed-pixels` and their share of the overlap is at least `--min-changed-ratio`.
 
 The counts are still reported when a floor says the shot is not changed.
 

@@ -118,8 +118,17 @@ const CONTENT_WORDS: Record<number, string> = {
   [CLOSE]: "content the same within the threshold",
 };
 
-/** The `moved` region for `block`, spanning `q0..q1` across the move. */
-function movedRegion(vertical: boolean, block: Block, q0: number, q1: number): Region {
+/**
+ * The `moved` region for `block`, spanning `q0..q1` across the move. It carries the differing
+ * pixels the move explains (`cleared`), so the floors still weigh a move as they weighed it red.
+ */
+function movedRegion(
+  vertical: boolean,
+  block: Block,
+  span: { q0: number; q1: number },
+  cleared: { changed: number; antialiased: number },
+): Region {
+  const { q0, q1 } = span;
   const along = { at: block.l0, len: block.l1 - block.l0 + 1 };
   const across = { at: q0, len: q1 - q0 + 1 };
   const box = vertical
@@ -130,8 +139,8 @@ function movedRegion(vertical: boolean, block: Block, q0: number, q1: number): R
   const content = CONTENT_WORDS[block.worst] ?? "content otherwise the same";
   return {
     ...box,
-    changedPixels: 0,
-    antialiasedPixels: 0,
+    changedPixels: cleared.changed,
+    antialiasedPixels: cleared.antialiased,
     kind: "moved",
     why: `${moveWords(dx, dy)}, ${content}`,
     move: { dx, dy, from: { ...box, x: box.x - dx, y: box.y - dy } },
@@ -151,7 +160,8 @@ function clearBlock(
   if (stillThere(input, vertical, block)) return null;
   const { cells, q0, q1 } = movedCells(input, vertical, block);
   if (cells.length === 0 || q1 - q0 + 1 < MIN_SIDE) return null;
-  return { region: movedRegion(vertical, block, q0, q1), ...clearCells(input, vertical, cells) };
+  const cleared = clearCells(input, vertical, cells);
+  return { region: movedRegion(vertical, block, { q0, q1 }, cleared), ...cleared };
 }
 
 /**
