@@ -53,13 +53,16 @@ describe("checkCiResult", () => {
     expect(check(sent)).toThrow(reason);
   });
 
-  /** A block that moved down 4 px: the box on Branch, its source on Main 4 px higher. */
+  /**
+   * A block that moved down 4 px: the box on Branch, its source on Main 4 px higher. It keeps the
+   * pixels it explains, which the engine leaves out of the run's changedPixels.
+   */
   const box = { x: 30, y: 20, w: 20, h: 16 };
   const moved = {
     ...real.regions[0],
     ...box,
     kind: "moved",
-    changedPixels: 0,
+    changedPixels: real.changedPixels,
     antialiasedPixels: 0,
   };
   const withMove = (move: unknown, kind = "moved") =>

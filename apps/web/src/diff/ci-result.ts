@@ -196,7 +196,10 @@ function checkCounts(r: DiffResult): void {
   if (r.ignoredPixels > area) fail("ignoredPixels exceeds the overlap");
   if (r.changedPixels + r.antialiasedPixels + r.ignoredPixels > area)
     fail("changed, anti-aliased and ignored pixels exceed the overlap");
-  const boxed = r.regions.reduce((n, g) => n + g.changedPixels, 0);
+  // A moved block keeps the pixels it explains, but they are not in the run's changedPixels.
+  const boxed = r.regions
+    .filter((g) => g.kind !== "moved")
+    .reduce((n, g) => n + g.changedPixels, 0);
   if (boxed + r.specks.pixels > r.changedPixels)
     fail("the regions and specks count more pixels than changedPixels");
   if (r.specks.pixels < r.specks.count) fail("specks.pixels is fewer than specks.count");
