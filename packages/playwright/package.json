@@ -33,7 +33,7 @@
     "@playwright/test": "1.65.1",
     "@slashsuite/pixelslash": "workspace:*",
     "@slashsuite/pixelslash-engine": "workspace:*",
-    "@types/bun": "1.4.4",
+    "@types/bun": "1.4.5",
     "@types/pngjs": "^6.0.5",
     "playwright": "1.65.1",
     "pngjs": "^7.0.0"

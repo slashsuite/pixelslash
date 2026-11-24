@@ -31,13 +31,13 @@
     "./brief": "./src/brief.ts"
   },
   "dependencies": {
-    "axe-core": "^4.14.0",
+    "axe-core": "^4.14.1",
     "playwright": "1.65.1",
     "pngjs": "^7.0.0"
   },
   "devDependencies": {
-    "@types/bun": "1.4.4",
+    "@types/bun": "1.4.5",
     "@types/pngjs": "^6.0.5",
-    "vitest": "5.1.0"
+    "vitest": "5.1.1"
   }
 }
