@@ -52,7 +52,7 @@ describe("a project's status with subprojects", () => {
       state: "success",
       context: "PixelSlash",
       description: "No visual changes",
-      target_url: `https://pixelslash.test/projects/${w.acme.project.id}`,
+      target_url: `https://pixelslash.test/projects/${w.acme.project.id}/commits/${sha(2)}`,
     });
     // A subproject's build posts no PR comment of its own, and no check run.
     expect(w.github.checkRunCalls()).toEqual([]);
@@ -90,14 +90,14 @@ describe("a project's status with subprojects", () => {
     expect(last(w)).toMatchObject({ state: "success", description: "All changes accepted" });
   });
 
-  test("a commit where only a uploads: its status comes from a alone, and links to that build", async () => {
+  test("a commit where only a uploads: its status comes from a alone, and links to the commit's review", async () => {
     const w = await group();
-    const only = await w.on("a");
+    await w.on("a");
     expect(last(w)).toEqual({
       state: "success",
       context: "PixelSlash",
       description: "No visual changes",
-      target_url: `https://pixelslash.test/projects/${w.a.id}/builds/${only.id}`,
+      target_url: `https://pixelslash.test/projects/${w.acme.project.id}/commits/${sha(2)}`,
     });
   });
 

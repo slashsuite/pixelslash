@@ -57,8 +57,9 @@ project posts one commit status on the pull request that covers every subproject
 none of its own. A subproject that the task runner skipped does not hold that status open.
 `pixelslash upload --skipped` posts a passed build with no shots for a package the cache skipped, so
 that package does not look like missing work. It captures nothing, so a commit where the cache skipped
-every capture still gets a green status. A combined review across subprojects is
-planned and not built yet.
+every capture still gets a green status. The commit's combined review lists every subproject's
+changes on one page, where he accepts and rejects them, and the pull request has one comment for the
+whole group.
 
 He wins when twenty subprojects with one change each show as twenty changes in one place, and when
 the setup fits the task runner he already has. He loses when a pull request shows twenty checks, when
@@ -114,8 +115,6 @@ These are the open gaps, the places where a persona still has to work around the
 
 - **Priya's one click** needs the App's commit status permission granted on each install. Where that
   permission is missing, the pull request shows no status to click.
-- **Marcus** needs the subproject web pages and the combined review across subprojects. Until the
-  combined review exists, twenty subprojects are twenty pages to visit.
 - **Lena** has no bulk accept. Every change is accepted one at a time, so an intended library-wide
   change has no single step.
 - **Sam** waits on the Vitest plugin. Until it exists, a Vitest suite needs the CLI or the Playwright

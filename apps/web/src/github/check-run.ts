@@ -6,7 +6,8 @@ import { warn } from "#/lib/log";
 import { reportError } from "#/server/sentry";
 import { GithubError, type GithubApp, type RepoName, isRepoName } from "./app";
 import { type SyncedBuild, detailsUrlOf, titleOf } from "./build-text";
-import { groupStatus, hasSubprojects } from "./group";
+import { hasSubprojects } from "#/db/commit-group";
+import { groupStatus } from "./group";
 import { syncPrComment } from "./pr-comment";
 
 /*
@@ -153,8 +154,8 @@ async function loadBuild(db: Db, buildId: string): Promise<BuildRow | null> {
     repo: top.repo,
     orgId: top.orgId,
     checkName: checkNameOf(top.name, linked?.n ?? 0),
-    // The PR comment speaks for top-level projects: a subproject's build is in its parent's status.
-    comment: top.comment && parentProjectId === null,
+    // A subproject's build edits its parent's section of the PR comment, under the parent's setting.
+    comment: top.comment,
     topProjectId,
   };
 }

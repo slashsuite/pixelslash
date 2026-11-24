@@ -40,6 +40,32 @@ export const emptyCounts = (): BuildCounts => ({
   carriedFromMain: { changed: 0, new: 0 },
 });
 
+/** Every plain number of `BuildCounts`, which `sumCounts` adds. */
+const COUNTED = [
+  "changed",
+  "new",
+  "removed",
+  "unchanged",
+  "rebaseline",
+  "unmeasured",
+  "pending",
+  "accepted",
+  "rejected",
+  "toReview",
+  "skippedFlaky",
+] as const satisfies readonly Exclude<keyof BuildCounts, "carriedFromMain">[];
+
+/** Several builds' counts added up, as one group of builds shows them. */
+export function sumCounts(all: Iterable<BuildCounts>): BuildCounts {
+  const total = emptyCounts();
+  for (const counts of all) {
+    for (const key of COUNTED) total[key] += counts[key];
+    total.carriedFromMain.changed += counts.carriedFromMain.changed;
+    total.carriedFromMain.new += counts.carriedFromMain.new;
+  }
+  return total;
+}
+
 /** The grouped columns of `countBuilds`: each is selected and grouped by. */
 const statColumns = {
   buildId: snapshots.buildId,

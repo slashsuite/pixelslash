@@ -1,13 +1,13 @@
-import { and, count, desc, eq, isNull, notInArray, sql } from "drizzle-orm";
-import { explaining } from "#/ai/explain-pending";
-import { type BuildCounts, countBuilds, emptyCounts } from "#/db/build-counts";
+import { and, eq } from "drizzle-orm";
+import type { BuildCounts } from "#/db/build-counts";
 import type { Db } from "#/db/db";
 import type { AiSummary } from "#/db/diff-json";
-import { type ChangedShot, mostChangedShots } from "#/db/open-shots";
-import { builds, projects } from "#/db/schema";
+import type { ChangedShot } from "#/db/open-shots";
 import { prComments } from "#/db/schema-pr-comments";
 import { type GithubApp, GithubError, type RepoName, field } from "./app";
-import { type SyncedBuild, countsTable, detailsUrlOf, plural, titleOf } from "./build-text";
+import { type SyncedBuild, countsTable, plural, titleOf } from "./build-text";
+import { type PrKey, commentingCount, headOf, projectBuilds } from "./pr-comment-builds";
+import type { MemberLine } from "./pr-comment-group";
 
 /*
  * The PixelSlash comment on a pull request (PS-82): one per PR for all of an org's projects on the
@@ -15,7 +15,9 @@ import { type SyncedBuild, countsTable, detailsUrlOf, plural, titleOf } from "./
  * new comment per push or per project. Every sync rebuilds the whole body from each project's newest
  * build on the PR's head commit: a section per project with something to show (the project model's
  * summary, or a plain statement that there is none, the counts, the most changed shots as links and
- * the build page), then one line naming the projects with no visual changes. Text and links only: no screenshot ever goes to GitHub
+ * the build page), then one line naming the projects with no visual changes. A project with
+ * subprojects is one section for the group: its totals, a line per subproject and a link to the
+ * commit's combined review; a subproject's build edits that section. Text and links only: no screenshot ever goes to GitHub
  * (invariant 4). GitHub is told, never asked: the caller logs a failed call and the build's
  * verdict and the request that synced it are untouched.
  */
@@ -23,10 +25,7 @@ import { type SyncedBuild, countsTable, detailsUrlOf, plural, titleOf } from "./
 /** Marks the comment as ours, for a person reading the source and for anything that lists them. */
 export const COMMENT_MARKER = "<!-- pixelslash:pr-comment -->";
 
-/** How many shots the comment links; the build page has the rest. */
-const NAMED_SHOTS = 5;
-
-type PrCommentDeps = { db: Db; publicUrl: string | undefined };
+export type PrCommentDeps = { db: Db; publicUrl: string | undefined };
 
 /** What the comment needs of the synced build; the commit status's row has all of it. */
 export type PrCommentBuild = SyncedBuild & {
@@ -35,7 +34,7 @@ export type PrCommentBuild = SyncedBuild & {
   /** The org of the build's top-level project: the comment is the org's on the repo. */
   orgId: string;
   prNumber: number | null;
-  /** The project's setting: off sends no comment. */
+  /** The top-level project's setting: off sends no comment. */
   comment: boolean;
 };
 
@@ -80,7 +79,7 @@ function summaryLines(summary: AiSummary | null, pending: boolean): string[] {
 }
 
 /** One project's newest build on the PR's head, with what its section shows. */
-type ProjectBuild = {
+export type ProjectBuild = {
   build: PrCommentBuild;
   projectName: string;
   counts: BuildCounts;
@@ -88,6 +87,8 @@ type ProjectBuild = {
   summaryPending: boolean;
   shots: ChangedShot[];
   pageUrl: string | undefined;
+  /** A project with subprojects: one line each, and `pageUrl` is the commit's combined review. */
+  members?: MemberLine[];
 };
 
 const diffing = ({ build }: ProjectBuild) =>
@@ -122,8 +123,23 @@ function overallTitle(all: ProjectBuild[]): string {
   return `All changes accepted in ${of(all.filter((p) => !unchanged(p)).length)}`;
 }
 
+/** A subproject's line: its title and build, or that it did not run on the head. */
+function memberLine(m: MemberLine): string {
+  const name = plain(m.name);
+  if (!m.build) return `- ${name}: not run on this commit (unchanged)`;
+  const title = plain(titleOf(m.build, m.counts));
+  return `- ${name}: ${m.pageUrl ? `[${title}](${m.pageUrl})` : title}`;
+}
+
+/** A group's totals and a line per member; the summaries and shots are on each build's page. */
+const groupLines = (p: ProjectBuild, members: MemberLine[]): string[] => [
+  ...(p.build.status === "errored" || diffing(p) ? [] : [...countsTable(p.counts), ""]),
+  ...members.map(memberLine),
+];
+
 /** A project's summary, counts and shots; an errored or still diffing build shows its title only. */
 function detailLines(p: ProjectBuild): string[] {
+  if (p.members) return groupLines(p, p.members);
   if (p.build.status === "errored" || diffing(p)) return [];
   return [
     ...summaryLines(p.summary, p.summaryPending),
@@ -132,6 +148,8 @@ function detailLines(p: ProjectBuild): string[] {
     ...shotLines(p.shots, p.pageUrl),
   ];
 }
+
+const reviewText = (p: ProjectBuild) => (p.members ? "Review every change" : "Review the build");
 
 /** The names of the projects a line lists, defused and joined. */
 const names = (all: ProjectBuild[]) => all.map((p) => plain(p.projectName)).join(", ");
@@ -145,7 +163,7 @@ export function commentOf(all: ProjectBuild[], headSha: string, alone: boolean):
   const sha = `\`${headSha.slice(0, 7)}\``;
   const [only] = all;
   if (alone && only) {
-    const link = only.pageUrl ? `: [Review the build](${only.pageUrl})` : "";
+    const link = only.pageUrl ? `: [${reviewText(only)}](${only.pageUrl})` : "";
     const details = detailLines(only);
     return [
       COMMENT_MARKER,
@@ -161,7 +179,7 @@ export function commentOf(all: ProjectBuild[], headSha: string, alone: boolean):
     `#### ${plain(p.projectName)}: ${plain(titleOf(p.build, p.counts))}`,
     "",
     ...detailLines(p),
-    ...(p.pageUrl ? ["", `[Review the build](${p.pageUrl})`] : []),
+    ...(p.pageUrl ? ["", `[${reviewText(p)}](${p.pageUrl})`] : []),
     "",
   ]);
   const stillDiffing = all.filter(diffing);
@@ -175,107 +193,6 @@ export function commentOf(all: ProjectBuild[], headSha: string, alone: boolean):
     ...(noChange.length > 0 ? [`No visual changes: ${names(noChange)}.`, ""] : []),
     `Builds of ${sha}`,
   ].join("\n");
-}
-
-type PrKey = { orgId: string; repo: string; prNumber: number };
-
-/** The org's top-level projects on the repo (case ignored) that comment on pull requests. */
-const commentingOnRepo = (pr: PrKey) =>
-  and(
-    eq(projects.orgId, pr.orgId),
-    isNull(projects.parentProjectId),
-    eq(projects.githubComment, true),
-    eq(sql`lower(${projects.githubRepo})`, pr.repo),
-  );
-
-/** Newest first; `created_at` has a second's resolution, so the insert order (`rowid`) breaks a tie. */
-const newestFirst = [desc(builds.createdAt), desc(sql`${builds}.rowid`)] as const;
-
-/**
- * The commit of the PR's newest build with a verdict in any of the repo's projects: the PR's head as
- * we know it. A build still uploading or diffing does not move it, so the comment keeps the last
- * verdict until the new commit has one.
- */
-async function headOf(db: Db, pr: PrKey): Promise<string | null> {
-  const [newest] = await db
-    .select({ sha: builds.commitSha })
-    .from(builds)
-    .innerJoin(projects, eq(projects.id, builds.projectId))
-    .where(
-      and(
-        commentingOnRepo(pr),
-        eq(builds.prNumber, pr.prNumber),
-        notInArray(builds.status, ["uploading", "processing"]),
-      ),
-    )
-    .orderBy(...newestFirst)
-    .limit(1);
-  return newest?.sha ?? null;
-}
-
-/** Each project's newest build of the PR on `headSha`, ordered by project name. */
-async function projectBuilds(
-  deps: PrCommentDeps,
-  pr: PrKey,
-  repo: RepoName,
-  headSha: string,
-): Promise<ProjectBuild[]> {
-  const { db } = deps;
-  const rows = await db
-    .select({
-      id: builds.id,
-      projectId: builds.projectId,
-      status: builds.status,
-      error: builds.error,
-      commitSha: builds.commitSha,
-      prNumber: builds.prNumber,
-      aiSummary: builds.aiSummary,
-      queuedAt: builds.aiSummaryQueuedAt,
-      projectName: projects.name,
-    })
-    .from(builds)
-    .innerJoin(projects, eq(projects.id, builds.projectId))
-    .where(
-      and(commentingOnRepo(pr), eq(builds.prNumber, pr.prNumber), eq(builds.commitSha, headSha)),
-    )
-    .orderBy(...newestFirst);
-  const newest = new Map<string, (typeof rows)[number]>();
-  for (const row of rows) if (!newest.has(row.projectId)) newest.set(row.projectId, row);
-  const picked = [...newest.values()].toSorted((a, b) =>
-    a.projectName.localeCompare(b.projectName),
-  );
-  const counts = await countBuilds(
-    db,
-    picked.map((r) => r.id),
-  );
-  const now = Date.now();
-  // Shots are skipped only where no section lists them: errored, still diffing, or passed unchanged.
-  // A build of new shots alone has no `changed` but lists them, so `changed` alone is not the test.
-  const shows = (status: string, id: string) =>
-    status !== "errored" &&
-    status !== "uploading" &&
-    status !== "processing" &&
-    !(status === "passed" && (counts.get(id)?.changed ?? 0) === 0);
-  return Promise.all(
-    picked.map(async ({ aiSummary, queuedAt, projectName, ...row }) => {
-      const build: PrCommentBuild = { ...row, repo, orgId: pr.orgId, comment: true };
-      return {
-        build,
-        projectName,
-        counts: counts.get(row.id) ?? emptyCounts(),
-        summary: aiSummary ?? null,
-        summaryPending: explaining(queuedAt ?? null, now),
-        shots: shows(row.status, row.id) ? await mostChangedShots(db, row.id, NAMED_SHOTS) : [],
-        pageUrl: detailsUrlOf(deps.publicUrl, build),
-      };
-    }),
-  );
-}
-
-/** How many of the org's projects on the repo comment: one keeps the single-project body. */
-async function commentingCount(db: Db, pr: PrKey): Promise<number> {
-  const [row] = await db.select({ n: count() }).from(projects).where(commentingOnRepo(pr));
-  return row?.n ?? 0;
 }
 
 /** The body as the PR stands now, from its head as it is now, or null when it has no build. */
@@ -353,7 +270,7 @@ const WRITES = 10;
 
 /**
  * Create or edit the PR's comment for a build that has a verdict. Nothing for a build with no PR,
- * a project that turned the comment off (or a subproject), a build still being diffed, or one
+ * a project that turned the comment off (for a subproject, its parent), a build still being diffed, or one
  * that is not on the PR's head: an older build deciding late does not overwrite the newest. A
  * comment someone deleted is created again.
  */

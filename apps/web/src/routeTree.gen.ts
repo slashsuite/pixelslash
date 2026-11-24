@@ -26,6 +26,7 @@ import { Route as ProjectsProjectIdFlakesRouteImport } from './routes/projects/$
 import { Route as ProjectsProjectIdSettingsRouteImport } from './routes/projects/$projectId.settings'
 import { Route as ProjectsProjectIdBranchesBranchRouteImport } from './routes/projects/$projectId.branches.$branch'
 import { Route as ProjectsProjectIdBuildsBuildIdRouteImport } from './routes/projects/$projectId.builds.$buildId'
+import { Route as ProjectsProjectIdCommitsShaRouteImport } from './routes/projects/$projectId.commits.$sha'
 import { Route as ProjectsProjectIdBuildsBuildIdParityRouteImport } from './routes/projects/$projectId.builds.$buildId_.parity'
 import { Route as ProjectsProjectIdBuildsBuildIdSnapshotsSnapshotIdRouteImport } from './routes/projects/$projectId.builds.$buildId_.snapshots.$snapshotId'
 
@@ -118,6 +119,12 @@ const ProjectsProjectIdBuildsBuildIdRoute =
     path: '/projects/$projectId/builds/$buildId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ProjectsProjectIdCommitsShaRoute =
+  ProjectsProjectIdCommitsShaRouteImport.update({
+    id: '/projects/$projectId/commits/$sha',
+    path: '/projects/$projectId/commits/$sha',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ProjectsProjectIdBuildsBuildIdParityRoute =
   ProjectsProjectIdBuildsBuildIdParityRouteImport.update({
     id: '/projects/$projectId/builds/$buildId_/parity',
@@ -149,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/projects/$projectId/': typeof ProjectsProjectIdIndexRoute
   '/projects/$projectId/branches/$branch': typeof ProjectsProjectIdBranchesBranchRoute
   '/projects/$projectId/builds/$buildId': typeof ProjectsProjectIdBuildsBuildIdRoute
+  '/projects/$projectId/commits/$sha': typeof ProjectsProjectIdCommitsShaRoute
   '/projects/$projectId/builds/$buildId/parity': typeof ProjectsProjectIdBuildsBuildIdParityRoute
   '/projects/$projectId/builds/$buildId/snapshots/$snapshotId': typeof ProjectsProjectIdBuildsBuildIdSnapshotsSnapshotIdRoute
 }
@@ -170,6 +178,7 @@ export interface FileRoutesByTo {
   '/projects/$projectId': typeof ProjectsProjectIdIndexRoute
   '/projects/$projectId/branches/$branch': typeof ProjectsProjectIdBranchesBranchRoute
   '/projects/$projectId/builds/$buildId': typeof ProjectsProjectIdBuildsBuildIdRoute
+  '/projects/$projectId/commits/$sha': typeof ProjectsProjectIdCommitsShaRoute
   '/projects/$projectId/builds/$buildId/parity': typeof ProjectsProjectIdBuildsBuildIdParityRoute
   '/projects/$projectId/builds/$buildId/snapshots/$snapshotId': typeof ProjectsProjectIdBuildsBuildIdSnapshotsSnapshotIdRoute
 }
@@ -192,6 +201,7 @@ export interface FileRoutesById {
   '/projects/$projectId/': typeof ProjectsProjectIdIndexRoute
   '/projects/$projectId/branches/$branch': typeof ProjectsProjectIdBranchesBranchRoute
   '/projects/$projectId/builds/$buildId': typeof ProjectsProjectIdBuildsBuildIdRoute
+  '/projects/$projectId/commits/$sha': typeof ProjectsProjectIdCommitsShaRoute
   '/projects/$projectId/builds/$buildId_/parity': typeof ProjectsProjectIdBuildsBuildIdParityRoute
   '/projects/$projectId/builds/$buildId_/snapshots/$snapshotId': typeof ProjectsProjectIdBuildsBuildIdSnapshotsSnapshotIdRoute
 }
@@ -215,6 +225,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId/'
     | '/projects/$projectId/branches/$branch'
     | '/projects/$projectId/builds/$buildId'
+    | '/projects/$projectId/commits/$sha'
     | '/projects/$projectId/builds/$buildId/parity'
     | '/projects/$projectId/builds/$buildId/snapshots/$snapshotId'
   fileRoutesByTo: FileRoutesByTo
@@ -236,6 +247,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId'
     | '/projects/$projectId/branches/$branch'
     | '/projects/$projectId/builds/$buildId'
+    | '/projects/$projectId/commits/$sha'
     | '/projects/$projectId/builds/$buildId/parity'
     | '/projects/$projectId/builds/$buildId/snapshots/$snapshotId'
   id:
@@ -257,6 +269,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId/'
     | '/projects/$projectId/branches/$branch'
     | '/projects/$projectId/builds/$buildId'
+    | '/projects/$projectId/commits/$sha'
     | '/projects/$projectId/builds/$buildId_/parity'
     | '/projects/$projectId/builds/$buildId_/snapshots/$snapshotId'
   fileRoutesById: FileRoutesById
@@ -277,6 +290,7 @@ export interface RootRouteChildren {
   ProjectsProjectIdIndexRoute: typeof ProjectsProjectIdIndexRoute
   ProjectsProjectIdBranchesBranchRoute: typeof ProjectsProjectIdBranchesBranchRoute
   ProjectsProjectIdBuildsBuildIdRoute: typeof ProjectsProjectIdBuildsBuildIdRoute
+  ProjectsProjectIdCommitsShaRoute: typeof ProjectsProjectIdCommitsShaRoute
   ProjectsProjectIdBuildsBuildIdParityRoute: typeof ProjectsProjectIdBuildsBuildIdParityRoute
   ProjectsProjectIdBuildsBuildIdSnapshotsSnapshotIdRoute: typeof ProjectsProjectIdBuildsBuildIdSnapshotsSnapshotIdRoute
 }
@@ -402,6 +416,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsProjectIdBuildsBuildIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/projects/$projectId/commits/$sha': {
+      id: '/projects/$projectId/commits/$sha'
+      path: '/projects/$projectId/commits/$sha'
+      fullPath: '/projects/$projectId/commits/$sha'
+      preLoaderRoute: typeof ProjectsProjectIdCommitsShaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/projects/$projectId/builds/$buildId_/parity': {
       id: '/projects/$projectId/builds/$buildId_/parity'
       path: '/projects/$projectId/builds/$buildId/parity'
@@ -459,6 +480,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProjectsProjectIdIndexRoute: ProjectsProjectIdIndexRoute,
   ProjectsProjectIdBranchesBranchRoute: ProjectsProjectIdBranchesBranchRoute,
   ProjectsProjectIdBuildsBuildIdRoute: ProjectsProjectIdBuildsBuildIdRoute,
+  ProjectsProjectIdCommitsShaRoute: ProjectsProjectIdCommitsShaRoute,
   ProjectsProjectIdBuildsBuildIdParityRoute:
     ProjectsProjectIdBuildsBuildIdParityRoute,
   ProjectsProjectIdBuildsBuildIdSnapshotsSnapshotIdRoute:

@@ -1,6 +1,6 @@
 # PixelSlash facts
 
-Checked against main at a329347 on 2026-11-24.
+Checked against main at 39be7fd on 2026-11-25.
 
 ## What it is
 PixelSlash shows what changed on a web page between two versions of it, Main and Branch, as a report you open in a browser, and can send those shots to a review app where a person accepts or rejects each change. It is in alpha, and the command line tool is at version 0.8.
@@ -33,11 +33,11 @@ PixelSlash shows what changed on a web page between two versions of it, Main and
 - `github-status-and-comment`: the review app posts a commit status on GitHub and keeps one comment per pull request; it does not react to anything on GitHub.
 - `block-ci-on-review`: `pixelslash status --wait` makes a CI job wait until a person has decided.
 - `subprojects`: one project can hold subprojects (end-to-end shots, stories) with their own builds and review, and one GitHub status for them all.
+- `combined-subproject-review`: one page reviews every change on a commit across a project and all its subprojects, and the pull request gets one comment for the group.
 - `server-ai-explanations`: a project can name its own OpenAI-compatible model; the review app then sends it crops of the changed regions only, never a whole shot, to explain each change.
 - `api-v1`: the review app has an HTTP API under `/api/v1`, which may still change while PixelSlash is in alpha.
 
 ## Planned
-- `combined-subproject-review`: one review across all of a project's subprojects, instead of a page per subproject ([personas](docs/personas/README.md)).
 
 ## Licence
 - `licence`: Elastic-2.0, source available under the Elastic License 2.0 (not open source).
