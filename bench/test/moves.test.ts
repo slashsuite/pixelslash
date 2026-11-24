@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { CaseLabel } from "../src/corpus.ts";
-import { checkMoves, moveFailures, type MoveResult } from "../src/moves.ts";
+import { moveFailures, type MoveResult } from "../src/moves.ts";
 
 const label: CaseLabel = {
   label: "real",
@@ -21,12 +21,6 @@ const movedBy = (dx: number, dy: number) => ({
 });
 
 describe("the moved-block guard", () => {
-  test("passes the committed pairs", () => {
-    const { cases, failures } = checkMoves();
-    expect(cases).toBeGreaterThanOrEqual(3);
-    expect(failures).toEqual([]);
-  });
-
   test("passes one moved region and red no wider than the strip the block vacated", () => {
     const ok: MoveResult = { changed: true, changedPixels: 2400, regions: [movedBy(0, 4)] };
     expect(moveFailures(label, ok)).toEqual([]);

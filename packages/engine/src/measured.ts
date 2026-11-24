@@ -98,22 +98,3 @@ export function withOverlay(
 ): PixelDiff & { overlay: Buffer } {
   return { ...rest, overlay, width, height, mainWidth, mainHeight, branchWidth, branchHeight };
 }
-
-/** `measure`, then the overlay's encode. */
-export function measuredDiff(
-  shots: [Raster, Raster],
-  overlay: Raster,
-  counts: Counts,
-  {
-    options = {},
-    encode,
-    blobs,
-  }: {
-    options?: DiffOptions;
-    encode: (overlay: Raster) => Buffer;
-    blobs?: BlobBoxes;
-  },
-): PixelDiff & { overlay: Buffer } {
-  const measured = measure(shots, overlay, counts, { options, blobs });
-  return withOverlay(measured, encode(overlay));
-}

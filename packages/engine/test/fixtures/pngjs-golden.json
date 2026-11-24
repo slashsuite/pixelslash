@@ -140,8 +140,8 @@
   "antialiased": 11916,
   "regions": 3,
   "overlay": "984f19fdd7de12ac135c4f32edf21684211811cdc19d4a9e597bf645ea374e45",
-  "diff": "ca8629c43fbd59e8",
-  "measure": "ca8629c43fbd59e8"
+  "diff": "0c978451e42fb0d1",
+  "measure": "0c978451e42fb0d1"
  },
  "corpus/noise-hinting-none-vs-full-dashboard": {
   "changedPixels": 7466,
@@ -452,8 +452,8 @@
   "antialiased": 1173,
   "regions": 3,
   "overlay": "90f08099d8b1ed5cdfc2facd2f9a3fe7d9bd33cd14718b811251ea17c441faa6",
-  "diff": "ef7a5ebef589d8f2",
-  "measure": "ef7a5ebef589d8f2"
+  "diff": "9def0cf5c03c312f",
+  "measure": "9def0cf5c03c312f"
  },
  "corpus/real-reflow-article-narrower": {
   "changedPixels": 40897,
@@ -464,12 +464,12 @@
   "measure": "c678fb916c282043"
  },
  "corpus/real-reflow-form-row-stack": {
-  "changedPixels": 18963,
-  "antialiased": 3078,
-  "regions": 1,
-  "overlay": "01c6080e115c8cfbdd0c2258c5804ab0c52ade2b52645011471883346a993ec1",
-  "diff": "9dcdc8da9d8ca612",
-  "measure": "9dcdc8da9d8ca612"
+  "changedPixels": 910,
+  "antialiased": 671,
+  "regions": 3,
+  "overlay": "4b64559291d0c232180a368fae0fda62dfa2bacb6c2dc367d7b8edf844ba7231",
+  "diff": "662a54c4bb76b5c6",
+  "measure": "662a54c4bb76b5c6"
  },
  "corpus/real-reflow-nav-right": {
   "changedPixels": 573,
@@ -1132,8 +1132,8 @@
   "antialiased": 2305,
   "regions": 6,
   "overlay": "2e52a07f39f4b560bf0bbf178fe6f2495d87e2ae9100771401654f72e24672a5",
-  "diff": "321fe5e656c83aca",
-  "measure": "321fe5e656c83aca"
+  "diff": "71172f75bcf1dba5",
+  "measure": "71172f75bcf1dba5"
  },
  "corpus-holdout/real-size-append-inbox": {
   "changedPixels": 0,

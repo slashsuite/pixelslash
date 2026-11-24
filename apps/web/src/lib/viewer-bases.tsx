@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { BaselineBuild } from "#/db/baseline-build";
 import type { DiffResult, DiffStatus } from "#/db/schema";
+import { movedSuffix, regionCounts } from "./region-counts";
 
 /**
  * What the viewer's left pane is, said honestly. A shot is compared first with the previous build of
@@ -70,10 +71,10 @@ function summaryOf(
   if (status === "new" && !result) return "New against main: main has no such shot.";
   if (!result) return null;
   if (result.settledBy) return "No change: identical bytes, not diffed.";
-  const regions = result.regions.filter((region) => region.kind === "change").length;
+  const { boxes: regions, moved } = regionCounts(result);
   const px = format.number(result.changedPixels);
   const share = format.percent(result.changedPixels, result.width * result.height);
-  return `${px} changed px (${share}) in ${regions} ${regions === 1 ? "region" : "regions"}`;
+  return `${px} changed px (${share}) in ${regions} ${regions === 1 ? "region" : "regions"}${movedSuffix(moved)}`;
 }
 
 /** A link to the earlier build's shot, or its plain label when the caller cannot link. */

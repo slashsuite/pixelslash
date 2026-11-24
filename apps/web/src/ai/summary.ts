@@ -9,6 +9,7 @@ import { projectOf } from "#/diff/build-writes";
 import { shotChips, shotLabeller } from "#/lib/shot-label";
 import { type SnapshotGroup, groupOf } from "#/lib/snapshot-groups";
 import { warn } from "#/lib/log";
+import { regionCounts } from "#/lib/region-counts";
 import { tooManyChanges } from "#/lib/summary-limit";
 import { MODEL_TIMEOUT_MS, ModelError, type ModelFetch, complete } from "./model";
 import { tally } from "./usage";
@@ -120,18 +121,25 @@ function itemsOf(
   }));
 }
 
-/** One changed shot's line: its variant, what the diff measured, and the model's notes. */
-function changedLine(row: Row, chips: string[]): string {
-  const result = row.diffResult;
-  const regions = (result?.regions ?? []).filter((r) => r.kind === "change");
-  const parts = [
-    `${chips.join(", ")}: ${(result?.changedPixels ?? 0).toLocaleString("en-US")} px changed`,
-    plural(regions.length, "region"),
-  ];
+/** What the diff measured on one shot: pixels, regions, moved blocks and a size change. */
+function measuredParts(result: Row["diffResult"]): string[] {
+  const { boxes, moved } = regionCounts({ regions: result?.regions ?? [] });
+  const parts = [plural(boxes, "region")];
+  if (moved > 0) parts.push(`${plural(moved, "block")} moved intact`);
   if (result?.sizeChanged)
     parts.push(
       `size changed from ${result.mainWidth}x${result.mainHeight} to ${result.branchWidth}x${result.branchHeight}`,
     );
+  return parts;
+}
+
+/** One changed shot's line: its variant, what the diff measured, and the model's notes. */
+function changedLine(row: Row, chips: string[]): string {
+  const result = row.diffResult;
+  const parts = [
+    `${chips.join(", ")}: ${(result?.changedPixels ?? 0).toLocaleString("en-US")} px changed`,
+    ...measuredParts(result),
+  ];
   const notes = row.aiReview?.regions ?? [];
   const said = notes.map((note, i) => `region ${i + 1} (${note.label}): ${note.explanation}`);
   if (notes.length === 0) parts.push("no region was explained");

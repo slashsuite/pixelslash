@@ -13,7 +13,7 @@ export const MIN_LINES = 12;
 const MIN_CONTENT_LINES = 3;
 /** Nearest hash candidates tried for a line before it is given up on. */
 const MAX_CANDIDATES = 8;
-export const NONE = 0x7fffffff;
+const NONE = 0x7fffffff;
 /**
  * A line's match: none; all but a few pixels (a rounded corner re-rasterised at a new offset);
  * every pixel within the colour threshold; or byte for byte.
@@ -22,7 +22,7 @@ const DIFFERS = 0;
 const ROUGH = 1;
 export const CLOSE = 2;
 export const IDENTICAL = 3;
-export type Match = typeof DIFFERS | typeof ROUGH | typeof CLOSE | typeof IDENTICAL;
+type Match = typeof DIFFERS | typeof ROUGH | typeof CLOSE | typeof IDENTICAL;
 /** The pixels a line may miss by and still be ROUGH: at least this many, or a share of the span. */
 const MIN_MISSES = 4;
 const MISS_SHARE = 1 / 50;
@@ -42,9 +42,14 @@ export type MoveInput = {
 export type Span = { l0: number; l1: number; p0: number; p1: number };
 
 /** One pass: the pair, the axis (rows when `vertical`) and the span of lines it compares. */
-export type Scan = { input: MoveInput; vertical: boolean; span: Span };
+type Scan = { input: MoveInput; vertical: boolean; span: Span };
 
-export type Block = { d: number; l0: number; l1: number; p0: number; p1: number; exact: boolean };
+/**
+ * A block that moved by `d` along the axis over lines `l0..l1`. `worst` is its worst line's match:
+ * IDENTICAL byte for byte, CLOSE within the colour threshold, or ROUGH with a few pixels that miss
+ * (those stay changed).
+ */
+export type Block = { d: number; l0: number; l1: number; p0: number; p1: number; worst: Match };
 
 /** The byte offset of position `p` on line `line`: a row when `vertical`, a column otherwise. */
 export function byteAt(r: Raster, vertical: boolean, line: number, p: number): number {
@@ -225,15 +230,17 @@ function trimmed(scan: Scan, lines: Lines, start: number, end: number): [number,
   return [i0, i1];
 }
 
-/** The lines of `[i0, i1]` that are not one colour and match, and whether every one is exact. */
-function evidence(lines: Lines, i0: number, i1: number): { content: number; exact: boolean } {
+/** The lines of `[i0, i1]` that are not one colour and match, and the worst match of any line. */
+function evidence(lines: Lines, i0: number, i1: number): { content: number; worst: Match } {
   let content = 0;
-  let exact = true;
+  let worst: Match = IDENTICAL;
   for (let i = i0; i <= i1; i++) {
-    if (lines.uniform[i] === 0 && num(lines.match, i, 0) >= CLOSE) content++;
-    if (lines.match[i] !== IDENTICAL) exact = false;
+    const match = num(lines.match, i, DIFFERS);
+    if (lines.uniform[i] === 0 && match >= CLOSE) content++;
+    if (match === ROUGH) worst = ROUGH;
+    else if (match === CLOSE && worst === IDENTICAL) worst = CLOSE;
   }
-  return { content, exact };
+  return { content, worst };
 }
 
 /** The block the run `[start, end]` of one offset makes, or null when it is not a move. */
@@ -241,10 +248,10 @@ function blockOf(scan: Scan, lines: Lines, start: number, end: number): Block | 
   const d = num(lines.d, start, NONE);
   if (d === NONE || d === 0) return null;
   const [i0, i1] = trimmed(scan, lines, start, end);
-  const { content, exact } = evidence(lines, i0, i1);
+  const { content, worst } = evidence(lines, i0, i1);
   if (i1 - i0 + 1 < MIN_LINES || content < MIN_CONTENT_LINES) return null;
   const { l0, p0, p1 } = scan.span;
-  return { d, l0: l0 + i0, l1: l0 + i1, p0, p1, exact };
+  return { d, l0: l0 + i0, l1: l0 + i1, p0, p1, worst };
 }
 
 /** Step 3: the runs of one non-zero offset, trimmed, that are long enough to call a move. */

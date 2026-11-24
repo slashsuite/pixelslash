@@ -36,6 +36,24 @@ function page(width: number, height: number, blocks: Block[]): Buffer {
 
 const header: Block = { x: 20, y: 10, w: 160, h: 30, seed: 1 };
 const body = (y: number): Block => ({ x: 20, y, w: 160, h: 90, seed: 2 });
+/** Whether (x, y) is on the 1 px border of the 261x121 card at `top`. */
+function onBorder(top: number, x: number, y: number): boolean {
+  const edge = (y === top || y === top + 120) && x >= 20 && x <= 280;
+  return edge || ((x === 20 || x === 280) && y >= top && y <= top + 120);
+}
+
+/** A 261x121 card with a 1 px border at `top`, a block of text near its top and one 54 px lower. */
+function card(top: number): Buffer {
+  const img = PNG.sync.read(page(300, 200, [{ x: 40, y: top + 6, w: 200, h: 12, seed: 7 }]));
+  const text = PNG.sync.read(page(300, 200, [{ x: 40, y: top + 60, w: 200, h: 12, seed: 8 }]));
+  for (let y = 0; y < 200; y++)
+    for (let x = 0; x < 300; x++) {
+      const i = (y * 300 + x) * 4;
+      if (onBorder(top, x, y)) img.data.set([0xcb, 0xd5, 0xe1, 255], i);
+      else if (y >= top + 60) img.data.set(text.data.subarray(i, i + 4), i);
+    }
+  return PNG.sync.write(img);
+}
 const block = (x: number): Block => ({ x, y: 50, w: 60, h: 40, seed: 3 });
 const icon = (y: number, seed: number): Block => ({ x: 20, y, w: 24, h: 24, seed });
 const glyph = (x: number): Block => ({ x, y: 20, w: 8, h: 8, seed: 6 });
@@ -92,6 +110,12 @@ describe("moved blocks", () => {
     expect(d.changedPixels).toBe(0);
     expect(d.regions.map((r) => r.kind)).toEqual(["moved"]);
     expect(d.changed).toBe(true);
+  });
+
+  test("a bordered card whose blank rows look the same moved or not is still a move", () => {
+    const d = measurePngs(card(30), card(34));
+    expect(moved(d.regions).map((r) => r.move && [r.move.dx, r.move.dy])).toEqual([[0, 4]]);
+    expect(d.changedPixels).toBeLessThanOrEqual(261 * 4);
   });
 
   test("content that is still at its source was copied, not moved", () => {

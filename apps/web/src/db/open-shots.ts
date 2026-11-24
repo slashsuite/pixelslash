@@ -67,6 +67,7 @@ export async function mostChangedShots(
     .toSorted(
       (a, b) =>
         b.changedPixels - a.changedPixels ||
+        b.movedBlocks - a.movedBlocks ||
         a.name.localeCompare(b.name) ||
         a.viewport.localeCompare(b.viewport),
     )

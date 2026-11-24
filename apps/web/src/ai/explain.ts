@@ -154,7 +154,8 @@ type Model = NonNullable<Awaited<ReturnType<typeof projectModelFor>>>;
 /**
  * Explain one shot and store its notes, auto-passing it when the project opted in and the model
  * called every `change` region noise. A shot whose size changed is never auto-passed: its regions
- * cover only the overlap, so part of it was never measured. A reviewer may have decided the shot,
+ * cover only the overlap, so part of it was never measured. Nor is a shot with a block that moved
+ * intact: the model sees only the `change` crops, and a move is a change a person should see. A reviewer may have decided the shot,
  * or a re-run measured it again, while the model was asked: then nothing is written. `stored` is
  * whether the model explained a region, written or not; `failure` is the first call that failed.
  */
@@ -171,6 +172,7 @@ export async function storeShot(
     model.autoPassNoise &&
     whole &&
     !shot.diffResult?.sizeChanged &&
+    !shot.diffResult?.regions.some((region) => region.kind === "moved") &&
     notes.every((note) => note.label === "noise");
   const aiReview: AiReview = { model: model.model, at: now(), regions: notes, autoPassed, usage };
   const decided = autoPassed

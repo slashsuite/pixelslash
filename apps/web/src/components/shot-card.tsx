@@ -3,6 +3,8 @@ import { Caption, Card, Cluster, ClusterGrow, Pill, Stack, Text } from "@hackcov
 import { changeCrop } from "../../../../packages/engine/src/report-crop.ts";
 import { IDENTICAL_NOTE } from "../../../../packages/engine/src/identical-note.ts";
 import { a11yLine } from "#/components/a11y";
+import { REGION_COLOURS } from "#/components/snapshot-frame";
+import { movedSuffix, regionCounts } from "#/lib/region-counts";
 import { type Composition, findingsLine } from "#/components/composition";
 import type { SnapshotView } from "#/db/review";
 import { labelSummary } from "#/components/ai-notes";
@@ -82,17 +84,16 @@ export function ShotThumb({ shot, src }: { shot: SnapshotView; src: string | und
         >
           <image href={src} width={result.branchWidth} height={result.branchHeight} />
           {result.regions
-            .filter((region) => region.kind === "change")
+            .filter((region) => region.kind === "change" || region.kind === "moved")
             .map((region) => (
               <rect
-                key={`${region.x}-${region.y}-${region.w}-${region.h}`}
-                data-kind="change"
+                key={`${region.kind}-${region.x}-${region.y}-${region.w}-${region.h}`}
+                data-kind={region.kind}
                 x={region.x}
                 y={region.y}
                 width={region.w}
                 height={region.h}
-                fill="rgba(239, 68, 68, 0.2)"
-                stroke="#ef4444"
+                {...(region.kind === "moved" ? MOVED_BOX : CHANGE_BOX)}
                 strokeWidth={2}
                 vectorEffect="non-scaling-stroke"
               />
@@ -102,6 +103,10 @@ export function ShotThumb({ shot, src }: { shot: SnapshotView; src: string | und
     </div>
   );
 }
+
+/** The thumbnail's boxes: red for a change, the calm dashed outline of the viewer for a moved block. */
+const CHANGE_BOX = { fill: "rgba(239, 68, 68, 0.2)", stroke: "#ef4444" };
+const MOVED_BOX = { fill: "none", stroke: REGION_COLOURS.moved, strokeDasharray: "6 4" };
 
 /** A new shot has no baseline to compare with; in the project's first build it is the baseline. */
 const newLine = (baseline: boolean) =>
@@ -134,10 +139,9 @@ const unchangedLine = (shot: SnapshotView) => {
 
 /** "N px in B boxes", and how many blocks moved intact. */
 function changedLine(result: NonNullable<SnapshotView["diffResult"]>) {
-  const boxes = result.regions.filter((region) => region.kind === "change").length;
-  const moved = result.regions.filter((region) => region.kind === "moved").length;
+  const { boxes, moved } = regionCounts(result);
   const inBoxes = `${formatNumber(result.changedPixels)} px in ${boxes} box${boxes === 1 ? "" : "es"}`;
-  return { boxes, changed: moved > 0 ? `${inBoxes} · ${moved} moved intact` : inBoxes };
+  return { measuredAny: boxes + moved > 0, changed: `${inBoxes}${movedSuffix(moved)}` };
 }
 
 /** The measured change, in the words the reviewer needs; nothing invented. */
@@ -150,10 +154,10 @@ export function measured(shot: SnapshotView, baseline: boolean): string {
   const result = shot.diffResult;
   if (!result) return "not compared";
   if (shot.diffStatus === "unchanged") return unchangedLine(shot);
-  const { boxes, changed } = changedLine(result);
+  const { measuredAny, changed } = changedLine(result);
   if (result.sizeChanged) {
     const sizes = `${result.mainWidth}×${result.mainHeight} → ${result.branchWidth}×${result.branchHeight}`;
-    return boxes > 0 ? `${changed} · size changed ${sizes}` : `size changed ${sizes}`;
+    return measuredAny ? `${changed} · size changed ${sizes}` : `size changed ${sizes}`;
   }
   return changed;
 }

@@ -34,13 +34,13 @@ export function newField(width: number, height: number): DiffField {
 export type RegionKind = "change" | "noise" | "shift" | "moved";
 
 /** A rectangle in pixels, top-left origin. */
-export type Rect = { x: number; y: number; w: number; h: number };
+type Rect = { x: number; y: number; w: number; h: number };
 
 /**
  * A block that moved by whole pixels with its content intact (a `moved` region). The region's own
  * box is where the block sits on Branch, clipped to the overlap; `from` is where it sat on Main.
  */
-export type Move = { dx: number; dy: number; from: Rect };
+type Move = { dx: number; dy: number; from: Rect };
 
 export type Region = {
   x: number;

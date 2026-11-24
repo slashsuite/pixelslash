@@ -3,6 +3,7 @@ import {
   byteAt,
   CLOSE,
   compareLines,
+  IDENTICAL,
   lineCount,
   lineHash,
   lineOffsets,
@@ -20,8 +21,6 @@ import {
   type RegionOptions,
   type RegionResult,
 } from "./regions.ts";
-
-export type { MoveInput } from "./move-lines.ts";
 
 /**
  * Moved blocks.
@@ -110,6 +109,15 @@ function clearCells(input: MoveInput, vertical: boolean, cells: number[]) {
   return { changed, antialiased };
 }
 
+/**
+ * How much of the content the move explains, by the block's worst line. A ROUGH line has a few
+ * pixels that do not match (left changed and red), so the rest of the content is the same.
+ */
+const CONTENT_WORDS: Record<number, string> = {
+  [IDENTICAL]: "content identical",
+  [CLOSE]: "content the same within the threshold",
+};
+
 /** The `moved` region for `block`, spanning `q0..q1` across the move. */
 function movedRegion(vertical: boolean, block: Block, q0: number, q1: number): Region {
   const along = { at: block.l0, len: block.l1 - block.l0 + 1 };
@@ -119,7 +127,7 @@ function movedRegion(vertical: boolean, block: Block, q0: number, q1: number): R
     : { x: along.at, y: across.at, w: along.len, h: across.len };
   const dx = vertical ? 0 : block.d;
   const dy = vertical ? block.d : 0;
-  const content = block.exact ? "content identical" : "content the same within the threshold";
+  const content = CONTENT_WORDS[block.worst] ?? "content otherwise the same";
   return {
     ...box,
     changedPixels: 0,
@@ -148,8 +156,9 @@ function clearBlock(
 
 /**
  * Step 4: whether Branch still has the block's content at the place it came from, so it was
- * copied, not moved. Counted over the lines that are not one colour: half or more matching at
- * their source is still there.
+ * copied, not moved. Counted over the lines that are not one colour and that differ where they are
+ * (a card's blank rows between its side borders look the same moved or not, and prove nothing):
+ * half or more matching at their source is still there.
  */
 function stillThere(input: MoveInput, vertical: boolean, block: Block): boolean {
   const scan = {
@@ -163,6 +172,7 @@ function stillThere(input: MoveInput, vertical: boolean, block: Block): boolean 
   for (let line = block.l0; line <= block.l1; line++) {
     const from = line - block.d;
     if (lineHash(input.main, vertical, from, scan.span).uniform) continue;
+    if (compareLines(scan, line, line) >= CLOSE) continue;
     content++;
     if (from < 0 || from >= branchLines) continue;
     // Branch's line at the source against Main's: the same means the content never left.
@@ -194,7 +204,7 @@ function movesIn(input: MoveInput, vertical: boolean, region: Region) {
   );
 }
 
-export type Moves = {
+type Moves = {
   /** The regions found again over the field with the moved blocks taken out. */
   found: RegionResult;
   moved: Region[];

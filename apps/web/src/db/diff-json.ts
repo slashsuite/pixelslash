@@ -47,7 +47,7 @@ export type UiIgnoreBox = IgnoreRect & {
 export type RegionKind = "change" | "noise" | "shift" | "moved";
 
 /** A rectangle in image px, the same shape as the engine's `Rect`. */
-export type Rect = { x: number; y: number; w: number; h: number };
+type Rect = { x: number; y: number; w: number; h: number };
 
 /** How a `moved` block moved: by `dx`, `dy` whole px, from `from` on Main. The engine's `Move`. */
 export type RegionMove = { dx: number; dy: number; from: Rect };

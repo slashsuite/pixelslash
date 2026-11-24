@@ -133,6 +133,29 @@ describe("against main", () => {
     expect(about).toMatchObject({ note: null, facts: "100 px in 1 box" });
   });
 
+  test("a block that moved intact is counted beside the boxes, so a moves-only shot is not 0 of nothing", () => {
+    const moved = {
+      kind: "moved" as const,
+      x: 0,
+      y: 40,
+      w: 600,
+      h: 100,
+      changedPixels: 0,
+      antialiasedPixels: 0,
+      move: { dx: 0, dy: 4, from: { x: 0, y: 36, w: 600, h: 100 } },
+    };
+    const [line] = againstMainLines([
+      branchShot(
+        view("list", {
+          mainDiffStatus: "changed",
+          mainDiffResult: result({ changedPixels: 0, regions: [moved] }),
+        }),
+        head,
+      ),
+    ]);
+    expect(line?.facts).toBe("0 px in 0 boxes · 1 moved intact");
+  });
+
   test("a shot never measured against main is not counted and withholds ready", () => {
     const summary = mainSummary(shots, true);
     expect(summary).toEqual({
