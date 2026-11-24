@@ -206,8 +206,10 @@ describe("a shot that times out is retried alone after the run (PS-474)", () => 
     expect(out).toEqual([
       "retry: 2 shots timed out under load; retried alone after the run: b (wide: light, 16x16), d (narrow: light, 8x16)",
     ]);
-    // Both were retried: the first failure on the solo pass does not hide the second.
-    expect(seen.alongside.filter((a) => a.running === 1).map((a) => a.name)).toEqual([
+    // Both were retried alone: judge each shot's last attempt, its solo retry. An earlier pool
+    // attempt can also run alone when the pool has drained to one shot.
+    const last = new Map(seen.alongside.map((a) => [a.name, a.running]));
+    expect([...last].filter(([, running]) => running === 1).map(([name]) => name)).toEqual([
       "b/wide",
       "d/narrow",
     ]);
