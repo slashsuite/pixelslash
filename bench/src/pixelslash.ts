@@ -5,9 +5,14 @@ import { caseKey, type CorpusCase } from "./corpus.ts";
 import type { Rect } from "./regions.ts";
 import type { ToolResult } from "./types.ts";
 
-/** The engine's own regions, not noise ones: those are kept in the result but are not "changed". */
+/**
+ * The engine's regions that make a shot changed: `change`, and `moved` (a block that moved intact
+ * is still something to see). Noise and shift regions are kept in the result but are not "changed".
+ */
 export function changeRegions(diff: PixelDiff): Rect[] {
-  return diff.regions.filter((r) => r.kind === "change").map(({ x, y, w, h }) => ({ x, y, w, h }));
+  return diff.regions
+    .filter((r) => r.kind === "change" || r.kind === "moved")
+    .map(({ x, y, w, h }) => ({ x, y, w, h }));
 }
 
 /** PixelSlash's diff at its defaults: perceptual threshold, anti-aliased edges set aside, a size mismatch is a change (packages/engine/src/diff.ts). */

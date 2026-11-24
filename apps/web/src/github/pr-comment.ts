@@ -47,6 +47,13 @@ export function plain(text: string): string {
   return text.replace(/[\\`[\]<>]/g, "\\$&").replaceAll("@", "@​");
 }
 
+/** "120 px changed", and the blocks that moved intact when there are any. */
+function measuredLine(shot: ChangedShot): string {
+  const changed = `${shot.changedPixels} px changed`;
+  if (shot.movedBlocks === 0) return changed;
+  return `${changed}, ${plural(shot.movedBlocks, "block")} moved intact`;
+}
+
 const shotLabel = (shot: ChangedShot) => `${shot.name} (${shot.viewport}, ${shot.theme})`;
 
 function shotLines(shots: ChangedShot[], pageUrl: string | undefined): string[] {
@@ -54,7 +61,7 @@ function shotLines(shots: ChangedShot[], pageUrl: string | undefined): string[] 
   const lines = shots.map((shot) => {
     const label = plain(shotLabel(shot));
     const named = pageUrl ? `[${label}](${pageUrl}/snapshots/${shot.id})` : label;
-    return `- ${named}: ${shot.kind === "new" ? "new shot" : `${shot.changedPixels} px changed`}`;
+    return `- ${named}: ${shot.kind === "new" ? "new shot" : measuredLine(shot)}`;
   });
   return ["", `Most changed shots:`, ...lines];
 }

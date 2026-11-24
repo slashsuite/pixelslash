@@ -1,8 +1,10 @@
 import type { DiffOptions, IgnoreRect, PixelDiff } from "./diff.ts";
 import type { Region, Specks } from "./regions.ts";
 
-/** A `change` region survives and its changed pixels clear both floors; `measured` excludes ignored pixels. */
+/** A block moved, or a `change` region survives and its changed pixels clear both floors; `measured` excludes ignored pixels. */
 export function clearsFloors(regions: Region[], measured: number, options: DiffOptions): boolean {
+  // A block that moved is a layout change even with no pixel left red: a moves-only shot is a change.
+  if (regions.some((r) => r.kind === "moved")) return true;
   const surviving = regions
     .filter((r) => r.kind === "change")
     .reduce((n, r) => n + r.changedPixels, 0);

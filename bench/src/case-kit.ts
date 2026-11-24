@@ -42,7 +42,12 @@ export type CaseDef = {
    * prefix takes the rect of the text itself, not of the (often full-width) element holding it.
    */
   box?: string[];
+  /** The `moves` set: the whole-pixel move the engine must report as a `moved` region. */
+  move?: Move;
 };
+
+/** A block's move, Main to Branch, in whole pixels along one axis. */
+export type Move = { dx: number; dy: number };
 
 export const same = (name: string, page: string, extra: Partial<CaseDef> = {}): CaseDef => ({
   name,

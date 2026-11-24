@@ -1,5 +1,5 @@
 import { changedOf } from "@slashsuite/pixelslash-engine/diff";
-import type { DiffOptions, DiffRegion, DiffResult, IgnoreRect } from "#/db/schema";
+import type { DiffOptions, DiffRegion, DiffResult, IgnoreRect, RegionMove } from "#/db/schema";
 
 /**
  * A CI project's results (ob 1727): the CLI diffs each shot against the baseline the server picked
@@ -72,26 +72,63 @@ function rect(v: unknown, area: Area, where: string): IgnoreRect {
   return out;
 }
 
-function region(v: unknown, area: Area, where: string): DiffRegion {
+function int(v: unknown, where: string): number {
+  if (typeof v !== "number" || !Number.isSafeInteger(v)) fail(`${where} must be an integer`);
+  return v;
+}
+
+function boxOf(v: unknown, where: string): Box {
   if (!isObj(v)) fail(`${where} must be an object`);
-  const kind = v.kind;
-  if (kind !== "change" && kind !== "noise" && kind !== "shift")
-    fail(`${where}.kind must be change, noise or shift`);
-  const out: DiffRegion = {
+  return {
     x: count(v.x, `${where}.x`),
     y: count(v.y, `${where}.y`),
     w: size(v.w, `${where}.w`),
     h: size(v.h, `${where}.h`),
+  };
+}
+
+/**
+ * A `moved` region's move: whole px along one axis, and a source on Main that is the region's box
+ * less the move, inside Main. Only a moved region carries one.
+ */
+function moveOf(v: unknown, to: Box, main: Area, where: string): RegionMove {
+  if (!isObj(v)) fail(`${where} must be an object`);
+  const dx = int(v.dx, `${where}.dx`);
+  const dy = int(v.dy, `${where}.dy`);
+  if ((dx === 0) === (dy === 0)) fail(`${where} must move along exactly one axis`);
+  const from = boxOf(v.from, `${where}.from`);
+  if (from.x !== to.x - dx || from.y !== to.y - dy || from.w !== to.w || from.h !== to.h)
+    fail(`${where}.from must be the region's box less the move`);
+  if (from.x + from.w > main.w || from.y + from.h > main.h)
+    fail(`${where}.from lies outside the ${main.w}x${main.h} baseline`);
+  return { dx, dy, from };
+}
+
+function kindOf(v: unknown, where: string): DiffRegion["kind"] {
+  if (v !== "change" && v !== "noise" && v !== "shift" && v !== "moved")
+    fail(`${where} must be change, noise, shift or moved`);
+  return v;
+}
+
+function whyOf(v: unknown, where: string): { why?: string } {
+  if (v === undefined) return {};
+  if (typeof v !== "string" || v.length > 200) fail(`${where} must be a short string`);
+  return { why: v };
+}
+
+function region(v: unknown, area: Area, main: Area, where: string): DiffRegion {
+  if (!isObj(v)) fail(`${where} must be an object`);
+  const kind = kindOf(v.kind, `${where}.kind`);
+  const out: DiffRegion = {
+    ...boxOf(v, where),
     changedPixels: count(v.changedPixels, `${where}.changedPixels`),
     antialiasedPixels: count(v.antialiasedPixels, `${where}.antialiasedPixels`),
     kind,
+    ...whyOf(v.why, `${where}.why`),
   };
-  if (v.why !== undefined) {
-    if (typeof v.why !== "string" || v.why.length > 200)
-      fail(`${where}.why must be a short string`);
-    out.why = v.why;
-  }
   inside(out, area, where);
+  if (kind === "moved") out.move = moveOf(v.move, out, main, `${where}.move`);
+  else if (v.move !== undefined) fail(`${where}.move is only for a moved region`);
   if (out.changedPixels + out.antialiasedPixels > out.w * out.h)
     fail(`${where} counts more pixels than its box holds`);
   return out;
@@ -140,7 +177,9 @@ function shapeOf(raw: unknown, image: Size, against: Size): DiffResult {
       count: count(raw.specks.count, "specks.count"),
       pixels: count(raw.specks.pixels, "specks.pixels"),
     },
-    regions: list(raw.regions, "regions", MAX_REGIONS, (r, at) => region(r, area, at)),
+    regions: list(raw.regions, "regions", MAX_REGIONS, (r, at) =>
+      region(r, area, { w: mainWidth, h: mainHeight }, at),
+    ),
     width,
     height,
     mainWidth,

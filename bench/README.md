@@ -281,7 +281,8 @@ their decoders and overlay encoders, are gone (PS-210, PS-211). The runner's `--
 and ignored. When the WASM diff landed (PS-209) its verdict and
 regions matched the pngjs reference on all 157 pairs; since PS-210 it reads every PNG pngjs read,
 and `packages/engine/test/fixtures/pngjs-golden.json` holds pngjs's whole result, overlay included,
-for each of them.
+for each of them. The pairs with a block that moved intact were refreshed when `moved` regions came
+in: those pixels left the red and the counts on purpose.
 
 ### Scoring: `bench -- --impl`
 
@@ -413,10 +414,17 @@ caught fall, or noise or identical pairs flagged rise. Fractions are compared ex
 grew compares by rate). It prints every number before and after, and the cases whose verdict moved.
 It needs no VM and no browser.
 
+It also runs the moved-block guard (`src/moves.ts`) over `bench/moves/`: three pairs from
+`src/moves-cases.ts` (`bun bench/src/generate.ts --set moves`), a gap on the dashboard grown 4 px on a
+full page and in a fixed viewport, and the header's logo pushed right 12 px. Each `label.json` carries
+the `move`. The guard fails when a pair is not called changed, when it is not reported as one `moved`
+region by that move over the labelled box, or when more pixels are painted changed than the strip the
+block left behind. Argos has no verdict on these pairs, so they are not a scored corpus.
+
 It is in the gate: `bench:test` depends on `bench:check`, so `bun run test` (and `moon run :test`)
 runs it and fails on a regression. The check is cacheable. Its inputs are `bench/src`, the committed
-corpora, `bench/results/*.json`, `bench/package.json`, `bun.lock` and the engine's diff sources
-(`index.ts`, `diff.ts`, `diff-options.ts`, `regions.ts`, `shift.ts`), plus what every TypeScript task
+corpora and `bench/moves/`, `bench/results/*.json`, `bench/package.json`, `bun.lock` and the engine's diff sources
+(`index.ts`, `diff.ts`, `diff-options.ts`, `regions.ts`, `shift.ts`, `moved.ts`, `measured.ts`), plus what every TypeScript task
 inherits (all of `packages/**` and the root files in `.moon/tasks/all.yml`); an edit to any of them
 re-runs it, and an edit anywhere else (`apps/web`, the docs) replays it from cache.
 

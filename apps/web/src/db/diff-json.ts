@@ -44,7 +44,13 @@ export type UiIgnoreBox = IgnoreRect & {
   at: number;
 };
 
-export type RegionKind = "change" | "noise" | "shift";
+export type RegionKind = "change" | "noise" | "shift" | "moved";
+
+/** A rectangle in image px, the same shape as the engine's `Rect`. */
+export type Rect = { x: number; y: number; w: number; h: number };
+
+/** How a `moved` block moved: by `dx`, `dy` whole px, from `from` on Main. The engine's `Move`. */
+export type RegionMove = { dx: number; dy: number; from: Rect };
 
 /** A box of differing pixels, the same shape as the engine's `Region` (ob 1486, 1487). */
 export type DiffRegion = {
@@ -54,9 +60,14 @@ export type DiffRegion = {
   h: number;
   changedPixels: number;
   antialiasedPixels: number;
-  /** Only `change` blocks a build; a `noise` or `shift` box is kept for the reviewer. */
+  /**
+   * Only `change` and `moved` make a shot changed; a `noise` or `shift` box is kept for the
+   * reviewer. A `moved` box is a block that moved intact: its pixels are not counted as changed.
+   */
   kind: RegionKind;
   why?: string;
+  /** On a `moved` region only: the box is the block on Branch, `move.from` where it sat on Main. */
+  move?: RegionMove;
 };
 
 /**

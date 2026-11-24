@@ -82,6 +82,7 @@ function Summary({ snapshot }: { snapshot: SnapshotView }) {
     );
   } else {
     const boxes = result.regions.filter((region) => region.kind === "change").length;
+    const moved = result.regions.filter((region) => region.kind === "moved").length;
     body = (
       <KeyValueList>
         <KeyValue label="Changed px">
@@ -90,6 +91,7 @@ function Summary({ snapshot }: { snapshot: SnapshotView }) {
           </span>
         </KeyValue>
         <KeyValue label="Changed regions">{boxes}</KeyValue>
+        {moved > 0 ? <KeyValue label="Moved intact">{moved}</KeyValue> : null}
       </KeyValueList>
     );
   }

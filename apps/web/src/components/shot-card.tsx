@@ -132,6 +132,14 @@ const unchangedLine = (shot: SnapshotView) => {
   return approvedEarlierLine(shot) ?? (shot.carriedFrom ? CARRIED : settled);
 };
 
+/** "N px in B boxes", and how many blocks moved intact. */
+function changedLine(result: NonNullable<SnapshotView["diffResult"]>) {
+  const boxes = result.regions.filter((region) => region.kind === "change").length;
+  const moved = result.regions.filter((region) => region.kind === "moved").length;
+  const inBoxes = `${formatNumber(result.changedPixels)} px in ${boxes} box${boxes === 1 ? "" : "es"}`;
+  return { boxes, changed: moved > 0 ? `${inBoxes} · ${moved} moved intact` : inBoxes };
+}
+
 /** The measured change, in the words the reviewer needs; nothing invented. */
 export function measured(shot: SnapshotView, baseline: boolean): string {
   if (shot.diffStatus === "new") return newLine(baseline);
@@ -142,8 +150,7 @@ export function measured(shot: SnapshotView, baseline: boolean): string {
   const result = shot.diffResult;
   if (!result) return "not compared";
   if (shot.diffStatus === "unchanged") return unchangedLine(shot);
-  const boxes = result.regions.filter((region) => region.kind === "change").length;
-  const changed = `${formatNumber(result.changedPixels)} px in ${boxes} box${boxes === 1 ? "" : "es"}`;
+  const { boxes, changed } = changedLine(result);
   if (result.sizeChanged) {
     const sizes = `${result.mainWidth}×${result.mainHeight} → ${result.branchWidth}×${result.branchHeight}`;
     return boxes > 0 ? `${changed} · size changed ${sizes}` : `size changed ${sizes}`;

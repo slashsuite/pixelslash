@@ -1,0 +1,17 @@
+{
+  "label": "real",
+  "kind": "moved",
+  "page": "dashboard",
+  "width": 640,
+  "height": 360,
+  "box": {
+    "x": 20,
+    "y": 11,
+    "w": 552,
+    "h": 25
+  },
+  "move": {
+    "dx": 12,
+    "dy": 0
+  }
+}

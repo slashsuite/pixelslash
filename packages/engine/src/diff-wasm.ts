@@ -2,7 +2,7 @@
  * The diff, with its hot loops in WebAssembly (PS-204; the only diff since PS-210). The Rust in
  * `engines/wasm` unfilters and expands both PNGs, runs the pixel loop, finds the blob boxes and
  * runs the overlay encode's filter pass (PS-205); inflate and deflate stay in the runtime's zlib,
- * and everything after the boxes (merging, noise, shift labels, floors) is `measuredDiff`. The
+ * and everything after the boxes (merging, noise, shift labels, floors) is `measure`. The
  * chunk walk is `png-walk.ts`, pngjs's reader down to its error messages. There is no JS fallback:
  * a module that will not load or instantiate fails with an error that names it.
  *
@@ -18,7 +18,7 @@ import { type DiffExports, isDiffExports } from "./diff-exports.ts";
 import { type WasmPhases, timed, untimed } from "./diff-phases.ts";
 import type { Raster } from "./diff-probe.ts";
 import { clipRects, ignoreMask } from "./ignore-mask.ts";
-import { DEFAULT_THRESHOLD, measuredDiff } from "./measured.ts";
+import { DEFAULT_THRESHOLD, measure, withOverlay } from "./measured.ts";
 import { type Png, SIGNATURE, plainChannels, walkPng } from "./png-walk.ts";
 import { type Box, DEFAULT_MERGE_DISTANCE, type DiffField } from "./regions.ts";
 import { release } from "./release.ts";
@@ -275,14 +275,6 @@ function* run(
   const loop = { gap, tiles, phases, band: bandTileRows };
   const count = yield* compare(wasm, shots, [skip, maxDelta, field, overlay, out], loop);
   if (count === 0xffffffff) throw new Error("diff.wasm: memory is full");
-  let encodeWith = encode;
-  if (!encodeWith) {
-    const png = timed(phases, "overlay_encode", () =>
-      encodeOverlay(wasm, overlay, overlayWidth, overlayHeight),
-    );
-    encodeWith = () => png;
-    yield;
-  }
   // Views only now: a call that grows the memory detaches every view made before it.
   const memory = wasm.memory.buffer;
   const [boxesPtr = 0] = new Uint32Array(memory, out + 8, 1);
@@ -302,14 +294,21 @@ function* run(
     width: overlayWidth,
     height: overlayHeight,
   };
-  return timed(phases, "regions", () =>
-    measuredDiff(
+  // Measured before the encode: the moved blocks are cleared from the overlay in place.
+  const measured = timed(phases, "regions", () =>
+    measure(
       [a, b],
       raster,
       { changedPixels, antialiased, ignoredPixels, ignored, field: fieldOf },
-      { options, blobs: () => boxes, encode: encodeWith },
+      { options, blobs: () => boxes },
     ),
   );
+  if (encode) return withOverlay(measured, encode(raster));
+  yield;
+  const png = timed(phases, "overlay_encode", () =>
+    encodeOverlay(wasm, overlay, overlayWidth, overlayHeight),
+  );
+  return withOverlay(measured, png);
 }
 
 function instantiate(module: WebAssembly.Module): DiffExports {
