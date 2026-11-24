@@ -2,7 +2,7 @@ import { availableParallelism, loadavg } from "node:os";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { writeGapsReport } from "./composition-report.ts";
-import { resolveDiff, resolveFlaky } from "./config.ts";
+import { resolveDiff, resolveFlaky, type Route, type Variant } from "./config.ts";
 import { CaptureError, CaptureTimeout } from "./errors.ts";
 import { clearFlakeOutput } from "./flake-upload.ts";
 import { identity } from "./manifest.ts";
@@ -45,14 +45,15 @@ export type Machine = { cores: number; load: number };
  * `setAside` accepts (a timeout) does not stop the run: that item waits until the pool has drained
  * and then runs once more, alone, with nothing else shooting. Any other failure stops new items from
  * starting and is thrown once the ones already running have finished, so nothing is still shooting
- * when the caller closes the browser; the items set aside are then not retried. A set-aside item
- * that times out again fails the run with its message and `RETRIED_ALONE`.
+ * when the caller closes the browser; the items set aside are then not retried. Every set-aside item
+ * is retried, and those that time out again fail the run together: one with its message and
+ * `RETRIED_ALONE`, several as one line each under a count, so the error lists every failed shot.
  */
 async function mapLimit<T, R>(
   items: T[],
   limit: number,
   fn: (item: T) => Promise<R>,
-  announce: (count: number) => void,
+  announce: (aside: T[]) => void,
 ): Promise<R[]> {
   const results: R[] = Array.from({ length: items.length });
   const queue = items.map((item, i) => ({ item, i }));
@@ -76,15 +77,40 @@ async function mapLimit<T, R>(
   );
   const failed = done.find((d) => d.status === "rejected");
   if (failed) throw failed.reason;
-  if (aside.length > 0) announce(aside.length);
-  for (const { item, i } of aside.toSorted((a, b) => a.i - b.i)) {
+  const solo = aside.toSorted((a, b) => a.i - b.i);
+  if (solo.length > 0) announce(solo.map((a) => a.item));
+  const again: string[] = [];
+  for (const { item, i } of solo) {
     try {
       results[i] = await fn(item);
     } catch (e) {
-      throw e instanceof CaptureTimeout ? new CaptureError(`${e.message}${RETRIED_ALONE}`) : e;
+      if (!(e instanceof CaptureTimeout)) throw e;
+      again.push(e.message);
     }
   }
+  if (again.length === 1) throw new CaptureError(`${again[0]}${RETRIED_ALONE}`);
+  if (again.length > 1)
+    throw new CaptureError(
+      `${again.length} shots timed out again when retried alone after the run:\n${again.map((m) => `  ${m}`).join("\n")}`,
+    );
   return results;
+}
+
+/** A shot's name in a message: the route, then its variant's name, theme and viewport. */
+export function shotLabel(route: Route, variant: Variant): string {
+  const { width, height } = variant.viewport;
+  return `${route.name} (${variant.name}: ${variant.theme}, ${width}x${height})`;
+}
+
+/**
+ * A shot's capture error with the shot named in front, so a run of hundreds says which one failed.
+ * The class is kept: a `CaptureTimeout` stays one, so it is still set aside and retried alone.
+ * Anything that is not a `CaptureError` (a crash, exit 7) passes through as it is.
+ */
+function nameShot(e: unknown, label: string): unknown {
+  if (!(e instanceof CaptureError)) return e;
+  const message = `${label}: ${e.message}`;
+  return e instanceof CaptureTimeout ? new CaptureTimeout(message) : new CaptureError(message);
 }
 
 /**
@@ -105,11 +131,13 @@ function workerCount(
   return picked;
 }
 
-/** The line for shots set aside after a timeout, printed before they are retried alone. */
-function announceRetry(warn: (message: string) => void): (count: number) => void {
-  return (count) =>
+/** The line for shots set aside after a timeout, naming each, printed before they are retried alone. */
+function announceRetry(
+  warn: (message: string) => void,
+): (aside: { route: Route; variant: Variant }[]) => void {
+  return (aside) =>
     warn(
-      `retry: ${count} ${count === 1 ? "shot" : "shots"} timed out under load; retried alone after the run`,
+      `retry: ${aside.length} ${aside.length === 1 ? "shot" : "shots"} timed out under load; retried alone after the run: ${aside.map((a) => shotLabel(a.route, a.variant)).join(", ")}`,
     );
 }
 
@@ -153,11 +181,11 @@ export async function captureInto(
     async ({ route, variant }) => {
       const file = `${route.name}/${variant.name}.png`;
       const started = performance.now();
-      const { png, ignore, media, composition, a11y, metrics, steps, reused } = await session.shoot(
-        route,
-        variant,
-        { a11y: true, metrics: true, reuse },
-      );
+      const { png, ignore, media, composition, a11y, metrics, steps, reused } = await session
+        .shoot(route, variant, { a11y: true, metrics: true, reuse })
+        .catch((e: unknown) => {
+          throw nameShot(e, shotLabel(route, variant));
+        });
       const captureMs = elapsed(started);
       await mkdir(join(out, route.name), { recursive: true });
       await Bun.write(join(out, file), png);

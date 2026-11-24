@@ -76,7 +76,7 @@ export function trackInflight(page: InflightPage): Inflight {
  */
 declare const document: {
   fonts: { ready: Promise<unknown> };
-  images: ArrayLike<{ complete: boolean; naturalWidth: number }>;
+  images: ArrayLike<{ complete: boolean; naturalWidth: number; loading: string }>;
 };
 declare function requestAnimationFrame(callback: () => void): number;
 type IdleCallback = (callback: () => void, options: { timeout: number }) => number;
@@ -106,6 +106,20 @@ const twoFrames = () =>
   });
 
 /**
+ * Whether every image on the page has loaded. A `loading="lazy"` image is made eager first: one
+ * outside the viewport never starts loading on its own, so the wait would never end, however long
+ * the budget or quiet the machine, and the shot is full-page, so it belongs in the picture anyway.
+ * Switching is idempotent, so the repeated polls of `waitForFunction` change nothing more. Self
+ * contained: Playwright sends its source to the page.
+ */
+const imagesLoaded = () => {
+  const images = Array.from(document.images);
+  // All of them before the check, which stops at the first image not yet loaded.
+  for (const img of images) if (img.loading === "lazy") img.loading = "eager";
+  return images.every((img) => img.complete && img.naturalWidth > 0);
+};
+
+/**
  * The browser's next idle callback: it runs only once the main thread has no task waiting, so a page
  * still hydrating (a scheduler posting slice after slice) holds it. `timeout` bounds it by what is
  * left of the capture budget. A browser with no `requestIdleCallback` runs two frames instead. Self
@@ -127,7 +141,7 @@ const idleCallback = (timeout: number) =>
   });
 
 /**
- * Wait for a page to settle before screenshotting: web fonts, every image, the network, then two
+ * Wait for a page to settle before screenshotting: web fonts, every image (lazy ones made eager), the network, then two
  * animation frames. With `inflight` (made by `trackInflight` before navigation) the network wait is
  * no request in flight, and the frames are followed by the browser's next idle callback, which waits
  * out a page that is still hydrating and has not yet started its data fetch. Then the tracker is read
@@ -150,11 +164,7 @@ export function settleCapture(
   const deadline = Date.now() + timeoutMs;
   const steps = (async () => {
     const fontsMs = await timedMs(() => page.evaluate(() => document.fonts.ready));
-    const imagesMs = await timedMs(() =>
-      page.waitForFunction(() =>
-        Array.from(document.images).every((img) => img.complete && img.naturalWidth > 0),
-      ),
-    );
+    const imagesMs = await timedMs(() => page.waitForFunction(imagesLoaded));
     if (!inflight) {
       const networkIdleMs = await timedMs(() => page.waitForLoadState("networkidle"));
       const framesMs = await timedMs(() => page.evaluate(twoFrames));
