@@ -3,6 +3,11 @@ import { CHANGED, SHA_MAIN, SHA_WORK, WHITE, uploadBuild } from "./api-upload";
 import { sql } from "./d1";
 import { expect, open, test } from "./fixtures";
 
+const shots = (png: typeof WHITE) => [
+  { name: "home", png },
+  { name: "card", png },
+];
+
 /**
  * The combined review of a commit: a project with two subprojects, of which one changed two shots
  * on the commit and one did not run there. The project page links the commit's view; the view
@@ -23,10 +28,6 @@ test("a commit's changes across the subprojects are reviewed on one page", async
   };
   const e2eId = sub("e2e");
   sub("storybook");
-  const shots = (png: typeof WHITE) => [
-    { name: "home", png },
-    { name: "card", png },
-  ];
   const main = { branch: "main", commitSha: SHA_MAIN };
   const work = {
     branch: "work",

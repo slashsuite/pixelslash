@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { call, newBuild } from "#/api/test-support";
 import { commitReview } from "#/db/commit-review";
 import { buildView } from "#/db/review";
 import { sha } from "#/diff/test-builds";
@@ -86,6 +87,18 @@ describe("the combined review of a commit", () => {
     expect(b?.lastBuild?.commitSha).toBe(sha(1));
     expect(b?.totals.changes).toBe(0);
     expect(review.totals.changes).toBe(1);
+  });
+
+  test("a subproject that ran `upload --skipped` is not run, on the page and in the PR comment", async () => {
+    const w = await group(["a", "b"]);
+    const skip = newBuild({ commitSha: sha(2), branch: "feat/x", subproject: "b", skipped: true });
+    expect((await call(w.deps, "POST /api/v1/builds", w.acme.token, skip)).status).toBe(201);
+    await w.on("a");
+    const b = (await w.review()).groups.find((g) => g.name === "b");
+    expect(b?.build).toBeNull();
+    expect(b?.lastBuild?.commitSha).toBe(sha(1));
+    const [body] = [...w.github.comments().values()];
+    expect(body).toContain("- b: not run on this commit (unchanged)");
   });
 
   test("accepting the last waiting change turns the group's status green", async () => {

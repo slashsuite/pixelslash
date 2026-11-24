@@ -27,16 +27,19 @@ export const getCommitReview = createServerFn()
     const review = await commitReview(db, project.id, data.sha);
     if (review.head === null) throw notFound();
     // A row shows the branch shot, cropped to the change in the browser, as the build page's card does.
-    const thumbs: Record<string, string> = {};
-    for (const shot of review.groups.flatMap((g) => g.snapshots)) {
-      const group = reviewGroupOf(shot);
-      if (group !== "changed" && group !== "new") continue;
-      const { branch } = await imageUrls(project.orgId, {
-        main: null,
-        branch: shot.imageKey,
-        diff: null,
-      });
-      if (branch) thumbs[shot.id] = branch;
-    }
+    const shown = review.groups
+      .flatMap((g) => g.snapshots)
+      .filter((shot) => ["changed", "new"].includes(reviewGroupOf(shot)));
+    const signed = await Promise.all(
+      shown.map(async (shot) => {
+        const { branch } = await imageUrls(project.orgId, {
+          main: null,
+          branch: shot.imageKey,
+          diff: null,
+        });
+        return branch ? [[shot.id, branch] as const] : [];
+      }),
+    );
+    const thumbs: Record<string, string> = Object.fromEntries(signed.flat());
     return { org, project, sha: data.sha, ...review, thumbs };
   });

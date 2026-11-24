@@ -251,7 +251,7 @@ export function seedSql(): string {
 }
 
 /** A fixed sha per build, or the one of the build it shares a commit with. */
-export const commitSha = (b: Pick<Build, "id" | "commitOf">) =>
+const commitSha = (b: Pick<Build, "id" | "commitOf">) =>
   createHash("sha1")
     .update(b.commitOf ?? b.id)
     .digest("hex");

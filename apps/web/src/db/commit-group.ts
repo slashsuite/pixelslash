@@ -22,10 +22,15 @@ export type GroupMember = {
   name: string;
   /** The top-level project, whose own builds are its lane beside the subprojects'. */
   top: boolean;
-  /** Its newest build on the commit; null when it uploaded none there. */
+  /** Its newest build on the commit; null when it did not run there: no build, or a skipped one. */
   build: MemberBuild | null;
   counts: BuildCounts;
 };
+
+/** `upload --skipped` leaves a passed build that holds no shot: the member did not run. */
+const skipped = (b: MemberBuild, c: BuildCounts) =>
+  b.status === "passed" &&
+  c.changed + c.new + c.removed + c.unchanged + c.rebaseline + c.unmeasured === 0;
 
 /**
  * The top-level project of `projectId` and its subprojects, each with its newest build on
@@ -68,13 +73,15 @@ export async function commitGroup(
     [...newest.values()].map((b) => b.id),
   );
   const members = rows.map((r) => {
-    const build = newest.get(r.id) ?? null;
+    const found = newest.get(r.id);
+    const tally = (found && counts.get(found.id)) ?? emptyCounts();
+    const build = found && !skipped(found, tally) ? found : null;
     return {
       projectId: r.id,
       name: r.name,
       top: r.parent === null,
       build,
-      counts: (build && counts.get(build.id)) ?? emptyCounts(),
+      counts: build ? tally : emptyCounts(),
     };
   });
   return members.toSorted((a, b) => Number(b.top) - Number(a.top) || a.name.localeCompare(b.name));

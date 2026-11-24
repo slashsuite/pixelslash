@@ -44,12 +44,13 @@ const neighbours = (walk: Step[], at: number) => ({
 function useWalk(ran: Ran[]) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const walk: Step[] = ran.flatMap((group) => group.snapshots.map((shot) => ({ group, shot })));
-  const [focusId, setFocusId] = useState<string | null>(
-    (walk.find(waits) ?? walk[0])?.shot.id ?? null,
-  );
+  const [chosen, setFocusId] = useState<string | null>(null);
+  // The first that waits until one is chosen, and again when the chosen one is gone (a rerun, another commit).
+  const fallback = (walk.find(waits) ?? walk[0])?.shot.id ?? null;
+  const focusId = walk.some((step) => step.shot.id === chosen) ? chosen : fallback;
   const at = walk.findIndex((step) => step.shot.id === focusId);
   const focused = walk[at];
 
@@ -60,7 +61,7 @@ function useWalk(ran: Ran[]) {
   const review = async (group: Ran, shot: Shot, state: Decision) => {
     setError(null);
     setFocusId(shot.id);
-    setBusy(shot.id);
+    setBusy(true);
     try {
       // The member's own decision, on its own build's row: the build page shows the same.
       await reviewShot({ data: { projectId: group.projectId, snapshotId: shot.id, state } });
@@ -71,12 +72,12 @@ function useWalk(ran: Ran[]) {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
   };
 
   useReviewKeys({
-    canDecide: focused !== undefined && waits(focused) && busy === null,
+    canDecide: focused !== undefined && waits(focused) && !busy,
     ...neighbours(walk, at),
     go: (id) => {
       if (id) setFocusId(id);

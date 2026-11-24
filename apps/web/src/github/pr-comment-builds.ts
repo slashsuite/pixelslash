@@ -29,7 +29,7 @@ const topOfBuild = or(
 );
 
 /** The org's top-level projects on the repo (case ignored) that comment on pull requests. */
-export const commentingOnRepo = (pr: PrKey, on: typeof projects | typeof tops = projects) =>
+const commentingOnRepo = (pr: PrKey, on: typeof projects | typeof tops = projects) =>
   and(
     eq(on.orgId, pr.orgId),
     isNull(on.parentProjectId),

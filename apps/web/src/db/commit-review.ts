@@ -1,5 +1,5 @@
 import { and, desc, eq, ne, sql } from "drizzle-orm";
-import { holdsChange } from "#/lib/snapshot-groups";
+import { awaitsDecision, holdsChange } from "#/lib/snapshot-groups";
 import { type MemberBuild, commitGroup } from "./commit-group";
 import type { Db } from "./db";
 import { type SnapshotView, buildView } from "./review";
@@ -9,8 +9,8 @@ import { builds } from "./schema";
  * The combined review of a top-level project and its subprojects on one commit: every shot that
  * holds a change, waiting or decided, in the newest build of each member there. The rows are each
  * build's own snapshot rows, so a decision made here is the one its build page shows, and the
- * reverse. A member that did not run on the commit (no build, or `upload --skipped`, which holds
- * no shot) is listed as not run, with its last build elsewhere, and counts no change.
+ * reverse. A member that did not run on the commit (`commitGroup`: no build, or a skipped one) is
+ * listed as not run, with its last build elsewhere, and counts no change.
  */
 
 /** A group's tally of its changes, as its heading shows them. */
@@ -36,12 +36,13 @@ export type CommitReview = {
   head: { branch: string; prNumber: number | null } | null;
 };
 
-export function totalsOf(shots: Pick<SnapshotView, "reviewState">[]): ChangeTotals {
+/** A flaky shot its config skips is pending yet waits for no one, so it is a change, not waiting. */
+function totalsOf(shots: SnapshotView[]): ChangeTotals {
   const of = (state: SnapshotView["reviewState"]) =>
     shots.filter((s) => s.reviewState === state).length;
   return {
     changes: shots.length,
-    waiting: of("pending"),
+    waiting: shots.filter(awaitsDecision).length,
     accepted: of("accepted"),
     rejected: of("rejected"),
   };
@@ -70,16 +71,13 @@ export async function commitReview(
   );
   const groups = await Promise.all(
     members.map(async (m, index): Promise<CommitReviewGroup> => {
-      const view = views[index] ?? null;
-      // A skipped build is a passed build with no shot: it did not run here either.
-      const ran = view !== null && view.snapshots.length > 0;
-      const snapshots = ran ? view.snapshots.filter(holdsChange) : [];
+      const snapshots = views[index]?.snapshots.filter(holdsChange) ?? [];
       return {
         projectId: m.projectId,
         name: m.name,
         top: m.top,
-        build: ran ? m.build : null,
-        lastBuild: ran ? null : await lastBuildOf(db, m.projectId, commitSha),
+        build: m.build,
+        lastBuild: m.build ? null : await lastBuildOf(db, m.projectId, commitSha),
         totals: totalsOf(snapshots),
         snapshots,
       };

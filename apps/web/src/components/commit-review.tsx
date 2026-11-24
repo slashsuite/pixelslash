@@ -23,7 +23,7 @@ import { awaitsDecision } from "#/lib/snapshot-groups";
  * member that ran, its change rows with accept and reject in place, and the members that did not run.
  */
 
-export type Group = CommitReviewGroup;
+type Group = CommitReviewGroup;
 /** A member that ran on the commit. */
 export type Ran = Group & { build: MemberBuild };
 export type Shot = SnapshotView;
@@ -100,7 +100,6 @@ function ChangeRow({
   onReview: (state: "accepted" | "rejected") => void;
 }) {
   const open = decidable(group) && awaitsDecision(shot);
-  const shown = shot.diffStatus === "changed" || shot.diffStatus === "new";
   return (
     <ListRow
       static
@@ -111,7 +110,7 @@ function ChangeRow({
       focused={focused}
       data-focused={focused ? "true" : undefined}
       leadingWidth="thumbnail"
-      leading={shown ? <ShotThumb shot={shot} src={src} /> : null}
+      leading={src === undefined ? null : <ShotThumb shot={shot} src={src} />}
       actions={<RowActions shot={shot} open={open} busy={busy} onReview={onReview} />}
     >
       <Stack gap="xs">
@@ -206,7 +205,8 @@ export function GroupSection({
   group: Ran;
   thumbs: Record<string, string>;
   focusId: string | null;
-  busy: string | null;
+  /** A decision in flight anywhere on the page: every row waits for it, as the keys do. */
+  busy: boolean;
   onReview: (group: Ran, shot: Shot, state: "accepted" | "rejected") => void;
 }) {
   return (
@@ -243,7 +243,7 @@ export function GroupSection({
               shot={shot}
               src={thumbs[shot.id]}
               focused={shot.id === focusId}
-              busy={busy === shot.id}
+              busy={busy}
               divided={index > 0}
               onReview={(state) => onReview(group, shot, state)}
             />
