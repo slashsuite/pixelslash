@@ -160,7 +160,7 @@ describe("the PixelSlash PR comment", () => {
           const commentId = Number(field(winner, "id"));
           await w.db
             .insert(prComments)
-            .values({ projectId: w.acme.project.id, prNumber: 7, commentId });
+            .values({ orgId: w.acme.org.id, repo: "acme/web", prNumber: 7, commentId });
         }
         return made;
       },
@@ -204,9 +204,10 @@ describe("the PixelSlash PR comment", () => {
     const w = await world();
     const feature = await pullRequest(w);
     await setGithubRepo(w.db, w.acme.user.id, w.acme.project.id, "acme/site");
-    expect(await w.db.select().from(prComments)).toEqual([]);
     await w.sync([feature.id]);
     expect(w.github.commentCalls().at(-1)?.path).toBe("/repos/acme/site/issues/7/comments");
+    const held = await w.db.select({ repo: prComments.repo }).from(prComments);
+    expect(held.map((r) => r.repo).toSorted()).toEqual(["acme/site", "acme/web"]);
   });
 
   test.each([

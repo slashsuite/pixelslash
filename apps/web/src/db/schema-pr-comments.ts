@@ -1,22 +1,25 @@
 import { integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
-import { createdAt, projects } from "./schema";
+import { createdAt, orgs } from "./schema";
 
 /* PR comments. Beside `schema.ts`, which `drizzle.config.ts` reads with it; `schema.ts` is at its line cap. */
 
 /**
  * The one PixelSlash comment on a pull request (PS-82), edited in place by each new build of the
- * PR. Keyed by project and PR number; a project moved to another repo forgets its comments.
+ * PR, with a section for every one of the org's projects on that repo. Keyed by org, repo and PR
+ * number, so the projects of one repo share it and another org linking the same repo keeps its own.
  */
 export const prComments = sqliteTable(
   "pr_comments",
   {
-    projectId: text("project_id")
+    orgId: text("org_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+      .references(() => orgs.id, { onDelete: "cascade" }),
+    /** `owner/name` in lower case: GitHub ignores case in both. */
+    repo: text("repo").notNull(),
     prNumber: integer("pr_number").notNull(),
     /** GitHub's id of the comment. */
     commentId: integer("comment_id").notNull(),
     createdAt: createdAt(),
   },
-  (t) => [primaryKey({ columns: [t.projectId, t.prNumber] })],
+  (t) => [primaryKey({ columns: [t.orgId, t.repo, t.prNumber] })],
 );
