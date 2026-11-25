@@ -36,6 +36,7 @@ export const Route = createFileRoute("/projects/$projectId/")({
 function ProjectPage() {
   const { project, org, builds, flags, stale, now, serverUrl, subprojects } = Route.useLoaderData();
   const parentCrumbs = project.parent ? [projectCrumb(project.parent)] : [];
+  const newestSha = newestCommitOf(builds, subprojects);
   return (
     <Page>
       <ListLayout
@@ -48,6 +49,20 @@ function ProjectPage() {
         }
         actions={
           <>
+            {newestSha && (
+              <Button
+                data-testid="commit-review-link"
+                render={(props) => (
+                  <Link
+                    to="/projects/$projectId/commits/$sha"
+                    params={{ projectId: project.id, sha: newestSha }}
+                    {...props}
+                  />
+                )}
+              >
+                Review commit {newestSha.slice(0, 7)}
+              </Button>
+            )}
             <Button
               variant="outline"
               render={(props) => (
@@ -91,6 +106,20 @@ function ProjectPage() {
       </ListLayout>
     </Page>
   );
+}
+
+/**
+ * The commit of the newest build in the project or any of its subprojects, whose combined review
+ * the page links; null for a project without subprojects, which has its build page for that.
+ */
+function newestCommitOf(
+  builds: { commitSha: string; createdAt: Date }[],
+  subprojects: { latest: { commitSha: string; createdAt: Date } | null }[],
+): string | null {
+  if (subprojects.length === 0) return null;
+  const all = [...builds.slice(0, 1), ...subprojects.flatMap((s) => (s.latest ? [s.latest] : []))];
+  const newest = all.toSorted((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+  return newest?.commitSha ?? null;
 }
 
 /**

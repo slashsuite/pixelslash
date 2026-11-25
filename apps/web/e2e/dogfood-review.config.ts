@@ -1,5 +1,5 @@
 /**
- * Dogfood: `pixelslash capture` shoots the review app's own project, build and snapshot pages,
+ * Dogfood: `pixelslash capture` shoots the review app's own project, build, snapshot and commit review pages,
  * light and dark, from a local e2e build (ob 1706). It reuses the organizations-page dogfood's
  * `start` and `setup` (dogfood-orgs.config.ts, dogfood-orgs.setup.ts), so the sign-in and the
  * fixed seed are the same. `bun run dogfood:upload` (apps/web) captures this and uploads it; see
@@ -16,6 +16,8 @@ export default {
     { path: "/projects/proj-web", name: "project", ignore: RELATIVE_TIMES },
     { path: "/projects/proj-web/builds/b-web-2", name: "build" },
     { path: "/projects/proj-web/builds/b-web-2/snapshots/b-web-2-s0", name: "snapshot" },
+    // The combined review of b-web-2's commit across web and its subprojects (dogfood-seed.ts).
+    { path: "/projects/proj-web/commits/42aa5d068db63e670f419703c2af2d5aae4a0d65", name: "commit" },
   ],
   tags: ["web", "review"],
 };

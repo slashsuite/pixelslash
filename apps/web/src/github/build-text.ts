@@ -33,3 +33,7 @@ export const detailsUrlOf = (publicUrl: string | undefined, build: SyncedBuild) 
   publicUrl
     ? buildUrl({ origin: publicUrl.replace(/\/+$/, "") }, build.projectId, build.id)
     : undefined;
+
+/** The combined review of a top-level project and its subprojects on one commit. */
+export const commitReviewUrl = (origin: string, topProjectId: string, commitSha: string) =>
+  `${origin}/projects/${topProjectId}/commits/${commitSha}`;

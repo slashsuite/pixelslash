@@ -10,13 +10,16 @@ const T0 = Date.UTC(2026, 9, 1, 12);
 type Shot = { diff: "changed" | "new" | "unchanged" | null; review?: "accepted" };
 type Build = {
   id: string;
+  /** Another build whose commit this one is on: a subproject's build of its parent's commit. */
+  commitOf?: string;
   branch: string;
   pr: number | null;
   daysAgo: number;
   status: string;
   shots: [number, Shot["diff"], Shot["review"]?][];
 };
-type Project = { id: string; name: string; builds: Build[] };
+/** `parent` makes it a subproject of that project, listed before it. */
+type Project = { id: string; name: string; parent?: string; builds: Build[] };
 type Org = {
   id: string;
   name: string;
@@ -65,6 +68,50 @@ const ORGS: Org[] = [
               ...shots(1, "changed", "accepted"),
               ...shots(3, "unchanged"),
             ],
+          },
+        ],
+      },
+      // web's subprojects: e2e changed on b-web-2's commit, storybook did not run there.
+      {
+        id: "proj-web-e2e",
+        name: "e2e",
+        parent: "proj-web",
+        builds: [
+          {
+            id: "b-e2e-1",
+            branch: "main",
+            pr: null,
+            daysAgo: 5,
+            status: "passed",
+            shots: shots(6, "unchanged"),
+          },
+          {
+            id: "b-e2e-2",
+            commitOf: "b-web-2",
+            branch: "feat/billing-page",
+            pr: 42,
+            daysAgo: 0,
+            status: "changes",
+            shots: [
+              ...shots(2, "changed"),
+              ...shots(1, "changed", "accepted"),
+              ...shots(3, "unchanged"),
+            ],
+          },
+        ],
+      },
+      {
+        id: "proj-web-storybook",
+        name: "storybook",
+        parent: "proj-web",
+        builds: [
+          {
+            id: "b-story-1",
+            branch: "main",
+            pr: null,
+            daysAgo: 5,
+            status: "passed",
+            shots: shots(4, "unchanged"),
           },
         ],
       },
@@ -195,7 +242,7 @@ export function seedSql(): string {
     }
     for (const p of org.projects) {
       out.push(
-        `INSERT INTO projects (id, org_id, name, created_at) VALUES (${q(p.id)}, ${q(org.id)}, ${q(p.name)}, ${T0 - 80 * DAY});`,
+        `INSERT INTO projects (id, org_id, name, parent_project_id, created_at) VALUES (${q(p.id)}, ${q(org.id)}, ${q(p.name)}, ${p.parent ? q(p.parent) : "NULL"}, ${T0 - 80 * DAY});`,
       );
       for (const b of p.builds) out.push(...buildSql(p, b));
     }
@@ -203,9 +250,15 @@ export function seedSql(): string {
   return out.join("\n");
 }
 
+/** A fixed sha per build, or the one of the build it shares a commit with. */
+const commitSha = (b: Pick<Build, "id" | "commitOf">) =>
+  createHash("sha1")
+    .update(b.commitOf ?? b.id)
+    .digest("hex");
+
 function buildSql(p: Project, b: Build): string[] {
   const rows = [
-    `INSERT INTO builds (id, project_id, commit_sha, branch, pr_number, status, created_at) VALUES (${q(b.id)}, ${q(p.id)}, ${q(createHash("sha1").update(b.id).digest("hex"))}, ${q(b.branch)}, ${b.pr ?? "NULL"}, ${q(b.status)}, ${T0 - b.daysAgo * DAY});`,
+    `INSERT INTO builds (id, project_id, commit_sha, branch, pr_number, status, created_at) VALUES (${q(b.id)}, ${q(p.id)}, ${q(commitSha(b))}, ${q(b.branch)}, ${b.pr ?? "NULL"}, ${q(b.status)}, ${T0 - b.daysAgo * DAY});`,
   ];
   for (const [i, [, diff, review]] of b.shots.entries()) {
     rows.push(
