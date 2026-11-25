@@ -24,11 +24,19 @@ function mount(reply: () => Promise<DecisionReply>, reviewable = true) {
         calls.push(`review ${state}`);
         return reply();
       },
-      go: (id) => calls.push(`go ${id}`),
+      go: (shot) => calls.push(`go ${shot.buildId}/${shot.snapshotId}`),
       toBuild: () => calls.push("build"),
+      toCommit: (commit) => calls.push(`commit ${commit.sha}`),
     }),
   ));
 }
+
+const at = (snapshotId: string, buildId = "b1") => ({ projectId: "p1", buildId, snapshotId });
+const reply = (
+  buildStatus: DecisionReply["buildStatus"],
+  next: DecisionReply["next"],
+  commit: DecisionReply["commit"] = null,
+): DecisionReply => ({ buildStatus, next, commit });
 
 const press = (state: DecisionState) =>
   act(async () => {
@@ -38,19 +46,37 @@ const press = (state: DecisionState) =>
 
 describe("deciding on the shot on screen", () => {
   it("an accept calls the server once, then moves to the shot it named", async () => {
-    mount(() => Promise.resolve({ buildStatus: "changes", nextToReviewId: "s2" }));
+    mount(() => Promise.resolve(reply("changes", at("s2"))));
     await press("accepted");
-    expect(calls).toEqual(["review accepted", "go s2"]);
+    expect(calls).toEqual(["review accepted", "go b1/s2"]);
+  });
+
+  it("an accept moves on to a shot in another build of the commit's change set", async () => {
+    mount(() => Promise.resolve(reply("passed", at("s9", "b2"), { projectId: "top", sha: "abc" })));
+    await press("accepted");
+    expect(calls).toEqual(["review accepted", "go b2/s9"]);
+  });
+
+  it("an accept with nothing left in the change set goes to the commit's page", async () => {
+    mount(() => Promise.resolve(reply("passed", null, { projectId: "top", sha: "abc" })));
+    await press("accepted");
+    expect(calls).toEqual(["review accepted", "commit abc"]);
+  });
+
+  it("an accept with nothing left in a lone build goes to the build page", async () => {
+    mount(() => Promise.resolve(reply("passed", null)));
+    await press("accepted");
+    expect(calls).toEqual(["review accepted", "build"]);
   });
 
   it("a reply naming a next shot of a failed build sends the reviewer to the build page", async () => {
-    mount(() => Promise.resolve({ buildStatus: "failed", nextToReviewId: "s2" }));
+    mount(() => Promise.resolve(reply("failed", at("s2"))));
     await press("accepted");
     expect(calls).toEqual(["review accepted", "build"]);
   });
 
   it("a reject goes to the build page", async () => {
-    mount(() => Promise.resolve({ buildStatus: "failed", nextToReviewId: null }));
+    mount(() => Promise.resolve(reply("failed", null)));
     await press("rejected");
     expect(calls).toEqual(["review rejected", "build"]);
   });
@@ -72,12 +98,12 @@ describe("deciding on the shot on screen", () => {
     });
     expect(calls).toEqual(["review accepted"]);
     expect(hook.current.busy).toBe(true);
-    await act(async () => settle({ buildStatus: "changes", nextToReviewId: "s2" }));
-    expect(calls).toEqual(["review accepted", "go s2"]);
+    await act(async () => settle(reply("changes", at("s2"))));
+    expect(calls).toEqual(["review accepted", "go b1/s2"]);
   });
 
   it("a build that takes no decisions sends nothing", async () => {
-    mount(() => Promise.resolve({ buildStatus: "changes", nextToReviewId: "s2" }), false);
+    mount(() => Promise.resolve(reply("changes", at("s2"))), false);
     await press("accepted");
     expect(calls).toEqual([]);
   });

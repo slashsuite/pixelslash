@@ -21,7 +21,8 @@ import {
   withdrawInvite,
 } from "#/db/orgs";
 import { listBuilds } from "#/db/build-list";
-import { NotReviewableError, afterDecision, buildView, decideAll, decideShot } from "#/db/review";
+import { NotReviewableError, buildView, decideAll, decideShot } from "#/db/review";
+import { type NextStep, changeSetOf, nextAfterDecision, positionInSet } from "#/db/change-set";
 import { flakeRecaptures } from "#/db/run-metrics";
 import { isFirstBuild } from "#/db/first-build";
 import { DIFF_LOCATIONS } from "#/db/schema";
@@ -31,7 +32,7 @@ import { twinsOfBuild } from "#/db/twins";
 import { warn } from "#/lib/log";
 import { walkAround } from "#/lib/review-walk";
 import { buildExpiry } from "#/lib/retention";
-import { holdsChange, reviewGroupOf } from "#/lib/snapshot-groups";
+import { reviewGroupOf } from "#/lib/snapshot-groups";
 import { twinEntryOf } from "#/lib/twins";
 import { THEME_COOKIE, parseTheme } from "#/lib/theme";
 import {
@@ -246,8 +247,8 @@ export const getSnapshotPage = createServerFn()
     const walk = walkAround(view.snapshots, data.snapshotId);
     if (!walk) throw notFound();
     const { shot: snapshot, position, total, previousId, nextId } = walk;
-    const index = position - 1;
     const twins = await twinsOfBuild(db, view.build.id);
+    const changeSet = await changeSetOf(db, project.id, view.build.id);
     const images = await imageUrls(project.orgId, {
       main: snapshot.baselineKey,
       branch: isMarker(snapshot) ? null : snapshot.imageKey,
@@ -296,14 +297,11 @@ export const getSnapshotPage = createServerFn()
       names: view.snapshots.map((shot) => shot.name),
       /**
        * Where this shot sits among the ones a reviewer decides on (`holdsChange`): the changed
-       * shots and the unchanged ones that carry an open change. Null off that set.
+       * shots and the unchanged ones that carry an open change. Null off that set. When the build
+       * is one of a commit's subprojects (or their parent), it counts the commit's whole change
+       * set, since an accept walks on through it.
        */
-      review: {
-        index: holdsChange(snapshot)
-          ? view.snapshots.slice(0, index).filter(holdsChange).length + 1
-          : null,
-        total: view.snapshots.filter(holdsChange).length,
-      },
+      review: positionInSet(changeSet, view.snapshots, snapshot.id),
     };
   });
 
@@ -322,11 +320,11 @@ export const reviewShot = createServerFn({ method: "POST" })
     await syncChecks(db, decided.buildIds);
     // Nowhere to go next: the build page. That is also the answer when the read below fails, since the
     // decision is already written and only the next shot is lost.
-    const toBuild = { buildStatus: decided.verdict, nextToReviewId: null };
+    const toBuild: NextStep = { buildStatus: decided.verdict, next: null, commit: null };
     if (!next) return { status: decided.verdict, ...toBuild };
     // `next` asks where the reviewer goes, read after the write, so moving on takes no second round
     // trip and another reviewer's reject in between shows in `buildStatus`.
-    const after = await afterDecision(db, {
+    const after = await nextAfterDecision(db, {
       projectId: data.projectId,
       buildId: decided.buildId,
       snapshotId: data.snapshotId,

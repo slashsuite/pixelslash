@@ -139,7 +139,7 @@ type Ordered = Parameters<typeof reviewGroupOf>[0] &
   Pick<SnapshotView, "name" | "platform" | "browser" | "viewport" | "theme">;
 
 /** The build page's order: by group, then by the shot's identity. */
-function inReviewOrder(a: Ordered, b: Ordered): number {
+export function inReviewOrder(a: Ordered, b: Ordered): number {
   return (
     SNAPSHOT_GROUPS.indexOf(reviewGroupOf(a)) - SNAPSHOT_GROUPS.indexOf(reviewGroupOf(b)) ||
     a.name.localeCompare(b.name) ||
