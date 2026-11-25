@@ -1,6 +1,6 @@
 # PixelSlash facts
 
-Checked against main at 7418237 on 2026-11-25.
+Checked against main at c269185 on 2026-11-25.
 
 ## What it is
 PixelSlash shows what changed on a web page between two versions of it, Main and Branch, as a report you open in a browser, and can send those shots to a review app where a person accepts or rejects each change. It is in alpha, and the command line tool is at version 0.8.
