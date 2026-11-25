@@ -1,4 +1,4 @@
-import { Link, useRouter } from "@tanstack/react-router";
+import { useRouter } from "@tanstack/react-router";
 import {
   Card,
   Code,
@@ -12,11 +12,12 @@ import {
   TableRow,
   Text,
   TextLink,
-} from "@hackcove/ui-react";
+} from "@slashsuite/ui-react";
 import { ToReview } from "#/components/build-mix";
 import { StatusBadge, InlineForm } from "#/components/ui";
 import type { SubprojectRow } from "#/db/subprojects";
 import { addSubproject } from "#/server/subprojects";
+import { hrefTo } from "#/lib/href";
 
 /** A project page's subprojects, above its own builds: each a link, with its newest build. */
 export function SubprojectList({
@@ -28,7 +29,7 @@ export function SubprojectList({
 }) {
   if (subprojects.length === 0) return null;
   return (
-    <Table caption="Subprojects" data-testid="subprojects">
+    <Table label="Subprojects" data-testid="subprojects">
       <TableHead>
         <TableRow>
           <TableHeaderCell>Subproject</TableHeaderCell>
@@ -40,12 +41,7 @@ export function SubprojectList({
         {subprojects.map((sub) => (
           <TableRow key={sub.id} data-testid="subproject-row">
             <TableCell>
-              <TextLink
-                stretch
-                render={(props) => (
-                  <Link to="/projects/$projectId" params={{ projectId: sub.id }} {...props} />
-                )}
-              >
+              <TextLink stretch href={hrefTo("/projects/$projectId", { projectId: sub.id })}>
                 {sub.name}
               </TextLink>
             </TableCell>
@@ -53,7 +49,9 @@ export function SubprojectList({
               {sub.latest ? (
                 <StatusBadge status={sub.latest.status} />
               ) : (
-                <Text tone="muted">no builds</Text>
+                <Text as="span" tone="muted">
+                  no builds
+                </Text>
               )}
             </TableCell>
             <TableCell>
@@ -72,19 +70,11 @@ export function InheritedSettings({ parent }: { parent: { id: string; name: stri
     <Card data-testid="inherited-settings">
       <Stack gap="xs">
         <SectionHeading>Set on {parent.name}</SectionHeading>
-        <Text as="p">
+        <Text>
           This is a subproject of {parent.name}. Its GitHub repo and PR comment, default branch, AI
           model and CI tokens are {parent.name}&apos;s: its CI token uploads here with{" "}
           <Code>--subproject</Code>.{" "}
-          <TextLink
-            render={(props) => (
-              <Link
-                to="/projects/$projectId/settings"
-                params={{ projectId: parent.id }}
-                {...props}
-              />
-            )}
-          >
+          <TextLink href={hrefTo("/projects/$projectId/settings", { projectId: parent.id })}>
             Open {parent.name}&apos;s settings
           </TextLink>
         </Text>
@@ -98,10 +88,10 @@ export function AddSubproject({ projectId }: { projectId: string }) {
   const router = useRouter();
   return (
     <Card data-testid="add-subproject">
-      <Stack>
+      <Stack gap="md">
         <Stack gap="xs">
           <SectionHeading>Subprojects</SectionHeading>
-          <Text as="p">
+          <Text>
             A subproject keeps one kind of shot apart (end-to-end tests, stories) with its own
             builds, baselines and review. It uses this project&apos;s repo, default branch, model
             and CI tokens.

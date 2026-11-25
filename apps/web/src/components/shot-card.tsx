@@ -1,5 +1,4 @@
-import { Link } from "@tanstack/react-router";
-import { Caption, Card, Cluster, ClusterGrow, Pill, Stack, Text } from "@hackcove/ui-react";
+import { Caption, Card, Cluster, ClusterGrow, Pill, Stack, Text } from "@slashsuite/ui-react";
 import { changeCrop } from "../../../../packages/engine/src/report-crop.ts";
 import { IDENTICAL_NOTE } from "../../../../packages/engine/src/identical-note.ts";
 import { a11yLine } from "#/components/a11y";
@@ -20,6 +19,7 @@ import {
 } from "#/lib/snapshot-groups";
 import { type ShotLabel, shotChips } from "#/lib/shot-label";
 import { THUMB_RATIO, coversMostOfShot, thumbWindow } from "#/lib/thumb-crop";
+import { hrefTo } from "#/lib/href";
 
 const THUMB_BOX = "w-full overflow-hidden rounded-md bg-slate-100";
 
@@ -165,7 +165,7 @@ export function measured(shot: SnapshotView, baseline: boolean): string {
 function GapsLine({ composition }: { composition: Composition | null | undefined }) {
   if (!composition) return null;
   return (
-    <Text as="p" tone="muted" data-testid="shot-gaps">
+    <Text tone="muted" data-testid="shot-gaps">
       {findingsLine(composition)}
     </Text>
   );
@@ -175,7 +175,7 @@ function A11yLine({ diff }: { diff: SnapshotView["a11yDiff"] }) {
   const line = a11yLine(diff);
   if (!line) return null;
   return (
-    <Text as="p" tone="muted" data-testid="shot-a11y">
+    <Text tone="muted" data-testid="shot-a11y">
       {line}
     </Text>
   );
@@ -186,19 +186,23 @@ function ShotNotes({ shot }: { shot: SnapshotView }) {
   return (
     <>
       {shot.changeNote && (
-        <Text as="p" data-testid="shot-change-note">
-          <Text tone="muted">Judge (local model): </Text>
+        <Text data-testid="shot-change-note">
+          <Text as="span" tone="muted">
+            Judge (local model):{" "}
+          </Text>
           {shot.changeNote}.
         </Text>
       )}
       {shot.aiReview && (
-        <Text as="p" data-testid="shot-ai-labels">
-          <Text tone="muted">AI: </Text>
+        <Text data-testid="shot-ai-labels">
+          <Text as="span" tone="muted">
+            AI:{" "}
+          </Text>
           {labelSummary(shot.aiReview.regions)}
         </Text>
       )}
       {!shot.aiReview && shot.aiPending && (
-        <Text as="p" tone="muted" data-testid="shot-ai-pending">
+        <Text tone="muted" data-testid="shot-ai-pending">
           AI: explaining…
         </Text>
       )}
@@ -234,13 +238,11 @@ export function ShotCard({
             <FlakyBadge projectId={projectId} flakeId={shot.flakeId} skipped={skippedFlaky(shot)} />
           ) : undefined
         }
-        render={(props) => (
-          <Link
-            to="/projects/$projectId/builds/$buildId/snapshots/$snapshotId"
-            params={{ projectId, buildId, snapshotId: shot.id }}
-            {...props}
-          />
-        )}
+        href={hrefTo("/projects/$projectId/builds/$buildId/snapshots/$snapshotId", {
+          projectId,
+          buildId,
+          snapshotId: shot.id,
+        })}
       >
         <Stack gap="xs">
           <ShotThumb shot={shot} src={src} />
@@ -249,11 +251,11 @@ export function ShotCard({
               {/* Stacked: a truncated run is inline-block, so two would share a line. */}
               <Stack gap="xs">
                 {label.component && (
-                  <Caption as="p" truncate data-testid="shot-component">
+                  <Caption lines={1} data-testid="shot-component">
                     {label.component}
                   </Caption>
                 )}
-                <Text strong as="p" truncate title={shot.name} data-testid="shot-story">
+                <Text strong lines={1} title={shot.name} data-testid="shot-story">
                   {label.story}
                 </Text>
               </Stack>
@@ -262,17 +264,13 @@ export function ShotCard({
               <ReviewChip state={shot.reviewState} by={shot.reviewedBy} />
             )}
           </Cluster>
-          <Cluster gap="xs" wrap>
+          <Cluster gap="xs">
             {shotChips(shot, label).map((chip) => (
-              <Pill key={chip} tone="slate">
-                {chip}
-              </Pill>
+              <Pill key={chip}>{chip}</Pill>
             ))}
           </Cluster>
           <ShotNotes shot={shot} />
-          <Text as="p" tone="muted">
-            {line}
-          </Text>
+          <Text tone="muted">{line}</Text>
           <GapsLine composition={shot.composition} />
           <A11yLine diff={shot.a11yDiff} />
         </Stack>

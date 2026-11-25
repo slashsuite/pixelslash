@@ -1,4 +1,4 @@
-import { Button, Caption, Pill } from "@hackcove/ui-react";
+import { Button, Caption, Pill } from "@slashsuite/ui-react";
 import {
   type KeyboardEvent,
   type PointerEvent,
@@ -194,7 +194,7 @@ export function SliderControls({
   return (
     <>
       <label className="flex items-center gap-2">
-        <Caption>{baseName}</Caption>
+        <Caption as="span">{baseName}</Caption>
         <input
           type="range"
           aria-label="Compare position"
@@ -208,7 +208,7 @@ export function SliderControls({
           onChange={(e) => setPosition(Number(e.target.value))}
           className="w-32"
         />
-        <Caption>Branch</Caption>
+        <Caption as="span">Branch</Caption>
       </label>
       <Button
         variant="outline"

@@ -1,12 +1,5 @@
-import {
-  AvatarStack,
-  Button,
-  Cluster,
-  type LinkRenderProps,
-  PageHeader,
-  Tabs,
-} from "@hackcove/ui-react";
-import { Link } from "@tanstack/react-router";
+import { AvatarStack, Button, Cluster, PageHeader, Tabs } from "@slashsuite/ui-react";
+import { hrefTo } from "#/lib/href";
 import type { OrgOverview } from "#/db/orgs";
 import { plural } from "./org-projects";
 
@@ -29,10 +22,10 @@ export function OrgHeader({
   return (
     <PageHeader
       title={org.name}
-      subtitle={
+      description={
         <Cluster as="span" gap="sm">
           <AvatarStack
-            people={org.members.map((member) => ({ name: member.login }))}
+            items={org.members.map((member) => ({ name: member.login }))}
             max={4}
             size="md"
             aria-hidden="true"
@@ -62,20 +55,18 @@ export function OrgHeader({
 export type Tab = "projects" | "members" | "tokens" | "model" | "timings";
 
 function OrgTabs({ org, tab }: { org: OrgOverview; tab: Tab }) {
-  const to = (target: Exclude<Tab, "projects"> | undefined) => (props: LinkRenderProps) => (
-    <Link to="/orgs" search={target ? { org: org.id, tab: target } : { org: org.id }} {...props} />
-  );
+  const to = (target: Exclude<Tab, "projects"> | undefined) =>
+    hrefTo("/orgs", {}, { search: target ? { org: org.id, tab: target } : { org: org.id } });
   return (
     <Tabs
-      variant="pill"
       label="Organization"
       value={tab}
       items={[
-        { value: "projects", label: "Projects", count: org.projects.length, render: to(undefined) },
-        { value: "members", label: "Members", count: org.members.length, render: to("members") },
-        { value: "tokens", label: "Tokens", render: to("tokens") },
-        { value: "model", label: "AI model", render: to("model") },
-        { value: "timings", label: "Timings", render: to("timings") },
+        { value: "projects", label: "Projects", count: org.projects.length, href: to(undefined) },
+        { value: "members", label: "Members", count: org.members.length, href: to("members") },
+        { value: "tokens", label: "Tokens", href: to("tokens") },
+        { value: "model", label: "AI model", href: to("model") },
+        { value: "timings", label: "Timings", href: to("timings") },
       ]}
     />
   );

@@ -13,8 +13,8 @@ import {
   Stack,
   TextLink,
   Text,
-} from "@hackcove/ui-react";
-import { Link, createFileRoute } from "@tanstack/react-router";
+} from "@slashsuite/ui-react";
+import { createFileRoute } from "@tanstack/react-router";
 import { type FormEvent, useState } from "react";
 import { orgCrumb, projectCrumbs } from "#/components/crumbs";
 import { useFlagWrite } from "#/components/detection-flag";
@@ -22,6 +22,7 @@ import { FlakeHistory, FlakeRuns, FlakyPolicyControl, flakeAnchor } from "#/comp
 import { Page, useHydrated } from "#/components/ui";
 import { formatRelative } from "#/lib/format";
 import { type FlakeView, getFlakesPage, saveFlakeStatus } from "#/server/flakes";
+import { hrefTo } from "#/lib/href";
 
 export const Route = createFileRoute("/projects/$projectId/flakes")({
   loader: ({ params }) => getFlakesPage({ data: { projectId: params.projectId } }),
@@ -48,8 +49,7 @@ function StatusControl({ projectId, flake }: { projectId: string; flake: FlakeVi
       <Stack gap="xs">
         <Button
           variant="outline"
-          busy={busy}
-          busyLabel="Reopening…"
+          busy={busy && "Reopening…"}
           disabledReason={hydrated ? undefined : "Loading"}
           onClick={() => run(() => saveFlakeStatus({ data: { ...ids, open: true, note: null } }))}
           size="sm"
@@ -57,9 +57,9 @@ function StatusControl({ projectId, flake }: { projectId: string; flake: FlakeVi
           Reopen
         </Button>
         {error && (
-          <Text as="p" role="alert" tone="danger">
-            {error}
-          </Text>
+          <div role="alert">
+            <Text tone="danger">{error}</Text>
+          </div>
         )}
       </Stack>
     );
@@ -81,12 +81,12 @@ function StatusControl({ projectId, flake }: { projectId: string; flake: FlakeVi
         onChange={(e) => setNote(e.target.value)}
       />
       {error && (
-        <Text as="p" role="alert" tone="danger">
-          {error}
-        </Text>
+        <div role="alert">
+          <Text tone="danger">{error}</Text>
+        </div>
       )}
       <ButtonGroup>
-        <Button type="submit" busy={busy} busyLabel="Resolving…" size="sm">
+        <Button type="submit" busy={busy && "Resolving…"} size="sm">
           Resolve
         </Button>
         <Button type="button" variant="ghost" onClick={() => setResolving(false)} size="sm">
@@ -103,17 +103,19 @@ function FlakeItem({ projectId, flake, now }: { projectId: string; flake: FlakeV
   const policy = latest?.policy ?? "review";
   return (
     <li>
-      <Card as="article" id={flakeAnchor(flake.id)} data-testid="flake" data-status={flake.status}>
+      <Card id={flakeAnchor(flake.id)} data-testid="flake" data-status={flake.status}>
         <Stack gap="sm">
-          <Cluster gap="sm" align="start" justify="between" wrap>
+          <Cluster gap="sm" align="start" justify="between">
             <ClusterGrow>
               <Cluster gap="xs">
-                <Pill tone={flake.status === "open" ? "amber" : "slate"}>{flake.status}</Pill>
-                <Text strong truncate data-testid="flake-name">
-                  {flake.name}
-                </Text>
+                <Pill tone={flake.status === "open" ? "warn" : "neutral"}>{flake.status}</Pill>
+                <ClusterGrow>
+                  <Text as="span" strong lines={1} data-testid="flake-name">
+                    {flake.name}
+                  </Text>
+                </ClusterGrow>
               </Cluster>
-              <Caption as="p">
+              <Caption>
                 {variantOf(flake)} · {flake.evidence.length} detection
                 {flake.evidence.length === 1 ? "" : "s"} · updated{" "}
                 {formatRelative(flake.updatedAt, now)}
@@ -126,13 +128,11 @@ function FlakeItem({ projectId, flake, now }: { projectId: string; flake: FlakeV
             <Stack gap="xs">
               <FlakeRuns evidence={latest} />
               <TextLink
-                render={(props) => (
-                  <Link
-                    to="/projects/$projectId/builds/$buildId/snapshots/$snapshotId"
-                    params={{ projectId, buildId: latest.buildId, snapshotId: latest.snapshotId }}
-                    {...props}
-                  />
-                )}
+                href={hrefTo("/projects/$projectId/builds/$buildId/snapshots/$snapshotId", {
+                  projectId,
+                  buildId: latest.buildId,
+                  snapshotId: latest.snapshotId,
+                })}
               >
                 See the shot
               </TextLink>
@@ -159,9 +159,9 @@ function FlakesPage() {
   return (
     <Page>
       <ListLayout
-        breadcrumbs={<Breadcrumbs crumbs={[orgCrumb(org), ...projectCrumbs(project), "Flakes"]} />}
+        breadcrumbs={<Breadcrumbs items={[orgCrumb(org), ...projectCrumbs(project), "Flakes"]} />}
         title={`${project.name} · flakes`}
-        subtitle={
+        description={
           flakes.length === 0
             ? "No flakes. A shot is flaky when the CLI captured it again and the captures disagreed, or when a reviewer marked it."
             : `${open} open, ${flakes.length - open} resolved. Open flakes first.`

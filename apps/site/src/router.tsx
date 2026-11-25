@@ -1,23 +1,28 @@
-import { ErrorPage, NotFound } from "@hackcove/ui-react";
+import { ErrorPage, LinkProvider, NotFound } from "@slashsuite/ui-react";
 import {
   createRouter as createTanStackRouter,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 import { SLASHSLASH } from "./content/moved.ts";
 import { routeTree } from "./routeTree.gen";
 
 function RouteError({ reset }: ErrorComponentProps) {
-  return <ErrorPage onRetry={reset} renderHome={(props) => <a href={SLASHSLASH} {...props} />} />;
+  return <ErrorPage onRetry={reset} />;
+}
+
+/** The status pages' "Back to home" goes to slashslash.build, where this site's pages now live. */
+function Home({ children }: { children: ReactNode }) {
+  return <LinkProvider home={SLASHSLASH}>{children}</LinkProvider>;
 }
 
 export function getRouter() {
   return createTanStackRouter({
     routeTree,
     scrollRestoration: true,
-    defaultNotFoundComponent: () => (
-      <NotFound renderHome={(props) => <a href={SLASHSLASH} {...props} />} />
-    ),
+    defaultNotFoundComponent: () => <NotFound />,
     defaultErrorComponent: RouteError,
+    InnerWrap: Home,
   });
 }
 

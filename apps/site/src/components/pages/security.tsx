@@ -1,4 +1,4 @@
-import { Callout, ProseLayout, TextLink } from "@hackcove/ui-react";
+import { Callout, ProseLayout, TextLink } from "@slashsuite/ui-react";
 import type { ReactNode } from "react";
 import { SECURITY_DOC } from "../../content/repo-docs.ts";
 import { CONTACT, REPO_PUBLIC } from "../../content/links.ts";
@@ -9,7 +9,7 @@ export function SecurityPage(): ReactNode {
   return (
     <ProseLayout
       title="Security"
-      subtitle="SECURITY.md from the repository, as it is at this commit."
+      description="SECURITY.md from the repository, as it is at this commit."
       gap="lg"
     >
       {REPO_PUBLIC ? null : (

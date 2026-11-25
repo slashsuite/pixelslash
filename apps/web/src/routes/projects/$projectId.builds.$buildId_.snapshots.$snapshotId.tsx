@@ -1,4 +1,4 @@
-import { Breadcrumbs, Callout, FullBleedLayout, Stack } from "@hackcove/ui-react";
+import { Breadcrumbs, Callout, FullBleedLayout, Stack } from "@slashsuite/ui-react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";
 import { RegionNotesProvider } from "#/components/ai-notes";
@@ -68,11 +68,7 @@ function useShotDecision(data: ReturnType<typeof Route.useLoaderData>, reviewabl
 
 function DecisionError({ error }: { error: string | null }) {
   if (!error) return null;
-  return (
-    <Callout tone="danger" role="alert">
-      {error}
-    </Callout>
-  );
+  return <Callout tone="danger">{error}</Callout>;
 }
 
 /**
@@ -154,7 +150,7 @@ function ShotCrumbs({ data }: { data: ReturnType<typeof Route.useLoaderData> }) 
   const { org, project, build, snapshot } = data;
   return (
     <Breadcrumbs
-      crumbs={[
+      items={[
         orgCrumb(org),
         ...projectCrumbs(project),
         buildCrumb(project.id, build),
@@ -273,8 +269,8 @@ function SnapshotPage() {
             }}
           />
         }
-        panelLabel="Review panel"
-        panel={
+        asideLabel="Review panel"
+        aside={
           folded ? null : (
             <SideColumn data={data} flag={flag} ignore={ignore} reviewable={reviewable} />
           )

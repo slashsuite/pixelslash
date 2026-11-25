@@ -1,4 +1,4 @@
-import { Card, RegionFrame, Text } from "@hackcove/ui-react";
+import { Card, RegionFrame, Text } from "@slashsuite/ui-react";
 import { type ReactNode, type SyntheticEvent, useState } from "react";
 import type { Crop } from "../../../../packages/engine/src/report-crop.ts";
 import { type Composition, CompositionBoxes } from "#/components/composition";
@@ -69,7 +69,7 @@ function ShotImage({
 }) {
   const [size, onLoad] = useNaturalSize(url);
   return (
-    <RegionFrame src={url} alt={alt} loading="lazy" onLoad={onLoad}>
+    <RegionFrame src={url} alt={alt} onLoad={onLoad}>
       {children(size)}
     </RegionFrame>
   );
@@ -133,7 +133,9 @@ export function Pane({
         {caption && (
           <>
             {" "}
-            <Text tone="muted">{caption}</Text>
+            <Text as="span" tone="muted">
+              {caption}
+            </Text>
           </>
         )}
       </figcaption>
@@ -150,9 +152,7 @@ export function Pane({
           </ShotImage>
         </Viewport>
       ) : (
-        <Card as="div" dashed>
-          {empty}
-        </Card>
+        <Card dashed>{empty}</Card>
       )}
     </figure>
   );

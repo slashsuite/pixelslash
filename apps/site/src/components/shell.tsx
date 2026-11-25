@@ -9,7 +9,7 @@ import {
   Stack,
   Tabs,
   TextLink,
-} from "@hackcove/ui-react";
+} from "@slashsuite/ui-react";
 import type { ReactNode } from "react";
 import { useKeyboardScrollers } from "#/components/keyboard-scrollers";
 import { TRADEMARK } from "#/content/trademark";
@@ -24,7 +24,12 @@ export const SCHEMES = { light: "latte", dark: "dark" } as const;
 
 /** Where the source is: a link once the repository is public (PS-257, PS-292), a plain sentence before. */
 function SourceLink(): ReactNode {
-  if (!REPO_PUBLIC) return <Caption data-testid="source-status">Source opens at launch</Caption>;
+  if (!REPO_PUBLIC)
+    return (
+      <Caption as="span" data-testid="source-status">
+        Source opens at launch
+      </Caption>
+    );
   return (
     <TextLink href={REPO_URL} external data-testid="source-status">
       GitHub
@@ -52,11 +57,13 @@ function Controls(): ReactNode {
 export function Footer(): ReactNode {
   return (
     <Stack gap="sm" data-testid="footer">
-      <Cluster wrap gap="md">
+      <Cluster gap="md">
         <TextLink href={SLASHSLASH} aria-label="PixelSlash home">
           <Wordmark />
         </TextLink>
-        <Caption data-testid="stage-footer">{STAGE_LINE}</Caption>
+        <Caption as="span" data-testid="stage-footer">
+          {STAGE_LINE}
+        </Caption>
         <span>Elastic License 2.0</span>
         <TextLink href={`mailto:${CONTACT}`}>{CONTACT}</TextLink>
         <SourceLink />
@@ -106,7 +113,7 @@ export function Shell({
     label: item.label,
     href: item.href,
     // A docs page (`/docs/upload`) keeps Docs marked in the nav.
-    active: item.local && (item.href === pathname || pathname.startsWith(`${item.href}/`)),
+    selected: item.local && (item.href === pathname || pathname.startsWith(`${item.href}/`)),
   }));
   return (
     <AppShell
@@ -114,7 +121,7 @@ export function Shell({
       controls={<Controls />}
       // One row from md: the nav sits between the brand and the controls. On a phone AppShell folds it
       // behind its Menu button; the controls stay in the header.
-      nav={<Tabs variant="pill" items={items} label="Site" size="md" data-testid="site-nav" />}
+      nav={<Tabs items={items} label="Site" data-testid="site-nav" />}
       footer={<Footer />}
       bleed
       data-art=""

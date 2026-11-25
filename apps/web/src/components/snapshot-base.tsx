@@ -1,4 +1,4 @@
-import { Caption, Cluster, SegmentedControl, Text } from "@hackcove/ui-react";
+import { Caption, Cluster, SegmentedControl, Text } from "@slashsuite/ui-react";
 import { useHydrated } from "#/components/ui";
 import type { BaseId, Bases } from "#/lib/viewer-bases";
 
@@ -23,7 +23,7 @@ export function BaseSwitch({
   const switchable = bases.options.length > 1;
   if (!switchable && !bases.note) return null;
   return (
-    <Cluster gap="sm" wrap data-testid="base-switch">
+    <Cluster gap="sm" data-testid="base-switch">
       {switchable && (
         <SegmentedControl
           label="Compared with"
@@ -44,7 +44,11 @@ export function BaseSwitch({
           {summary}
         </Text>
       )}
-      {!switchable && bases.note && <Caption data-testid="base-note">{bases.note}</Caption>}
+      {!switchable && bases.note && (
+        <Caption as="span" data-testid="base-note">
+          {bases.note}
+        </Caption>
+      )}
     </Cluster>
   );
 }

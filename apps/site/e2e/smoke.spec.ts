@@ -90,8 +90,10 @@ async function checkPage(
       await page.emulateMedia({ reducedMotion: "reduce" });
       // The phone Menu was opened to read the nav; the shot is of the page, so close it.
       await page.evaluate(() => {
-        for (const menu of document.querySelectorAll("header details[open]"))
-          menu.removeAttribute("open");
+        for (const menu of document.querySelectorAll<HTMLElement>(
+          "header [data-shell-menu]:popover-open",
+        ))
+          menu.hidePopover();
       });
       await page.screenshot({
         path: join(dir, `${name}-${info.project.name}.png`),
@@ -241,7 +243,7 @@ for (const scheme of ["light", "dark"] as const) {
             const ownText = [...element.childNodes].some(
               (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim(),
             );
-            // checkVisibility is false inside a closed <details>: it has boxes but paints nothing.
+            // checkVisibility is false inside a closed <details> or popover: it paints nothing.
             return element.checkVisibility() && box.width > 1 && box.height > 1 && ownText;
           });
           shown?.setAttribute("data-font-probe", name);

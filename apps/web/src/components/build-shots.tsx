@@ -1,18 +1,16 @@
-import { Link } from "@tanstack/react-router";
 import { type ReactNode, useMemo, useState } from "react";
 import {
   Button,
   Card,
   CardGrid,
   Cluster,
-  type LinkRenderProps,
   ListRow,
   MetaList,
   Section,
   Stack,
   Tabs,
   Text,
-} from "@hackcove/ui-react";
+} from "@slashsuite/ui-react";
 import { aiFiltered } from "#/components/ai-notes";
 import { ShotCard, measured } from "#/components/shot-card";
 import { ReviewChip } from "#/components/ui";
@@ -20,6 +18,7 @@ import type { SnapshotView } from "#/db/review";
 import { BUILD_TABS, type BuildTab } from "#/lib/build-tabs";
 import { type ShotLabel, shotLabeller } from "#/lib/shot-label";
 import { GROUP_LABEL, type SnapshotGroup, reviewGroupOf } from "#/lib/snapshot-groups";
+import { hrefTo } from "#/lib/href";
 
 export function BuildTabs({
   projectId,
@@ -34,24 +33,19 @@ export function BuildTabs({
 }) {
   return (
     <Tabs
-      variant="pill"
       label="Shots in this build"
       value={active}
       items={BUILD_TABS.map((tab) => ({
         value: tab.id,
         label: tab.label,
         count: counts[tab.id],
-        render: (props: LinkRenderProps) => (
-          <Link
-            to="/projects/$projectId/builds/$buildId"
-            params={{ projectId, buildId }}
-            search={{ tab: tab.id }}
-            replace
-            resetScroll={false}
-            data-testid={`tab-${tab.id}`}
-            {...props}
-          />
+        href: hrefTo(
+          "/projects/$projectId/builds/$buildId",
+          { projectId, buildId },
+          { search: { tab: tab.id } },
         ),
+        "data-testid": `tab-${tab.id}`,
+        "data-in-place": true,
       }))}
     />
   );
@@ -70,39 +64,40 @@ function ShotRows({
 }) {
   return (
     <Card flush>
-      <ul>
-        {rows.map((shot, index) => (
+      <Stack as="ul" divided>
+        {rows.map((shot) => (
           <li key={shot.id} data-testid="snapshot-row">
             <ListRow
-              divided={index > 0}
               trailing={
                 !baseline &&
                 shot.reviewState !== "pending" && (
                   <ReviewChip state={shot.reviewState} by={shot.reviewedBy} />
                 )
               }
-              render={(props) => (
-                <Link
-                  to="/projects/$projectId/builds/$buildId/snapshots/$snapshotId"
-                  params={{ projectId, buildId, snapshotId: shot.id }}
-                  {...props}
-                />
-              )}
+              href={hrefTo("/projects/$projectId/builds/$buildId/snapshots/$snapshotId", {
+                projectId,
+                buildId,
+                snapshotId: shot.id,
+              })}
             >
-              <Cluster gap="sm" wrap>
-                <Text strong>{shot.name}</Text>
+              <Cluster gap="sm">
+                <Text as="span" strong>
+                  {shot.name}
+                </Text>
                 <MetaList>
                   {shot.platform}
                   {shot.browser}
                   {shot.viewport}
                   {shot.theme}
                 </MetaList>
-                <Text tone="muted">{measured(shot, baseline)}</Text>
+                <Text as="span" tone="muted">
+                  {measured(shot, baseline)}
+                </Text>
               </Cluster>
             </ListRow>
           </li>
         ))}
-      </ul>
+      </Stack>
     </Card>
   );
 }
@@ -126,7 +121,10 @@ function GroupSection({
       title={
         heading && (
           <>
-            {GROUP_LABEL[group]} <Text tone="muted">({count})</Text>
+            {GROUP_LABEL[group]}{" "}
+            <Text as="span" tone="muted">
+              ({count})
+            </Text>
           </>
         )
       }
@@ -185,7 +183,7 @@ export function TabBody({
 
   if (groups.every((group) => inGroup(group).length === 0)) {
     return (
-      <Text as="p" tone="muted" data-testid="tab-empty">
+      <Text tone="muted" data-testid="tab-empty">
         Nothing in {definition?.label ?? "this tab"}.
       </Text>
     );
@@ -274,11 +272,14 @@ function CardGroups({
           gap="xs"
           title={
             <>
-              AI-filtered <Text tone="muted">({filtered.length})</Text>
+              AI-filtered{" "}
+              <Text as="span" tone="muted">
+                ({filtered.length})
+              </Text>
             </>
           }
         >
-          <Text as="p" tone="muted">
+          <Text tone="muted">
             Accepted without a person: the project&apos;s model labelled every changed region noise.
             Open one to reject it.
           </Text>

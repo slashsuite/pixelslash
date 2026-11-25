@@ -1,6 +1,15 @@
-import { Link, useRouter } from "@tanstack/react-router";
+import { useRouter } from "@tanstack/react-router";
 import { useState } from "react";
-import { Button, Caption, Cluster, Divider, Overline, Pill, Stack, Text } from "@hackcove/ui-react";
+import {
+  Button,
+  Caption,
+  Cluster,
+  Divider,
+  Overline,
+  Pill,
+  Stack,
+  Text,
+} from "@slashsuite/ui-react";
 import { useHydrated } from "#/components/ui";
 import type { AiSummarySentence } from "#/db/diff-json";
 import type { BuildView, SnapshotView } from "#/db/review";
@@ -9,6 +18,7 @@ import { noSummaryReason, tooManyChanges } from "#/lib/summary-limit";
 import { isDescribable, summaryCounts } from "#/lib/summary-counts";
 import { type ShotLabel, shotChips, shotLabeller } from "#/lib/shot-label";
 import { regenerateBuildSummary } from "#/server/model";
+import { hrefTo } from "#/lib/href";
 
 const story = (name: string) => name.split("@")[0] ?? name;
 
@@ -53,8 +63,12 @@ function Sentence({
   const shown = all ? named : named.slice(0, LINKS_SHOWN);
   const hidden = named.length - shown.length;
   return (
-    <Text as="p" data-testid={testId}>
-      {lead && <Text strong>{lead} </Text>}
+    <Text data-testid={testId}>
+      {lead && (
+        <Text as="span" strong>
+          {lead}{" "}
+        </Text>
+      )}
       {sentence.text}{" "}
       {shown.flatMap((id) => {
         const shot = byId.get(id);
@@ -64,15 +78,13 @@ function Sentence({
           // nowrap), and a very long one is cut at the column's width rather than widening the page.
           <span key={id} className="inline-block max-w-full truncate align-bottom">
             <Pill
-              tone="violet"
+              tone="accent"
               data-testid="summary-shot-link"
-              render={(props) => (
-                <Link
-                  to="/projects/$projectId/builds/$buildId/snapshots/$snapshotId"
-                  params={{ projectId, buildId, snapshotId: id }}
-                  {...props}
-                />
-              )}
+              href={hrefTo("/projects/$projectId/builds/$buildId/snapshots/$snapshotId", {
+                projectId,
+                buildId,
+                snapshotId: id,
+              })}
             >
               {linkText(shot, label(shot.name), oneStory(named, byId))}
             </Pill>
@@ -171,9 +183,9 @@ function Footer({
       .finally(() => setBusy(false));
   };
   return (
-    <Cluster gap="sm" wrap>
+    <Cluster gap="sm">
       {summary && (
-        <Caption data-testid="summary-model">
+        <Caption as="span" data-testid="summary-model">
           {summary.model} · {formatDateTime(new Date(summary.at))}
           {summary.match && " · read against the brief"}
         </Caption>
@@ -190,9 +202,11 @@ function Footer({
         </Button>
       )}
       {error && (
-        <Caption role="alert" tone="danger">
-          {error}
-        </Caption>
+        <span role="alert">
+          <Caption as="span" tone="danger">
+            {error}
+          </Caption>
+        </span>
       )}
     </Cluster>
   );
@@ -222,19 +236,19 @@ function SummaryBody({
   if (!describable) return null;
   if (modelConfigured && tooManyChanges(changed))
     return (
-      <Text as="p" tone="muted" data-testid="summary-too-many">
+      <Text tone="muted" data-testid="summary-too-many">
         {noSummaryReason(changed)}
       </Text>
     );
   // Written once every shot is explained (ob 1875); a big build gets none.
   if (pending)
     return (
-      <Text as="p" tone="muted" data-testid="summary-pending">
+      <Text tone="muted" data-testid="summary-pending">
         explaining…
       </Text>
     );
   return (
-    <Text as="p" tone="muted" data-testid="summary-skip">
+    <Text tone="muted" data-testid="summary-skip">
       skip: no judge.
     </Text>
   );
@@ -279,7 +293,7 @@ export function BuildSummary({
         describable={describable}
         pending={pending}
       />
-      <Text as="p" tone="muted" data-testid="summary-counts">
+      <Text tone="muted" data-testid="summary-counts">
         {summaryCounts(snapshots, build.brief)}
       </Text>
       <Footer

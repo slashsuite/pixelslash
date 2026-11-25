@@ -7,9 +7,9 @@ import {
   Stack,
   TextLink,
   Text,
-} from "@hackcove/ui-react";
+} from "@slashsuite/ui-react";
 import type { Metrics } from "@slashsuite/pixelslash-engine/metrics-entry";
-import { Link } from "@tanstack/react-router";
+import { hrefTo } from "#/lib/href";
 import type { ReactNode } from "react";
 import { IDENTICAL_NOTE } from "../../../../packages/engine/src/identical-note.ts";
 import { WEB_SERVER_PLATFORM } from "../../../../packages/engine/src/native.ts";
@@ -48,7 +48,7 @@ function SizeLine({ snapshot }: { snapshot: SnapshotView }) {
     line = sizeLine(result, main, branch);
   }
   return (
-    <Text as="p" data-testid="sizes" tone="muted">
+    <Text data-testid="sizes" tone="muted">
       {line}
     </Text>
   );
@@ -65,22 +65,16 @@ function Summary({ snapshot }: { snapshot: SnapshotView }) {
   if (!result) {
     body = (
       <>
-        <Text strong as="p">
-          Not measured
-        </Text>
+        <Text strong>Not measured</Text>
         {snapshot.diffError && (
-          <Text as="p" data-testid="diff-error" tone="danger">
+          <Text data-testid="diff-error" tone="danger">
             {snapshot.diffError}
           </Text>
         )}
       </>
     );
   } else if (result.settledBy) {
-    body = (
-      <Text strong as="p">
-        Not measured: identical bytes
-      </Text>
-    );
+    body = <Text strong>Not measured: identical bytes</Text>;
   } else {
     const { boxes, moved } = regionCounts(result);
     body = (
@@ -156,7 +150,7 @@ function Environment({ snapshot }: { snapshot: SnapshotView }) {
         <KeyValue label="Viewport">{snapshot.viewport}</KeyValue>
         {snapshot.scale !== null && <KeyValue label="Scale">{snapshot.scale}×</KeyValue>}
         <KeyValue label="Colour scheme">
-          <Caption data-testid="color-scheme" mono>
+          <Caption as="span" data-testid="color-scheme" mono>
             prefers-color-scheme: {snapshot.theme}
           </Caption>
         </KeyValue>
@@ -182,23 +176,17 @@ function Carried({ projectId, snapshot }: { projectId: string; snapshot: Snapsho
       <Overline as="h2" tone="muted">
         Carried change
       </Overline>
-      <Text as="p">
+      <Text>
         No change since the branch's last build, whose change against the accepted baseline is still
         open. Accepting or rejecting here decides it on both builds.
       </Text>
       {carriedFromBuild && (
         <TextLink
-          render={(p) => (
-            <Link
-              to="/projects/$projectId/builds/$buildId/snapshots/$snapshotId"
-              params={{
-                projectId,
-                buildId: carriedFromBuild,
-                snapshotId: carriedFrom,
-              }}
-              {...p}
-            />
-          )}
+          href={hrefTo("/projects/$projectId/builds/$buildId/snapshots/$snapshotId", {
+            projectId,
+            buildId: carriedFromBuild,
+            snapshotId: carriedFrom,
+          })}
         >
           See the change
         </TextLink>
@@ -219,8 +207,11 @@ function ApprovedEarlier({ projectId, snapshot }: { projectId: string; snapshot:
       <Overline as="h2" tone="muted">
         Approved earlier
       </Overline>
-      <Text as="p">
-        Approved on build <Caption mono>{approved.commitSha.slice(0, 7)}</Caption>
+      <Text>
+        Approved on build{" "}
+        <Caption as="span" mono>
+          {approved.commitSha.slice(0, 7)}
+        </Caption>
         {approved.reviewedBy && <> by {approved.reviewedBy}</>}
         {approved.reviewedAt && <>, {formatDateTime(approved.reviewedAt)}</>}. No change since, but
         this shot still differs from {approved.defaultBranch}.
@@ -234,13 +225,11 @@ function ApprovedEarlier({ projectId, snapshot }: { projectId: string; snapshot:
       </Text>
       <TextLink
         data-testid="approved-earlier-link"
-        render={(p) => (
-          <Link
-            to="/projects/$projectId/builds/$buildId/snapshots/$snapshotId"
-            params={{ projectId, buildId: approved.buildId, snapshotId: approved.snapshotId }}
-            {...p}
-          />
-        )}
+        href={hrefTo("/projects/$projectId/builds/$buildId/snapshots/$snapshotId", {
+          projectId,
+          buildId: approved.buildId,
+          snapshotId: approved.snapshotId,
+        })}
       >
         See the change against {approved.defaultBranch}
       </TextLink>
@@ -276,11 +265,9 @@ export function SidePanel({
   children?: ReactNode;
 }) {
   return (
-    <Stack gap="md">
+    <Stack>
       {!reviewable && (
-        <Text as="p" tone="muted">
-          This build is {status}; a new build is needed to review it.
-        </Text>
+        <Text tone="muted">This build is {status}; a new build is needed to review it.</Text>
       )}
       <AiExplanation snapshot={snapshot} />
       <Summary snapshot={snapshot} />
@@ -296,7 +283,7 @@ export function SidePanel({
             </Text>
           }
         >
-          <Stack gap="md">
+          <Stack>
             <MeasuredDetails snapshot={snapshot} />
             <Environment snapshot={snapshot} />
             <Options snapshot={snapshot} options={options} />
@@ -311,7 +298,7 @@ export function SidePanel({
               </Text>
             }
           >
-            <Stack gap="md">{tools}</Stack>
+            <Stack>{tools}</Stack>
           </Disclosure>
         )}
       </Stack>

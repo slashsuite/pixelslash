@@ -8,7 +8,7 @@ import {
   SectionHeading,
   Stack,
   Text,
-} from "@hackcove/ui-react";
+} from "@slashsuite/ui-react";
 import { useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { InlineForm, useHydrated } from "#/components/ui";
@@ -20,10 +20,10 @@ export function DefaultBranch({ projectId, branch }: { projectId: string; branch
   const router = useRouter();
   return (
     <Card>
-      <Stack>
+      <Stack gap="md">
         <Stack gap="xs">
           <SectionHeading>Default branch</SectionHeading>
-          <Text as="p">
+          <Text>
             Builds on this branch are accepted without review and become the baseline for branch
             builds. Builds on other branches wait for review.
           </Text>
@@ -54,13 +54,16 @@ function CommentToggle({ projectId, comment }: { projectId: string; comment: boo
   };
   return (
     <Checkbox
-      align="start"
       checked={comment}
       disabled={!hydrated}
-      onChange={(e) => void set(e.target.checked)}
+      onChange={(checked) => void set(checked)}
       data-testid="github-comment"
-      label={<Text strong>Comment on pull requests</Text>}
-      description="Off, no comment is posted or edited; the commit status is sent either way."
+      label={
+        <Text as="span" strong>
+          Comment on pull requests
+        </Text>
+      }
+      hint="Off, no comment is posted or edited; the commit status is sent either way."
     />
   );
 }
@@ -94,10 +97,10 @@ export function GithubRepo({
   };
   return (
     <Card data-testid="github-repo">
-      <Stack>
+      <Stack gap="md">
         <Stack gap="xs">
           <SectionHeading>GitHub repo</SectionHeading>
-          <Text as="p">
+          <Text>
             Each build posts a PixelSlash commit status on its commit: pending while changes wait
             for review, passing once they are accepted, failing when one is rejected. Its Details
             link opens the build. A branch protection rule that requires PixelSlash keeps working by
@@ -107,7 +110,7 @@ export function GithubRepo({
             links.
           </Text>
           {!configured && (
-            <Text as="p">
+            <Text>
               This server has no GitHub App or token set up, so no commit statuses or comments are
               sent yet.
             </Text>
@@ -128,8 +131,7 @@ export function GithubRepo({
               variant="ghost"
               tone="danger"
               disabled={!hydrated}
-              busy={busy}
-              busyLabel="Disconnecting…"
+              busy={busy && "Disconnecting…"}
               onClick={() => void disconnect()}
             >
               Disconnect {repo}
@@ -152,14 +154,15 @@ export function UploadCommand({
   const hydrated = useHydrated();
   return (
     <Card>
-      <Stack>
+      <Stack gap="md">
         <Stack gap="xs">
           <SectionHeading>Upload a build</SectionHeading>
-          <Text as="p">
+          <Text>
             From CI or your machine, with the token in <Code>PIXELSLASH_TOKEN</Code>:
           </Text>
         </Stack>
         <CopyLine
+          label="upload command"
           text={`PIXELSLASH_TOKEN=… pixelslash upload DIR --server ${serverUrl}${subproject ? ` --subproject ${subproject}` : ""}`}
           disabled={!hydrated}
           data-testid="upload-command"

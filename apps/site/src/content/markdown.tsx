@@ -17,7 +17,7 @@ import {
   TableHeaderCell,
   TableRow,
   TextLink,
-} from "@hackcove/ui-react";
+} from "@slashsuite/ui-react";
 import { type MarkedToken, type Token, type Tokens, lexer } from "marked";
 import { Fragment, type ReactNode } from "react";
 import { decode, marked, plainText, slugger, stripTicketIds } from "./doc-text.ts";
@@ -156,7 +156,7 @@ function ListBlock({ token, doc }: { token: Tokens.List; doc: Doc }): ReactNode 
 
 function TableBlock({ token, doc }: { token: Tokens.Table; doc: Doc }): ReactNode {
   return (
-    <Table>
+    <Table label={token.header.map((cell) => plainText(cell.tokens)).join(", ")}>
       <TableHead>
         <TableRow>
           {token.header.map((cell, index) => (
@@ -170,15 +170,30 @@ function TableBlock({ token, doc }: { token: Tokens.Table; doc: Doc }): ReactNod
         {token.rows.map((row, rowIndex) => (
           <TableRow key={rowIndex}>
             {row.map((cell, index) => (
-              <TableCell key={index}>
-                <Inline tokens={cell.tokens} doc={doc} />
-              </TableCell>
+              <TableCell key={index}>{cellContent(cell.tokens, doc)}</TableCell>
             ))}
           </TableRow>
         ))}
       </TableBody>
     </Table>
   );
+}
+
+/** Inline tokens that render as something other than text: code, a link, emphasis, a break, an image. */
+const FORMATTED = new Set(["strong", "em", "del", "codespan", "link", "br", "image"]);
+
+function isPlain(token: MarkedToken): boolean {
+  if (FORMATTED.has(token.type)) return false;
+  return !("tokens" in token) || !token.tokens || marked(token.tokens).every(isPlain);
+}
+
+/**
+ * A cell of plain text goes in as one string: the kit wraps a cell only when its children are all
+ * text, and keeps any other cell on one line.
+ */
+function cellContent(tokens: Token[] | undefined, doc: Doc): ReactNode {
+  if (marked(tokens).every(isPlain)) return plainText(tokens);
+  return <Inline tokens={tokens} doc={doc} />;
 }
 
 type BlockRenderer = (token: MarkedToken, doc: Doc) => ReactNode;

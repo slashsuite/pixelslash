@@ -32,7 +32,7 @@ for (const path of PATHS) {
     await page.goto(path, { waitUntil: "networkidle" });
     // The site has no inline copy script: before hydration a click copies nothing.
     await hydrated(page);
-    // By position: each button is named "copy", and the status region after it announces "copied".
+    // By position: each button is named "Copy", and the status region after it announces "Copied".
     const all = page.locator("figure:has(pre) button");
     const count = await all.count();
     for (let index = 0; index < count; index += 1) {
@@ -41,7 +41,7 @@ for (const path of PATHS) {
       const block = button.locator("xpath=ancestor::figure[1]");
       await button.click();
       const status = button.locator("xpath=following-sibling::*[@role='status'][1]");
-      await expect(status, `${path} #${index}`).toHaveText("copied");
+      await expect(status, `${path} #${index}`).toHaveText("Copied");
       const copied = await page.evaluate(() => navigator.clipboard.readText());
       const shown = (await block.locator("pre").first().innerText()).replace(/\s+/g, " ").trim();
       expect(copied.replace(/\s+/g, " ").trim(), `${path} #${index}`).toBe(shown);

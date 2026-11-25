@@ -1,4 +1,12 @@
-import { Button, ButtonGroup, Card, SectionHeading, Select, Stack, Text } from "@hackcove/ui-react";
+import {
+  Button,
+  ButtonGroup,
+  Card,
+  SectionHeading,
+  Select,
+  Stack,
+  Text,
+} from "@slashsuite/ui-react";
 import { useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { saveTwinProject } from "#/server/twin-fns";
@@ -36,10 +44,10 @@ export function TwinSettings({
   };
   return (
     <Card data-testid="twin-project">
-      <Stack>
+      <Stack gap="md">
         <Stack gap="xs">
           <SectionHeading>Twin project</SectionHeading>
-          <Text as="p">
+          <Text>
             Another project of this org that holds the same screens on another platform, for a web
             app and its native app in two projects. A build&apos;s shots are paired with the shots
             of the same name and theme there: the twin project&apos;s build at the same commit, else
@@ -47,7 +55,7 @@ export function TwinSettings({
           </Text>
         </Stack>
         {options.length === 0 ? (
-          <Text as="p" tone="muted" data-testid="no-twin-options">
+          <Text tone="muted" data-testid="no-twin-options">
             This org has no other project to link.
           </Text>
         ) : (
@@ -58,24 +66,20 @@ export function TwinSettings({
               disabled={!hydrated}
               onChange={(e) => setChosen(e.target.value)}
               width="lg"
-            >
-              <option value="">None</option>
-              {options.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name}
-                </option>
-              ))}
-            </Select>
+              items={[
+                { value: "", label: "None" },
+                ...options.map((o) => ({ value: o.id, label: o.name })),
+              ]}
+            />
             {error && (
-              <Text as="p" tone="danger" role="alert">
-                {error}
-              </Text>
+              <div role="alert">
+                <Text tone="danger">{error}</Text>
+              </div>
             )}
             <ButtonGroup>
               <Button
                 disabled={!hydrated || chosen === (saved ?? "")}
-                busy={busy}
-                busyLabel="Saving…"
+                busy={busy && "Saving…"}
                 onClick={() => void save()}
               >
                 Save twin project

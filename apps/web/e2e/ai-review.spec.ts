@@ -85,6 +85,9 @@ test("a project without its own model uses the org's, and its own overrides it",
 
   await inUse.getByRole("link", { name: "org settings" }).click();
   await expect(page).toHaveURL(/tab=model/);
+  // The link is a client navigation: the project's form stays up until the org page replaces it,
+  // and only the project's form says which model is in use.
+  await expect(inUse).toHaveCount(0);
   const orgForm = page.getByTestId("model-settings");
   await orgForm.getByTestId("model-base-url").fill(`${STUB}/v1`);
   await orgForm.getByTestId("model-name").fill("org-flash");

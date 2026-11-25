@@ -8,7 +8,7 @@ import {
   TableHeaderCell,
   TableRow,
   Text,
-} from "@hackcove/ui-react";
+} from "@slashsuite/ui-react";
 import type { BuildCompares } from "#/db/build-compares";
 import type { WindowFigures } from "#/db/window-figures";
 import { formatDuration, formatNumber } from "#/lib/format";
@@ -38,13 +38,13 @@ function Times({ build }: { build: BuildCompares }) {
   const n = `n=${formatNumber(times.n)}`;
   return (
     <>
-      <TableCell numeric align="end" secondary={n}>
+      <TableCell numeric secondary={n}>
         {ms(times.p50)}
       </TableCell>
-      <TableCell numeric align="end" secondary={n}>
+      <TableCell numeric secondary={n}>
         {times.tail === "max" ? `${ms(times.max)} max` : ms(times.p95)}
       </TableCell>
-      <TableCell numeric align="end" secondary={n}>
+      <TableCell numeric secondary={n}>
         {times.p99 === null ? "n/a" : ms(times.p99)}
       </TableCell>
     </>
@@ -65,12 +65,12 @@ function Figures({
 }) {
   if (!stats)
     return (
-      <Text tone="muted" data-testid={testId}>
+      <Text as="span" tone="muted" data-testid={testId}>
         n/a · n=0 {noun}
       </Text>
     );
   return (
-    <Text data-testid={testId}>
+    <Text as="span" data-testid={testId}>
       {unit(stats.p50)} / {unit(stats.tail === "max" ? stats.max : stats.p95)}
       {stats.tail === "max" && " max"} / {stats.p99 === null ? "n/a" : unit(stats.p99)} · n=
       {formatNumber(stats.n)} {noun}
@@ -86,7 +86,7 @@ function Figures({
 export function WindowFiguresLine({ figures, testId }: { figures: WindowFigures; testId: string }) {
   return (
     <Stack gap="xs" data-testid={testId}>
-      <Text as="p">
+      <Text>
         Snapshots per build, p50 / p95 / p99:{" "}
         <Figures
           stats={figures.perBuild}
@@ -95,7 +95,7 @@ export function WindowFiguresLine({ figures, testId }: { figures: WindowFigures;
           testId={`${testId}-per-build`}
         />
       </Text>
-      <Text as="p">
+      <Text>
         Time per snapshot, p50 / p95 / p99:{" "}
         <Figures
           stats={figures.perSnapshot}
@@ -104,7 +104,7 @@ export function WindowFiguresLine({ figures, testId }: { figures: WindowFigures;
           testId={`${testId}-per-snapshot`}
         />
       </Text>
-      <Caption as="p">
+      <Caption>
         Snapshots per build counts cache hits, over builds that hold a snapshot. Time per snapshot
         is the server's compares with a stored time, no cache hit in it; a CI build's times are not
         in it, since reading them would mean reading every build of the window.
@@ -130,13 +130,13 @@ export function BuildComparesTable({
       : "";
   return (
     <>
-      <Table variant="plain" caption="Compare times per build" data-testid={testId}>
+      <Table label="Compare times per build" data-testid={testId}>
         <TableHead>
           <TableRow>
             <TableHeaderCell>Build</TableHeaderCell>
             <TableHeaderCell>Status</TableHeaderCell>
-            <TableHeaderCell align="end">Snapshots</TableHeaderCell>
-            <TableHeaderCell align="end">Compared</TableHeaderCell>
+            <TableHeaderCell numeric>Snapshots</TableHeaderCell>
+            <TableHeaderCell numeric>Compared</TableHeaderCell>
             <TableHeaderCell align="end">p50</TableHeaderCell>
             <TableHeaderCell align="end">p95</TableHeaderCell>
             <TableHeaderCell align="end">p99</TableHeaderCell>
@@ -147,18 +147,14 @@ export function BuildComparesTable({
             <TableRow key={b.id} data-testid={`${testId}-row`}>
               <TableCell mono>{b.id.slice(0, 8)}</TableCell>
               <TableCell>{b.status}</TableCell>
-              <TableCell numeric align="end">
-                {formatNumber(b.snapshots)}
-              </TableCell>
-              <TableCell numeric align="end">
-                {formatNumber(b.compared)}
-              </TableCell>
+              <TableCell numeric>{formatNumber(b.snapshots)}</TableCell>
+              <TableCell numeric>{formatNumber(b.compared)}</TableCell>
               <Times build={b} />
             </TableRow>
           ))}
         </TableBody>
       </Table>
-      <Caption as="p">
+      <Caption>
         A cache hit has the same bytes as its baseline: it is a snapshot, no compare ran, and it is
         in no time. n counts the compares with a time: the server's, or else what the CLI sent. p95
         reads max under {P95_MIN_BUILDS} and p99 reads n/a under {formatNumber(P99_MIN_COMPARES)}.

@@ -13,8 +13,7 @@ import {
   TableRow,
   Text,
   TextLink,
-} from "@hackcove/ui-react";
-import { Link } from "@tanstack/react-router";
+} from "@slashsuite/ui-react";
 import { StaleBadge } from "#/components/stale";
 import {
   NOT_MEASURED,
@@ -27,6 +26,7 @@ import {
 } from "#/lib/parity-view";
 import { staleDate } from "#/lib/stale";
 import { twinSourceLabel } from "#/lib/twins";
+import { hrefTo } from "#/lib/href";
 
 /**
  * The parity view of one snapshot key (PS-298): web, android and ios side by side at one physical
@@ -38,17 +38,11 @@ function ShotLink({ column }: { column: ParityShotColumn }) {
   return (
     <TextLink
       data-testid="parity-shot-link"
-      render={(p) => (
-        <Link
-          to="/projects/$projectId/builds/$buildId/snapshots/$snapshotId"
-          params={{
-            projectId: column.projectId,
-            buildId: column.buildId,
-            snapshotId: column.snapshotId,
-          }}
-          {...p}
-        />
-      )}
+      href={hrefTo("/projects/$projectId/builds/$buildId/snapshots/$snapshotId", {
+        projectId: column.projectId,
+        buildId: column.buildId,
+        snapshotId: column.snapshotId,
+      })}
     >
       {column.label}
     </TextLink>
@@ -63,7 +57,7 @@ function ShotColumn({ column }: { column: ParityShotColumn }) {
       <Overline as="h3" tone="muted">
         {column.platform}
       </Overline>
-      <Text as="p" strong>
+      <Text strong>
         <ShotLink column={column} />
         {column.stale && (
           <>
@@ -72,12 +66,12 @@ function ShotColumn({ column }: { column: ParityShotColumn }) {
           </>
         )}
       </Text>
-      <Caption as="p" tone="muted" data-testid="parity-meta">
+      <Caption tone="muted" data-testid="parity-meta">
         {column.viewport} · scale {scaleText(column.scale)} · {twinSourceLabel(column.source)} ·{" "}
         {column.projectName}
       </Caption>
       {column.stale && (
-        <Caption as="p" tone="muted" data-testid="parity-stale-cause">
+        <Caption tone="muted" data-testid="parity-stale-cause">
           web changed, accepted by {column.stale.acceptedBy ?? "someone"}{" "}
           {staleDate(column.stale.acceptedAt)}
         </Caption>
@@ -90,20 +84,16 @@ function ShotColumn({ column }: { column: ParityShotColumn }) {
         className="block h-auto border border-current/25"
       />
       {physical && (
-        <Caption as="p" tone="muted" data-testid="parity-physical">
+        <Caption tone="muted" data-testid="parity-physical">
           {physical.width} × {physical.height} px at {scaleText(column.scale)}
         </Caption>
       )}
       {column.similarity && (
-        <Caption as="p" tone="muted" data-testid="parity-similarity">
+        <Caption tone="muted" data-testid="parity-similarity">
           {column.similarity.text}
         </Caption>
       )}
-      {!column.hasMetrics && (
-        <Caption as="p" tone="muted">
-          {NOT_MEASURED}
-        </Caption>
-      )}
+      {!column.hasMetrics && <Caption tone="muted">{NOT_MEASURED}</Caption>}
     </Stack>
   );
 }
@@ -122,12 +112,8 @@ function Columns({ columns }: { columns: ParityView["columns"] }) {
             <Overline as="h3" tone="muted">
               {c.platform}
             </Overline>
-            <Text as="p" tone="muted">
-              {`no ${c.platform} twin`}
-            </Text>
-            <Caption as="p" tone="muted">
-              {c.line}
-            </Caption>
+            <Text tone="muted">{`no ${c.platform} twin`}</Text>
+            <Caption tone="muted">{c.line}</Caption>
           </Stack>
         ) : (
           <ShotColumn key={c.snapshotId} column={c} />
@@ -141,31 +127,23 @@ function Pair({ pair }: { pair: ParityPairView }) {
   return (
     <li data-testid="parity-pair" data-status={pair.status}>
       <Stack gap="xs">
-        <Text as="p" strong>
-          {pairLabel(pair)}
-        </Text>
+        <Text strong>{pairLabel(pair)}</Text>
         {pair.status === "not_measured" && (
-          <Text as="p" tone="muted">
+          <Text tone="muted">
             {`${NOT_MEASURED}: no metrics file on ${pair.lacks.join(" or ")}`}
           </Text>
         )}
-        {pair.status === "clean" && (
-          <Text as="p" tone="muted">
-            no mismatch
-          </Text>
-        )}
+        {pair.status === "clean" && <Text tone="muted">no mismatch</Text>}
         {pair.mismatches.map((m) => (
-          <Text as="p" key={m} data-testid="parity-mismatch">
+          <Text key={m} data-testid="parity-mismatch">
             {m}
           </Text>
         ))}
         {pair.declared.length > 0 && (
           <Stack gap="xs" data-testid="parity-declared">
-            <Caption as="p" tone="muted">
-              Declared differences (not mismatches)
-            </Caption>
+            <Caption tone="muted">Declared differences (not mismatches)</Caption>
             {pair.declared.map((d) => (
-              <Text as="p" tone="muted" key={d}>
+              <Text tone="muted" key={d}>
                 {d}
               </Text>
             ))}
@@ -181,10 +159,8 @@ function RawNumbers({ metrics }: { metrics: ParityMetricsView }) {
   const caption = "The numbers each shot measured";
   return (
     <Stack gap="xs">
-      <Caption as="p" tone="muted">
-        {caption}
-      </Caption>
-      <Table variant="plain" caption={caption} data-testid="parity-raw">
+      <Caption tone="muted">{caption}</Caption>
+      <Table label={caption} data-testid="parity-raw">
         <TableHead>
           <TableRow>
             <TableHeaderCell>Part</TableHeaderCell>
@@ -227,9 +203,7 @@ function MetricsSection({ metrics }: { metrics: ParityMetricsView }) {
         </Callout>
       )}
       {metrics.pairs.length === 0 ? (
-        <Text as="p" tone="muted">
-          Only one platform has a shot here: nothing to compare.
-        </Text>
+        <Text tone="muted">Only one platform has a shot here: nothing to compare.</Text>
       ) : (
         <Stack as="ul" gap="sm">
           {metrics.pairs.map((p) => (

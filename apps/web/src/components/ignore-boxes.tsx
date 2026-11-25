@@ -11,7 +11,7 @@ import {
   Pill,
   Stack,
   Text,
-} from "@hackcove/ui-react";
+} from "@slashsuite/ui-react";
 import { useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import type { IgnoreSource } from "#/components/snapshot-frame";
@@ -132,7 +132,7 @@ export function EdgeWarning({ result }: { result: DiffResult | null }) {
   const touching = result ? edgeTouches(result.regions, result.ignored) : [];
   if (touching.length === 0) return null;
   return (
-    <Callout tone="warn" role="status" data-testid="ignore-edge-warning">
+    <Callout tone="warn" data-testid="ignore-edge-warning">
       {touching.length === 1 ? "A change touches" : `${touching.length} changes touch`} an ignored
       area's edge: {EDGE_WARNING}.
     </Callout>
@@ -154,14 +154,13 @@ function PendingBox({
 }) {
   return (
     <Stack gap="xs" data-testid="ignore-pending">
-      <Caption as="p" numeric>
+      <Caption numeric>
         {rect.width}×{rect.height} px at {rect.x},{rect.y}
       </Caption>
       <ButtonGroup>
         <Button
           disabled={waiting}
-          busy={busy}
-          busyLabel="Saving…"
+          busy={busy && "Saving…"}
           onClick={() => onSave("test")}
           size="sm"
           data-testid="ignore-save-test"
@@ -171,8 +170,7 @@ function PendingBox({
         <Button
           variant="outline"
           disabled={waiting}
-          busy={busy}
-          busyLabel="Saving…"
+          busy={busy && "Saving…"}
           onClick={() => onSave("variant")}
           size="sm"
           data-testid="ignore-save-variant"
@@ -206,27 +204,25 @@ function BoxRow({
 }) {
   return (
     <li>
-      <Card as="div" size="sm" data-testid="ignore-box-row">
+      <Card size="sm" data-testid="ignore-box-row">
         <Stack gap="xs">
           <Cluster justify="between" gap="sm">
-            <Text>
-              <Pill tone="sky">UI</Pill> {box.variant ? "This variant" : "This test"} ·{" "}
+            <Text as="span">
+              <Pill tone="info">UI</Pill> {box.variant ? "This variant" : "This test"} ·{" "}
               {box.rect.width}×{box.rect.height}
             </Text>
             <Button
               variant="outline"
               disabled={!hydrated}
-              busy={busy}
-              busyLabel="Clearing…"
+              busy={busy && "Clearing…"}
               onClick={onClear}
-              size="sm"
               data-testid="ignore-clear"
             >
               Clear
             </Button>
           </Cluster>
           <Cluster justify="between" gap="sm">
-            <Caption>
+            <Caption as="span">
               By @{box.by}, {formatDateTime(box.at)}. Copy as config:
             </Caption>
             <CopyButton text={box.snippet} disabled={!hydrated} />
@@ -264,7 +260,7 @@ export function IgnoreBoxes({
     <Stack as="section" gap="xs" data-testid="ignore-boxes">
       <Overline as="h2">Ignore areas</Overline>
       {uploaded > 0 && (
-        <Caption as="p">
+        <Caption>
           {uploaded} from the {uploadedIgnore}, hatched on the shot.
         </Caption>
       )}
@@ -292,14 +288,14 @@ export function IgnoreBoxes({
       ) : (
         <DrawButton draft={draft} hydrated={hydrated} />
       )}
-      <Caption as="p">In image px; saving re-diffs this build and later ones.</Caption>
+      <Caption>In image px; saving re-diffs this build and later ones.</Caption>
       {boxes.error && (
-        <Text as="p" role="alert" tone="danger">
-          {boxes.error}
-        </Text>
+        <div role="alert">
+          <Text tone="danger">{boxes.error}</Text>
+        </div>
       )}
       {boxes.note && (
-        <Text as="p" tone="muted" data-testid="ignore-note">
+        <Text tone="muted" data-testid="ignore-note">
           {boxes.note}
         </Text>
       )}

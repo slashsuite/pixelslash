@@ -1,13 +1,13 @@
 @import "tailwindcss";
-@import "@hackcove/themes/catppuccin-mocha.css";
-@import "@hackcove/themes/catppuccin-latte.css";
+@import "@slashsuite/themes/catppuccin-mocha.css";
+@import "@slashsuite/themes/catppuccin-latte.css";
 /* Tailwind skips node_modules: scan the design system for the utilities its components use. */
-@source "../node_modules/@hackcove/ui-react/dist";
+@source "../node_modules/@slashsuite/ui-react/dist";
 @import "./home.css";
 
 /*
  * Catppuccin Mocha and Latte palettes © 2021 Catppuccin, MIT license (notice in
- * @hackcove/themes/NOTICE). Tailwind's build drops the credit comment from the
+ * @slashsuite/themes/NOTICE). Tailwind's build drops the credit comment from the
  * theme file, so it is repeated here.
  */
 
@@ -66,13 +66,12 @@
   }
 }
 
-/* The nav is the kit's md pill (14px). From md to lg the tabs do not fit the row at that size, so
-   this band keeps the sm metrics (px-2.5 py-1 text-xs: 12px on a 1.3333 line). Unlayered, like the
-   Home rule, so it beats the kit's utilities; the line height is set too, as text-xs sets both. The
-   selector also matches the phone Menu's nav, which is hidden in this band. From lg the nav is 14px. */
+/* The nav is the kit's underline tabs at 14px. From md to lg they do not fit the row at that size, so
+   this band sets 12px on a 1.3333 line (text-xs). Unlayered, like the Home rule, so it beats the
+   kit's utilities; the line height is set too, as text-xs sets both. The selector also matches the
+   phone Menu's nav, which is hidden in this band. From lg the nav is 14px. */
 @media (min-width: 48rem) and (width < 64rem) {
   header nav[aria-label="Site"] a {
-    padding: 0.25rem 0.625rem;
     font-size: 0.75rem;
     line-height: calc(1 / 0.75);
   }

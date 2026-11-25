@@ -1,4 +1,4 @@
-import { Breadcrumbs, ListLayout, Text } from "@hackcove/ui-react";
+import { Breadcrumbs, ListLayout, Text } from "@slashsuite/ui-react";
 import { createFileRoute } from "@tanstack/react-router";
 import { buildCrumb, orgCrumb, projectCrumbs } from "#/components/crumbs";
 import { ParityBody } from "#/components/parity-view";
@@ -27,7 +27,7 @@ function ParityPage() {
       <ListLayout
         breadcrumbs={
           <Breadcrumbs
-            crumbs={[
+            items={[
               orgCrumb(org),
               ...projectCrumbs(project),
               buildCrumb(project.id, build),
@@ -37,9 +37,7 @@ function ParityPage() {
         }
         title={`${parity.name} · ${parity.theme}`}
       >
-        <Text as="p" tone="muted">
-          The same key on web, Android and iOS, at one physical size.
-        </Text>
+        <Text tone="muted">The same key on web, Android and iOS, at one physical size.</Text>
         <ParityBody view={parity} />
       </ListLayout>
     </Page>

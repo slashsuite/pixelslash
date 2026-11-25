@@ -1,11 +1,21 @@
-import { Caption, Card, Cluster, ListRow, Pill, Section, Text, TextLink } from "@hackcove/ui-react";
-import { Link } from "@tanstack/react-router";
+import {
+  Caption,
+  Card,
+  Cluster,
+  ListRow,
+  Pill,
+  Section,
+  Stack,
+  Text,
+  TextLink,
+} from "@slashsuite/ui-react";
 import { type StaleItem, staleParts } from "#/lib/stale";
+import { hrefTo } from "#/lib/href";
 
 /** The marker on a twin whose web side changed since a reviewer last accepted it (PS-297). */
 export function StaleBadge() {
   return (
-    <Pill tone="amber" data-testid="stale-badge">
+    <Pill tone="warn" data-testid="stale-badge">
       Stale
     </Pill>
   );
@@ -22,69 +32,62 @@ export function StaleList({ items }: { items: StaleItem[] }) {
     <Section
       title={
         <>
-          Stale <Text tone="muted">{items.length}</Text>
+          Stale{" "}
+          <Text as="span" tone="muted">
+            {items.length}
+          </Text>
         </>
       }
     >
       <Card flush>
-        {items.map((item, i) => {
-          const { before, after } = staleParts(item);
-          const shot = item.shots[0];
-          return (
-            <ListRow
-              key={`${item.platform}:${item.name}:${item.theme}`}
-              static
-              divided={i > 0}
-              data-testid="stale-item"
-              leading={<StaleBadge />}
-            >
-              <Cluster gap="xs" align="baseline" wrap>
-                <Text as="span">
-                  {before}
-                  <TextLink
-                    data-testid="stale-cause"
-                    render={(p) => (
-                      <Link
-                        to="/projects/$projectId/builds/$buildId/snapshots/$snapshotId"
-                        params={{
-                          projectId: item.cause.projectId,
-                          buildId: item.cause.buildId,
-                          snapshotId: item.cause.snapshotId,
-                        }}
-                        {...p}
-                      />
-                    )}
-                  >
-                    {item.cause.buildId.slice(0, 8)}
-                  </TextLink>
-                  {after}
-                </Text>
-                {shot && (
-                  <TextLink
-                    size="sm"
-                    data-testid="stale-shot"
-                    render={(p) => (
-                      <Link
-                        to="/projects/$projectId/builds/$buildId/snapshots/$snapshotId"
-                        params={{
-                          projectId: shot.projectId,
-                          buildId: shot.buildId,
-                          snapshotId: shot.snapshotId,
-                        }}
-                        {...p}
-                      />
-                    )}
-                  >
-                    Review the {item.platform} shot
-                  </TextLink>
+        <Stack divided>
+          {items.map((item) => {
+            const { before, after } = staleParts(item);
+            const shot = item.shots[0];
+            return (
+              <ListRow
+                key={`${item.platform}:${item.name}:${item.theme}`}
+                data-testid="stale-item"
+                leading={<StaleBadge />}
+              >
+                <Cluster gap="xs" align="baseline">
+                  <Text as="span">
+                    {before}
+                    <TextLink
+                      data-testid="stale-cause"
+                      href={hrefTo("/projects/$projectId/builds/$buildId/snapshots/$snapshotId", {
+                        projectId: item.cause.projectId,
+                        buildId: item.cause.buildId,
+                        snapshotId: item.cause.snapshotId,
+                      })}
+                    >
+                      {item.cause.buildId.slice(0, 8)}
+                    </TextLink>
+                    {after}
+                  </Text>
+                  {shot && (
+                    <TextLink
+                      size="sm"
+                      data-testid="stale-shot"
+                      href={hrefTo("/projects/$projectId/builds/$buildId/snapshots/$snapshotId", {
+                        projectId: shot.projectId,
+                        buildId: shot.buildId,
+                        snapshotId: shot.snapshotId,
+                      })}
+                    >
+                      Review the {item.platform} shot
+                    </TextLink>
+                  )}
+                </Cluster>
+                {item.shots.length > 1 && (
+                  <Caption as="span" tone="muted">
+                    {item.shots.length} devices and sizes
+                  </Caption>
                 )}
-              </Cluster>
-              {item.shots.length > 1 && (
-                <Caption tone="muted">{item.shots.length} devices and sizes</Caption>
-              )}
-            </ListRow>
-          );
-        })}
+              </ListRow>
+            );
+          })}
+        </Stack>
       </Card>
     </Section>
   );

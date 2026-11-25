@@ -1,4 +1,4 @@
-import { Breadcrumbs, Callout, Cluster, ListLayout, Text } from "@hackcove/ui-react";
+import { Breadcrumbs, Callout, Cluster, ListLayout, Text } from "@slashsuite/ui-react";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
@@ -94,11 +94,17 @@ function useWalk(ran: Ran[]) {
 
 function Meta({ head, totals, ran }: Pick<CommitReview, "head" | "totals"> & { ran: number }) {
   return (
-    <Cluster gap="xs" wrap data-testid="commit-meta">
-      {head && <Text tone="muted">{head.branch}</Text>}
-      {head && head.prNumber !== null && <Text>PR #{head.prNumber}</Text>}
-      <Text data-testid="commit-totals">{totalsText(totals)}</Text>
-      <Text tone="muted">
+    <Cluster gap="xs" data-testid="commit-meta">
+      {head && (
+        <Text as="span" tone="muted">
+          {head.branch}
+        </Text>
+      )}
+      {head && head.prNumber !== null && <Text as="span">PR #{head.prNumber}</Text>}
+      <Text as="span" data-testid="commit-totals">
+        {totalsText(totals)}
+      </Text>
+      <Text as="span" tone="muted">
         across {plural(ran, "project")}; j and k move, a and r decide, ? lists the keys
       </Text>
     </Cluster>
@@ -113,18 +119,12 @@ function CommitReviewPage() {
     <Page>
       <ListLayout
         breadcrumbs={
-          <Breadcrumbs
-            crumbs={[orgCrumb(org), ...projectCrumbs(project), `commit ${short(sha)}`]}
-          />
+          <Breadcrumbs items={[orgCrumb(org), ...projectCrumbs(project), `commit ${short(sha)}`]} />
         }
         title={`${project.name} · ${short(sha)}`}
       >
         <Meta head={head} totals={totals} ran={ran.length} />
-        {walk.error && (
-          <Callout tone="danger" role="alert">
-            {walk.error}
-          </Callout>
-        )}
+        {walk.error && <Callout tone="danger">{walk.error}</Callout>}
         {ran.map((group) => (
           <GroupSection
             key={group.projectId}

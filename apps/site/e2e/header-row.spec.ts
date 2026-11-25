@@ -13,7 +13,7 @@ const LABELS = NAV.map((one) => one.label);
  */
 const ROW_MAX = 64;
 const WIDTHS = [768, 1024, 1280, 1440] as const;
-// The nav is the kit's md pill (14px) from lg; from md to lg the tabs would not fit, so they keep sm (12px).
+// The nav is the kit's underline tabs at 14px from lg; from md to lg they would not fit, so they are 12px.
 const NAV_FONT_PX = (width: number): string => (width < 1024 ? "12px" : "14px");
 
 for (const width of WIDTHS) {

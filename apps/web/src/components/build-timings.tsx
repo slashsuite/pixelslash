@@ -1,4 +1,4 @@
-import { Cluster, Disclosure, KeyValue, KeyValueList, Stack, Text } from "@hackcove/ui-react";
+import { Cluster, Disclosure, KeyValue, KeyValueList, Stack, Text } from "@slashsuite/ui-react";
 import type { BuildView } from "#/db/review";
 import { formatDuration } from "#/lib/format";
 import { type CardLine, NO_TIMINGS, type RunCardInput, runCard } from "#/lib/run-card";
@@ -29,15 +29,17 @@ function Line({
   if (steps.length === 0) return null;
   return (
     <KeyValue label={scope === "cli" ? "CLI" : "Server"} data-testid={`timings-${scope}`}>
-      <Cluster gap="sm" align="baseline" wrap>
+      <Cluster gap="sm" align="baseline">
         {steps.map((step) => (
           <span key={step.key} data-testid={`timing-${scope}-${step.key}`}>
-            <Text tone="muted">{step.label}</Text>{" "}
-            <Text mono numeric>
+            <Text as="span" tone="muted">
+              {step.label}
+            </Text>{" "}
+            <Text as="span" mono numeric>
               {formatDuration(step.ms, { exact: true })}
             </Text>
             {step.note && (
-              <Text tone="muted" data-testid={`timing-${scope}-${step.key}-note`}>
+              <Text as="span" tone="muted" data-testid={`timing-${scope}-${step.key}-note`}>
                 {" "}
                 ({step.note})
               </Text>
@@ -45,7 +47,7 @@ function Line({
           </span>
         ))}
         {note && (
-          <Text tone="muted" data-testid={`timings-${scope}-note`}>
+          <Text as="span" tone="muted" data-testid={`timings-${scope}-note`}>
             {note}
           </Text>
         )}
@@ -57,12 +59,16 @@ function Line({
 function Figure({ line }: { line: CardLine }) {
   return (
     <KeyValue label={line.label} data-testid={`run-${line.key}`}>
-      <Cluster gap="sm" align="baseline" wrap>
-        <Text mono numeric data-testid={`run-${line.key}-value`}>
+      <Cluster gap="sm" align="baseline">
+        <Text as="span" mono numeric data-testid={`run-${line.key}-value`}>
           {line.value}
         </Text>
-        {line.note && <Text tone="muted">{line.note}</Text>}
-        <Text tone="muted" data-testid={`run-${line.key}-source`}>
+        {line.note && (
+          <Text as="span" tone="muted">
+            {line.note}
+          </Text>
+        )}
+        <Text as="span" tone="muted" data-testid={`run-${line.key}-source`}>
           ({line.source})
         </Text>
       </Cluster>
@@ -87,7 +93,7 @@ export function BuildTimings(input: RunCardInput & { build: BuildView["build"] }
     <Disclosure bordered summary="This run" data-testid="run-disclosure">
       <Stack gap="sm" data-testid="build-timings">
         {!timed && (
-          <Text as="p" tone="muted" data-testid="run-no-timings">
+          <Text tone="muted" data-testid="run-no-timings">
             {NO_TIMINGS}
           </Text>
         )}
@@ -101,7 +107,7 @@ export function BuildTimings(input: RunCardInput & { build: BuildView["build"] }
           />
           {profile.map((row) => (
             <KeyValue key={row.key} label={row.label} data-testid={`profile-${row.key}`}>
-              <Text mono numeric data-testid={`profile-${row.key}-text`}>
+              <Text as="span" mono numeric data-testid={`profile-${row.key}-text`}>
                 {row.text}
               </Text>
             </KeyValue>

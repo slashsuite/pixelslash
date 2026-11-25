@@ -6,6 +6,7 @@ import { DocPage, DocsIndexPage } from "#/components/pages/docs";
 import { SecurityPage } from "#/components/pages/security";
 import { SelfHostPage } from "#/components/pages/self-host";
 import { TICKET_ID } from "./doc-text.ts";
+import { DocBody, parseDoc } from "./markdown.tsx";
 import { loadAllDocs } from "./docs.ts";
 import { DOC_PAGES, EXTRA_NAV, GROUPS, LISTED_PAGES, neighbours } from "./docs-map.ts";
 import { CLI_SPLIT } from "./cli-split.ts";
@@ -132,6 +133,22 @@ describe("a code block can be copied, and every page can be edited", () => {
   });
 
   test("code blocks carry the copy button", () => {
-    expect(html.get("install")).toMatch(/<button[^>]*aria-label="copy"[^>]*data-copy-text=/);
+    expect(html.get("install")).toMatch(/<button[^>]*aria-label="Copy"[^>]*data-copy-text=/);
+  });
+});
+
+describe("markdown tables", () => {
+  test("a cell of plain text wraps; a cell with code stays on one line", () => {
+    const doc = parseDoc(
+      "| Name | Meaning |\n| --- | --- |\n| `A_VAR` | Plain words that may run long, & more. |\n",
+      "docs/x.md",
+    );
+    const cells = [
+      ...renderToStaticMarkup(<DocBody doc={doc} />).matchAll(
+        /<td class="([^"]*)"[^>]*>(.*?)<\/td>/g,
+      ),
+    ];
+    expect(cells.map((cell) => cell[1]?.includes("min-w-48"))).toEqual([false, true]);
+    expect(cells[1]?.[2]).toContain("Plain words that may run long, &amp; more.");
   });
 });

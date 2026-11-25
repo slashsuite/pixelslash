@@ -1,24 +1,34 @@
-import { AppShell, Button, Caption, Cluster, Input, Pill, Stack, Text } from "@hackcove/ui-react";
+import {
+  AppShell,
+  Button,
+  Caption,
+  Cluster,
+  Input,
+  Pill,
+  type PillTone,
+  Stack,
+  Text,
+} from "@slashsuite/ui-react";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { useHydrated } from "#/lib/use-hydrated";
 import { AppBrand, AppControls } from "./shell";
 
 export { useHydrated };
 
-type Tone = "slate" | "amber" | "emerald" | "blue" | "red";
+type Tone = PillTone;
 
 /** A build's verdict, in the colours a reviewer reads first. */
 export function StatusBadge({ status }: { status: string }) {
   const tone: Record<string, Tone> = {
-    changes: "amber",
-    passed: "emerald",
-    failed: "red",
-    errored: "red",
-    processing: "blue",
-    uploading: "slate",
+    changes: "warn",
+    passed: "positive",
+    failed: "danger",
+    errored: "danger",
+    processing: "info",
+    uploading: "neutral",
   };
   return (
-    <Pill dot tone={tone[status] ?? "slate"} data-testid="build-status">
+    <Pill dot tone={tone[status] ?? "neutral"} data-testid="build-status">
       {status}
     </Pill>
   );
@@ -26,9 +36,13 @@ export function StatusBadge({ status }: { status: string }) {
 
 /** One review state or decision, e.g. `accepted by ada`. */
 export function ReviewChip({ state, by }: { state: string; by?: string | null }) {
-  const tone: Record<string, Tone> = { pending: "slate", accepted: "emerald", rejected: "red" };
+  const tone: Record<string, Tone> = {
+    pending: "neutral",
+    accepted: "positive",
+    rejected: "danger",
+  };
   return (
-    <Pill tone={tone[state] ?? "slate"} data-testid="review-state">
+    <Pill tone={tone[state] ?? "neutral"} data-testid="review-state">
       {by ? `${state} by ${by}` : state}
     </Pill>
   );
@@ -47,6 +61,7 @@ export function Page({ bleed = false, children }: { bleed?: boolean; children: R
       brand={<AppBrand />}
       controls={<AppControls />}
       bleed={bleed}
+      density="compact"
       data-hydrated={hydrated}
     >
       {children}
@@ -107,18 +122,17 @@ export function InlineForm({
           type="submit"
           disabled={!hydrated}
           disabledReason={empty ? emptyReason : undefined}
-          busy={busy}
-          busyLabel={busyLabel}
+          busy={busy && busyLabel}
         >
           {button}
         </Button>
       </Cluster>
       {error ? (
-        <Text as="p" role="alert" tone="danger">
-          {error}
-        </Text>
+        <div role="alert">
+          <Text tone="danger">{error}</Text>
+        </div>
       ) : (
-        empty && hydrated && <Caption as="p">{emptyReason}</Caption>
+        empty && hydrated && <Caption>{emptyReason}</Caption>
       )}
     </Stack>
   );

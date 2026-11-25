@@ -1,5 +1,5 @@
 import { type ReactNode, createContext, useContext } from "react";
-import { Caption, Overline, Stack, Text } from "@hackcove/ui-react";
+import { Caption, Overline, Stack, Text } from "@slashsuite/ui-react";
 import type { SnapshotView } from "#/db/review";
 import type { AiRegionNote, DiffRegion } from "#/db/schema";
 
@@ -58,13 +58,13 @@ export function labelSummary(notes: AiRegionNote[]): string {
 function JudgeStatus({ aiError }: { aiError: string | null }) {
   if (aiError) {
     return (
-      <Text as="p" tone="muted" data-testid="ai-failed">
+      <Text tone="muted" data-testid="ai-failed">
         {`judge failed: ${aiError.replace(/[.\s]+$/, "")}. Review the pixels.`}
       </Text>
     );
   }
   return (
-    <Text as="p" tone="muted" data-testid="ai-skip">
+    <Text tone="muted" data-testid="ai-skip">
       skip: no judge. Review the pixels.
     </Text>
   );
@@ -85,7 +85,7 @@ export function AiExplanation({ snapshot }: { snapshot: JudgedShot }) {
           AI explanation
         </Overline>
         {snapshot.aiPending ? (
-          <Text as="p" tone="muted" data-testid="ai-pending">
+          <Text tone="muted" data-testid="ai-pending">
             explaining…
           </Text>
         ) : (
@@ -100,27 +100,25 @@ export function AiExplanation({ snapshot }: { snapshot: JudgedShot }) {
         AI explanation
       </Overline>
       {aiFiltered(snapshot) && (
-        <Text strong as="p" data-testid="ai-auto-passed">
+        <Text strong data-testid="ai-auto-passed">
           Auto-passed: every changed region was labelled noise.
         </Text>
       )}
       <Stack as="ul" gap="xs">
         {review.regions.map((note) => (
           <li key={`${note.x},${note.y},${note.w},${note.h}`} data-testid="ai-region-note">
-            <Text strong data-testid="ai-label">
+            <Text as="span" strong data-testid="ai-label">
               {note.label}
             </Text>
-            <Text tone="muted">
+            <Text as="span" tone="muted">
               {" "}
               at {note.x},{note.y} ({note.w}×{note.h})
             </Text>
-            <Text as="p">{note.explanation}</Text>
+            <Text>{note.explanation}</Text>
           </li>
         ))}
       </Stack>
-      <Caption as="p" tone="muted">
-        {review.model}
-      </Caption>
+      <Caption tone="muted">{review.model}</Caption>
     </Stack>
   );
 }

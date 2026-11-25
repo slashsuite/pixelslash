@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { Button, CenteredLayout, Stack } from "@hackcove/ui-react";
+import { Button, CenteredLayout, Stack } from "@slashsuite/ui-react";
 import { Page } from "#/components/ui";
 import { getViewer } from "#/server/fns";
 import { getSignInOptions } from "#/server/sign-in";
@@ -16,7 +16,7 @@ function SignIn() {
   const { google } = Route.useLoaderData();
   return (
     <Page>
-      <CenteredLayout title="PixelSlash" subtitle="Visual review for every build.">
+      <CenteredLayout title="PixelSlash" description="Visual review for every build.">
         <Stack gap="sm">
           <Button href="/auth/github">Sign in with GitHub</Button>
           {google && (

@@ -13,7 +13,7 @@ import {
   Tabs,
   Text,
   TextLink,
-} from "@hackcove/ui-react";
+} from "@slashsuite/ui-react";
 import { type ReactNode, Suspense } from "react";
 import { OLD_ANCHOR_SCRIPT } from "../../content/old-anchors.ts";
 import { CLI_INTRO_DOC } from "../../content/cli-intro.ts";
@@ -44,12 +44,12 @@ function groupItems(groupId: string, current: string | undefined) {
     ...LISTED_PAGES.filter((page) => page.group === groupId).map((page) => ({
       label: page.title,
       href: pageHref(page),
-      active: page.slug === current,
+      selected: page.slug === current,
     })),
     ...EXTRA_NAV.filter((extra) => extra.group === groupId).map((extra) => ({
       label: extra.title,
       href: extra.href,
-      active: extra.href === current,
+      selected: extra.href === current,
     })),
   ];
 }
@@ -66,16 +66,15 @@ export function DocsNav({ current }: { current?: string }): ReactNode {
       <Stack gap="sm">
         <DocsSearch />
         <Tabs
-          variant="pill"
           orientation="vertical"
           size="sm"
           label="Docs overview"
-          items={[{ label: "All docs", href: "/docs", active: current === undefined }]}
+          items={[{ label: "All docs", href: "/docs", selected: current === undefined }]}
         />
         <div className="flex flex-col">
           {GROUPS.map((group) => {
             const items = groupItems(group.id, current);
-            const open = items.some((item) => item.active);
+            const open = items.some((item) => item.selected);
             return (
               // Keyed by `open`: a group the reader navigates into is rebuilt open, since the fold keeps its own state.
               <Disclosure
@@ -84,13 +83,7 @@ export function DocsNav({ current }: { current?: string }): ReactNode {
                 defaultOpen={open}
                 data-testid={`docs-group-${group.id}`}
               >
-                <Tabs
-                  variant="pill"
-                  orientation="vertical"
-                  size="sm"
-                  label={group.title}
-                  items={items}
-                />
+                <Tabs orientation="vertical" size="sm" label={group.title} items={items} />
               </Disclosure>
             );
           })}
@@ -134,7 +127,7 @@ function OnThisPage({
 /** A page that can end a run non-zero says where the numbers are explained. */
 function ExitsLine(): ReactNode {
   return (
-    <Text as="p" data-testid="docs-exits">
+    <Text data-testid="docs-exits">
       This command can end with a non-zero exit code.{" "}
       <TextLink href="/docs/exit-codes">Exit codes</TextLink> says what each number means.
     </Text>
@@ -145,7 +138,7 @@ function ExitsLine(): ReactNode {
 export function EditLink({ source }: { source: string }): ReactNode {
   if (!REPO_PUBLIC) return null;
   return (
-    <Text as="p" data-testid="docs-edit">
+    <Text data-testid="docs-edit">
       <TextLink href={`${REPO_URL}/edit/main/${source}`}>Edit this page on GitHub</TextLink>
     </Text>
   );
@@ -189,7 +182,7 @@ function PrevNext({ slug }: { slug: string }): ReactNode {
 /** One page of the docs: a cut of docs/cli.md, or a file of its own, rendered at build time. */
 export function DocPage({ slug }: { slug: string }): ReactNode {
   return (
-    <SidebarLayout rail={<DocsNav current={slug} />} railLabel="Docs">
+    <SidebarLayout aside={<DocsNav current={slug} />} asideLabel="Docs">
       {/* Never shown: the loader has the document before a render. Hydration keeps the server's HTML while its chunk loads. */}
       <Suspense fallback={null}>
         <DocArticle slug={slug} />
@@ -206,7 +199,7 @@ function DocArticle({ slug }: { slug: string }): ReactNode {
   const group = GROUPS.find((candidate) => candidate.id === page.group);
   const hasRail = doc.headings.some((heading) => heading.depth <= 3);
   const breadcrumbs = (
-    <Breadcrumbs crumbs={[{ label: "Docs", href: "/docs" }, group?.title ?? "", page.title]} />
+    <Breadcrumbs items={[{ label: "Docs", href: "/docs" }, group?.title ?? "", page.title]} />
   );
   const article = (
     <Stack gap="lg">
@@ -269,7 +262,7 @@ export function DocsIndexPage(): ReactNode {
       <ProseLayout
         width="full"
         title="Docs"
-        subtitle="Install PixelSlash, run a first compare, then look up whatever you are doing next."
+        description="Install PixelSlash, run a first compare, then look up whatever you are doing next."
       >
         <DocsSearch />
         <Callout

@@ -14,7 +14,7 @@ export async function groupRows(page: Page): Promise<GroupRow[]> {
     .evaluateAll((items) => {
       const found: GroupRow[] = [];
       for (const item of items) {
-        const card = item.querySelector(":scope > section");
+        const card = item.querySelector(":scope > div:last-child");
         if (!card) throw new Error("a group has no card");
         const links = card.querySelectorAll("a");
         const last = links[links.length - 1];

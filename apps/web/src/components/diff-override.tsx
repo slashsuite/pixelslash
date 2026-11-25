@@ -12,7 +12,7 @@ import {
   RadioGroup,
   Stack,
   Text,
-} from "@hackcove/ui-react";
+} from "@slashsuite/ui-react";
 import { useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { useHydrated } from "#/components/ui";
@@ -105,9 +105,8 @@ function OptionField({
   onChange: (value: string) => void;
 }) {
   return (
-    <Field label={name} htmlFor={`override-${name}-input`} hint={HINTS[name]}>
+    <Field label={name} hint={HINTS[name]}>
       <Input
-        id={`override-${name}-input`}
         type="number"
         step="any"
         min="0"
@@ -126,7 +125,7 @@ function Snippet({ o, hydrated }: { o: ShownOverride; hydrated: boolean }) {
   return (
     <Stack gap="xs">
       <Cluster justify="between" gap="sm">
-        <Caption>
+        <Caption as="span">
           By @{o.by}, {formatDateTime(o.at)}. Copy as config:
         </Caption>
         <CopyButton text={o.snippet} disabled={!hydrated} />
@@ -191,8 +190,7 @@ function Actions({
       <Button
         type="submit"
         disabled={waiting}
-        busy={busy}
-        busyLabel="Saving…"
+        busy={busy && "Saving…"}
         size="sm"
         data-testid="override-save"
       >
@@ -203,8 +201,7 @@ function Actions({
           type="button"
           variant="outline"
           disabled={waiting}
-          busy={busy}
-          busyLabel="Clearing…"
+          busy={busy && "Clearing…"}
           onClick={onClear}
           size="sm"
           data-testid="override-clear"
@@ -255,18 +252,18 @@ function OverrideForm({
             onChange={(value) => set(key, value)}
           />
         ))}
-        <Caption as="p">
+        <Caption>
           Saving re-diffs this build and later ones; an empty field takes the config's value.
         </Caption>
         <Actions waiting={!hydrated} busy={busy} onClear={held ? () => save(scope, {}) : null} />
       </Stack>
       {error && (
-        <Text as="p" role="alert" tone="danger">
-          {error}
-        </Text>
+        <div role="alert">
+          <Text tone="danger">{error}</Text>
+        </div>
       )}
       {note && (
-        <Text as="p" tone="muted" data-testid="override-note">
+        <Text tone="muted" data-testid="override-note">
           {note}
         </Text>
       )}

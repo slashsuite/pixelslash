@@ -20,7 +20,7 @@ import {
   TableHeaderCell,
   TableRow,
   Text,
-} from "@hackcove/ui-react";
+} from "@slashsuite/ui-react";
 import { orgCrumb, projectCrumbs } from "#/components/crumbs";
 import { IgnoreBoxSettings } from "#/components/ignore-box-settings";
 import { ModelSettings } from "#/components/model-settings";
@@ -53,9 +53,7 @@ function ProjectSettings() {
   return (
     <Page>
       <ListLayout
-        breadcrumbs={
-          <Breadcrumbs crumbs={[orgCrumb(org), ...projectCrumbs(project), "Settings"]} />
-        }
+        breadcrumbs={<Breadcrumbs items={[orgCrumb(org), ...projectCrumbs(project), "Settings"]} />}
         title={`${project.name} · settings`}
       >
         {project.parent && <InheritedSettings parent={project.parent} />}
@@ -114,20 +112,16 @@ function TokensCard({ projectId, tokens }: { projectId: string; tokens: Token[] 
   };
   return (
     <Card>
-      <Stack>
+      <Stack gap="md">
         <Stack gap="xs">
           <SectionHeading>CI tokens</SectionHeading>
-          <Text as="p">
+          <Text>
             CI uploads builds with a token. It is shown once, when issued; store it as a CI secret.
           </Text>
         </Stack>
         {issued && (
-          <Callout
-            tone="warn"
-            role="status"
-            title="Copy this token now. It will not be shown again."
-          >
-            <CopyLine text={issued} data-testid="issued-token" />
+          <Callout tone="warn" title="Copy this token now. It will not be shown again.">
+            <CopyLine label="token" text={issued} data-testid="issued-token" />
           </Callout>
         )}
         <InlineForm
@@ -181,10 +175,10 @@ function DiffLocationForm({
   };
   return (
     <Card data-testid="diff-location">
-      <Stack>
+      <Stack gap="md">
         <Stack gap="xs">
           <SectionHeading>Diff location</SectionHeading>
-          <Text as="p">
+          <Text>
             Where this project&apos;s shots are compared with their baselines. Every shot of a build
             is measured in the same place; a CI build whose result is missing or wrong errors, and
             is never diffed on the server instead.
@@ -200,18 +194,18 @@ function DiffLocationForm({
           }}
         >
           {LOCATIONS.map((l) => (
-            <Radio key={l.value} value={l.value} label={l.label} description={l.detail} />
+            <Radio key={l.value} value={l.value} label={l.label} hint={l.detail} />
           ))}
         </RadioGroup>
         {chosen !== saved && (
-          <Callout tone="warn" role="status" title="Builds will not be comparable">
+          <Callout tone="warn" title="Builds will not be comparable">
             Builds before and after a switch were measured in different places and may not be
             consistent: a CI run and the server can disagree at the edges. Compare builds from the
             same side of the switch.
           </Callout>
         )}
         <ButtonGroup>
-          <Button disabled={!hydrated} busy={busy} busyLabel="Saving…" onClick={() => void save()}>
+          <Button disabled={!hydrated} busy={busy && "Saving…"} onClick={() => void save()}>
             Save diff location
           </Button>
         </ButtonGroup>
@@ -237,13 +231,13 @@ function TokenTable({ tokens, hydrated }: { tokens: Token[]; hydrated: boolean }
   };
   if (tokens.length === 0) {
     return (
-      <Text as="p" color="muted" data-testid="no-tokens">
+      <Text tone="muted" data-testid="no-tokens">
         No tokens yet. Issue one above, then upload with it.
       </Text>
     );
   }
   return (
-    <Table variant="plain" caption="Project tokens">
+    <Table label="Project tokens">
       <TableHead>
         <TableRow>
           <TableHeaderCell>Name</TableHeaderCell>
@@ -251,7 +245,7 @@ function TokenTable({ tokens, hydrated }: { tokens: Token[]; hydrated: boolean }
           <TableHeaderCell>Created</TableHeaderCell>
           <TableHeaderCell>Last used</TableHeaderCell>
           <TableHeaderCell>Status</TableHeaderCell>
-          <TableHeaderCell align="end" srLabel="Actions" />
+          <TableHeaderCell align="end" label="Actions" />
         </TableRow>
       </TableHead>
       <TableBody>
@@ -270,7 +264,7 @@ function TokenTable({ tokens, hydrated }: { tokens: Token[]; hydrated: boolean }
                 {t.lastUsedAt ? formatDateTime(t.lastUsedAt) : "never"}
               </TableCell>
               <TableCell>
-                <Pill dot tone={t.revokedAt ? "slate" : "emerald"}>
+                <Pill dot tone={t.revokedAt ? "neutral" : "positive"}>
                   {t.revokedAt ? "revoked" : "active"}
                 </Pill>
               </TableCell>
@@ -279,8 +273,7 @@ function TokenTable({ tokens, hydrated }: { tokens: Token[]; hydrated: boolean }
                   <Button
                     variant="ghost"
                     disabled={!hydrated}
-                    busy={revoking === t.id}
-                    busyLabel="Revoking…"
+                    busy={revoking === t.id && "Revoking…"}
                     onClick={() => void revoke(t.id)}
                     tone="danger"
                   >

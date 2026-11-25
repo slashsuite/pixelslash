@@ -13,7 +13,7 @@ import {
   Stack,
   SubsectionHeading,
   Text,
-} from "@hackcove/ui-react";
+} from "@slashsuite/ui-react";
 import { ReviewChip, StatusBadge, useHydrated } from "#/components/ui";
 import type { BuildView, SnapshotView } from "#/db/review";
 import { formatDateTime } from "#/lib/format";
@@ -37,11 +37,14 @@ function reviewText(review: Review): string {
   return `not to review · ${review.total} with a change`;
 }
 
-/** The readable name, with the raw key as its tooltip. */
+/** The readable name, cut to one line, with the raw key as its tooltip. */
 function ShotTitle({ snapshot, label }: { snapshot: SnapshotView; label: ShotLabel }) {
   const title = label.component ? `${label.component} · ${label.story}` : label.story;
+  // `lines` makes the text its own tooltip unless a `title` is given; the kit reads one at run time
+  // but its heading types leave `title` out, so the raw key goes in untyped.
+  const rawKey: object = { title: snapshot.name };
   return (
-    <SubsectionHeading as="h1" size="md" truncate title={snapshot.name}>
+    <SubsectionHeading as="h1" size="md" lines={1} {...rawKey}>
       {title}
     </SubsectionHeading>
   );
@@ -60,7 +63,7 @@ function variantPills(snapshot: SnapshotView, label: ShotLabel): string[] {
 function shotMeta(build: BuildView["build"], snapshot: SnapshotView, label: ShotLabel) {
   return [
     ...variantPills(snapshot, label).map((chip) => (
-      <Pill key={chip} tone="slate" data-testid="shot-chip">
+      <Pill key={chip} data-testid="shot-chip">
         {chip}
       </Pill>
     )),
@@ -244,17 +247,17 @@ export function ViewerBar({
     <div ref={ref} data-testid="viewer-bar">
       <Stack gap="xs">
         <div className="hidden sm:block">{breadcrumbs}</div>
-        <Cluster wrap gap="xs" align="center">
+        <Cluster gap="xs" align="center">
           {/* The title keeps at least 17rem, so beside it only what fits; the rest wraps under it. */}
           <ClusterGrow minWidth="md">
             <ShotTitle snapshot={snapshot} label={label} />
           </ClusterGrow>
-          <MetaList nowrap separator="none" data-testid="shot-meta">
+          <MetaList separator="none" data-testid="shot-meta">
             {shotMeta(build, snapshot, label)}
-            <Text data-testid="review-position" tone="muted" numeric>
+            <Text as="span" data-testid="review-position" tone="muted" numeric>
               {reviewText(review)}
             </Text>
-            <Text data-testid="position" tone="muted" numeric>
+            <Text as="span" data-testid="position" tone="muted" numeric>
               {`shot ${position} of ${total}`}
             </Text>
           </MetaList>
@@ -267,7 +270,7 @@ export function ViewerBar({
             </div>
           )}
         </Cluster>
-        <Cluster justify="end">
+        <Cluster gap="xs" justify="end">
           <Actions actions={actions} canDecide={reviewable && !busy} why={why} />
         </Cluster>
       </Stack>
@@ -275,23 +278,10 @@ export function ViewerBar({
   );
 }
 
-/** The `?` list, on hackcove's `Dialog`: the page goes inert, Esc and a click on the scrim close it. */
+/** The `?` list, on the kit's `Dialog`: the page goes inert, and its Close button, Esc and a click on the scrim close it. */
 export function ShortcutHelp({ onClose }: { onClose: () => void }) {
   return (
-    <Dialog
-      title="Keyboard shortcuts"
-      size="sm"
-      onClose={onClose}
-      footer={
-        <Button
-          variant="outline"
-          autoFocus
-          onClick={(event) => event.currentTarget.closest("dialog")?.close()}
-        >
-          Close
-        </Button>
-      }
-    >
+    <Dialog title="Keyboard shortcuts" width="sm" onClose={onClose}>
       <KeyValueList>
         {SHORTCUTS.map(([key, what]) => (
           <KeyValue key={key} label={what}>

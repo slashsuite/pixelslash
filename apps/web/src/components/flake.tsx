@@ -13,14 +13,14 @@ import {
   RadioGroup,
   Stack,
   Text,
-} from "@hackcove/ui-react";
-import { Link } from "@tanstack/react-router";
+} from "@slashsuite/ui-react";
 import { type FormEvent, useState } from "react";
 import { useFlagWrite } from "#/components/detection-flag";
 import { useHydrated } from "#/components/ui";
 import type { FlakyPolicy } from "#/db/schema";
 import { formatDateTime } from "#/lib/format";
 import { type FlakeView, markShotFlaky } from "#/server/flakes";
+import { hrefTo } from "#/lib/href";
 
 /**
  * Flakes on the page (ob 1724). The policy is the shot's own config (`"flaky"` on a route, a
@@ -43,16 +43,9 @@ export function FlakyBadge({
 }) {
   return (
     <Pill
-      tone="amber"
+      tone="warn"
       data-testid="flaky-badge"
-      render={(props) => (
-        <Link
-          to="/projects/$projectId/flakes"
-          params={{ projectId }}
-          hash={flakeAnchor(flakeId)}
-          {...props}
-        />
-      )}
+      href={hrefTo("/projects/$projectId/flakes", { projectId }, { hash: flakeAnchor(flakeId) })}
     >
       {skipped ? "skipped: flaky" : "flaky"}
     </Pill>
@@ -87,15 +80,21 @@ export function FlakyPolicyControl({ policy }: { policy: FlakyPolicy }) {
           <Radio key={option} value={option} label={option} />
         ))}
       </RadioGroup>
-      <Caption as="p">A route in your capture config:</Caption>
-      <CopyLine text={`"flaky": "${target}"`} disabled={!hydrated} data-testid="flaky-route-line" />
-      <Caption as="p">Or a story's tag:</Caption>
+      <Caption>A route in your capture config:</Caption>
       <CopyLine
+        label="route line"
+        text={`"flaky": "${target}"`}
+        disabled={!hydrated}
+        data-testid="flaky-route-line"
+      />
+      <Caption>Or a story's tag:</Caption>
+      <CopyLine
+        label="story tag"
         text={`pixelslash-flaky-${target}`}
         disabled={!hydrated}
         data-testid="flaky-story-tag"
       />
-      <Caption as="p">It takes effect from the next build. Nothing changes on the server.</Caption>
+      <Caption>It takes effect from the next build. Nothing changes on the server.</Caption>
     </Stack>
   );
 }
@@ -104,7 +103,7 @@ export function FlakyPolicyControl({ policy }: { policy: FlakyPolicy }) {
 export function FlakeRuns({ evidence }: { evidence: FlakeView["evidence"][number] }) {
   return (
     <Stack gap="xs">
-      <Text as="p" data-testid="flake-differed">
+      <Text data-testid="flake-differed">
         {evidence.differed.length} of {evidence.runs} runs differed (run
         {evidence.differed.length === 1 ? "" : "s"} {evidence.differed.join(", ")})
       </Text>
@@ -114,7 +113,6 @@ export function FlakeRuns({ evidence }: { evidence: FlakeView["evidence"][number
           return (
             <Card
               key={image.run}
-              as="div"
               size="sm"
               attention={differed}
               data-testid="flake-run"
@@ -183,7 +181,7 @@ function MarkFlakyForm({
   return (
     <Card tone="warn" size="sm">
       <Stack as="form" gap="sm" onSubmit={save} aria-label="Mark flaky">
-        <Text as="p">
+        <Text>
           Opens a flake for this name and variant; its config's policy applies (review if none).
         </Text>
         <Input
@@ -194,15 +192,15 @@ function MarkFlakyForm({
           onChange={(e) => setNote(e.target.value)}
         />
         {error && (
-          <Text as="p" role="alert" tone="danger">
-            {error}
-          </Text>
+          <div role="alert">
+            <Text tone="danger">{error}</Text>
+          </div>
         )}
         <ButtonGroup>
-          <Button type="submit" busy={busy} busyLabel="Marking…" size="sm">
+          <Button type="submit" busy={busy && "Marking…"}>
             Mark flaky
           </Button>
-          <Button type="button" variant="ghost" onClick={onClose} size="sm">
+          <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
           </Button>
         </ButtonGroup>
@@ -252,24 +250,24 @@ export function FlakePanel({
   return (
     <Stack as="section" gap="sm" data-testid="flake-panel">
       <Overline as="h2">Flaky</Overline>
-      <Cluster gap="xs" wrap>
+      <Cluster gap="xs">
         <FlakyBadge projectId={projectId} flakeId={flake.id} skipped={skipped} />
-        <Text tone="muted">{flake.status}</Text>
+        <Text as="span" tone="muted">
+          {flake.status}
+        </Text>
       </Cluster>
       {evidence ? (
         <>
           {evidence.snapshotId !== snapshot.id && (
-            <Caption as="p">Not re-captured in this build; the latest detection:</Caption>
+            <Caption>Not re-captured in this build; the latest detection:</Caption>
           )}
           <FlakeRuns evidence={evidence} />
         </>
       ) : (
-        <Text as="p" tone="muted">
-          No re-captures: marked by hand.
-        </Text>
+        <Text tone="muted">No re-captures: marked by hand.</Text>
       )}
       <FlakeHistory flake={flake} />
-      <Text as="p" data-testid="flaky-policy">
+      <Text data-testid="flaky-policy">
         Policy in effect: {POLICY_TEXT[policy]}
         {snapshot.flakyPolicy === null && " (none sent; review is the default)"}
       </Text>
