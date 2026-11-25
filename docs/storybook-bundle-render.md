@@ -35,15 +35,15 @@ Nothing leaves the machine except to the server the project is configured for, a
 
 ## 3. Where it runs
 
-**Recommendation: a separate, unprivileged Proxmox container (a render worker), not the web app's container.**
+**Decided by the maintainer: the render worker runs in the web app's container.** The earlier recommendation was a separate, unprivileged container. The reasons for it still hold, and the risks of the chosen option are below.
 
-Reasons:
+Risks of the chosen option:
 
-- The browsers are heavy. The web app's container is sized for workerd and the diff worker, and it already runs close to its memory limits (see `docs/rust-upload-service.md`).
-- The bundle is untrusted code. It is JavaScript from a pull request, executed in Chromium. It must not share a process tree, a filesystem or a secret with the web app.
-- Render load should not slow the review app or the diff. Two containers can be sized and restarted separately.
+- The browsers are heavy. The web app's container is sized for workerd and the diff worker, and it already runs close to its memory limits (see `docs/rust-upload-service.md`). Sizing has to be measured before a build.
+- The bundle is untrusted code: JavaScript from a pull request, executed in Chromium. It would share a process tree, a filesystem and secrets with the web app unless the isolation below is enforced inside that container.
+- Render load can slow the review app and the diff, since they share the container.
 
-The render worker:
+The render worker, in the web app's container, must still:
 
 - runs as a non-root user, unprivileged container, Chromium sandbox on (no `--no-sandbox`);
 - holds no long-lived secret. It receives one build-scoped job token per build, valid until that build finalises or times out;
@@ -76,7 +76,7 @@ A baseline is only comparable with a shot from the same setup. The fingerprint (
 
 ## 6. Security and privacy
 
-- **Bundle contents.** A Storybook build can contain values the app's build step baked in: an environment variable, an API base URL, a token by mistake. The archive goes to the configured server and is stored there, so the CLI should warn before the upload when it sees an obvious secret pattern, and the doc should say plainly that the bundle is stored. This is a decision for the maintainer, listed in section 9.
+- **Bundle contents.** A Storybook build can contain values the app's build step baked in: an environment variable, an API base URL, a token by mistake. The archive goes to the configured server and is stored there. Decided by the maintainer: when the CLI sees an obvious secret pattern, it prints a warning naming the match and uploads anyway. The docs say plainly that the bundle is stored.
 - **Untrusted code.** The renderer runs it under the restrictions in section 3. A bundle from a fork pull request is never rendered: a fork's pull request gets no token, as today.
 - **Pixels.** Shots are rendered and stored on the server, which already holds them in bundle-less mode. The AI judge's rules do not change (the judge sends crops only, and only to the endpoint the project names).
 - **Logs.** The renderer's logs carry story ids and error messages, not bundle contents or tokens. Sentry, if used on the renderer, gets the scrubbed error reports already defined by `scrubEvent`.
@@ -88,7 +88,7 @@ The target is a visual job under 3 minutes wall time, measured on the consumer's
 - Build: about 10 s (measured).
 - Bundle upload: depends on the compressed size (unmeasured).
 - Render: 2428 stories at about 0.57 lane-seconds each (11.6 min over 2 lanes) is about 1390 lane-seconds. In 150 seconds that needs about 9 concurrent shots at today's per-shot cost. Preview-page reuse should make the real number lower.
-- Diff: the existing measurement is 0.28 s per shot, one at a time, for a 1280x9500 shot (`docs/rust-upload-service.md`). Story shots are cropped and are usually smaller, so this is an upper bound. Even so, 2428 serial diffs is far too long to wait for at finalise. **The diff has to run as each shot arrives, not at finalise,** or the 3-minute target is out of reach. That change is in the diff path and in the server; it is not part of this note's build, and it depends on the same decision as the Rust upload service.
+- Diff: the existing measurement is 0.28 s per shot, one at a time, for a 1280x9500 shot (`docs/rust-upload-service.md`). Story shots are cropped and are usually smaller, so this is an upper bound. Even so, 2428 serial diffs is far too long to wait for at finalise. **Decided by the maintainer: the diff runs as each shot arrives, not at finalise.** That change is in the diff path and in the server; it is not part of this note's build, and it depends on the same decision as the Rust upload service.
 - Finalise and the check status: small.
 
 Until the diff overlaps the render, expect the wall time to be bound by the diff, not the browsers.
@@ -99,11 +99,16 @@ Until the diff overlaps the render, expect the wall time to be bound by the diff
 - Exit codes keep their meaning (`docs/cli.md`, "Exit codes"): a new change on Branch exits 1, a run that failed exits 1 and a crash exits 7. A render failure is a run failure.
 - `/api/v1` is in alpha, so the new fields and endpoints are added without a version prefix. The commit that adds them is marked with `!` only if it breaks an existing client.
 
-## 9. Open questions for the maintainer
+## 9. Decisions and open questions
 
-1. Render worker: a separate container (recommended here) or the web app's container?
-2. Bundle secrets: warn and continue, or refuse the upload on a match?
-3. Does the diff move to run as shots arrive? It is needed for the 3-minute target, and it overlaps the Rust upload service decision.
+Decided by the maintainer:
+
+1. Render worker runs in the web app's container (section 3).
+2. Bundle secrets: warn and continue (section 6).
+3. The diff runs as each shot arrives (section 7).
+
+Still open:
+
 4. Production renderer host: decide now, or after the LAN worker has numbers?
 
 ## 10. Done list for the build (after approval)
