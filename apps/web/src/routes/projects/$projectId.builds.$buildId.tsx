@@ -1,4 +1,4 @@
-import { Breadcrumbs, Callout, ListLayout, Stack, Text } from "@hackcove/ui-react";
+import { Breadcrumbs, Callout, ListLayout, Stack, Text } from "@slashsuite/ui-react";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { BuildBrief } from "#/components/build-brief";
@@ -34,7 +34,6 @@ function BuildError({ project, build }: Pick<Loaded, "project" | "build">) {
   return (
     <Callout
       tone="danger"
-      role="alert"
       actions={
         project.diffLocation === "server" && build.status === "errored" ? (
           <RerunErrored projectId={project.id} buildId={build.id} />
@@ -44,7 +43,7 @@ function BuildError({ project, build }: Pick<Loaded, "project" | "build">) {
       <Stack gap="xs">
         <span>{build.error}</span>
         {project.diffLocation === "ci" && build.status === "errored" && (
-          <Text strong as="p" tone="danger" data-testid="rerun-ci">
+          <Text strong tone="danger" data-testid="rerun-ci">
             This project diffs in CI, so the server cannot measure it again: re-run the CI job.
           </Text>
         )}
@@ -72,7 +71,7 @@ function useAcceptAll(projectId: string, buildId: string) {
 /** What a decision does to the build, under the shots. */
 function RejectionNote() {
   return (
-    <Text as="p" tone="muted">
+    <Text tone="muted">
       A rejection keeps the build failed until a new build arrives. A new shot waits for review like
       a change; removed shots are listed and never block a build.
     </Text>
@@ -100,11 +99,7 @@ function BuildNotices({
   return (
     <>
       <BuildError project={project} build={build} />
-      {error && (
-        <Callout tone="danger" role="alert">
-          {error}
-        </Callout>
-      )}
+      {error && <Callout tone="danger">{error}</Callout>}
     </>
   );
 }
@@ -135,9 +130,7 @@ function BuildPage() {
     <Page>
       <ListLayout
         breadcrumbs={
-          <Breadcrumbs
-            crumbs={[orgCrumb(org), ...projectCrumbs(project), buildCrumbLabel(build)]}
-          />
+          <Breadcrumbs items={[orgCrumb(org), ...projectCrumbs(project), buildCrumbLabel(build)]} />
         }
         title={`${project.name} · ${build.branch}`}
       >
@@ -165,9 +158,7 @@ function BuildPage() {
         </BuildHeader>
         <BuildNotices project={project} build={build} error={error} />
         {snapshots.length === 0 ? (
-          <Text as="p" tone="muted">
-            This build holds no snapshots yet.
-          </Text>
+          <Text tone="muted">This build holds no snapshots yet.</Text>
         ) : (
           <>
             <BuildTabs projectId={project.id} buildId={build.id} active={active} counts={counts} />

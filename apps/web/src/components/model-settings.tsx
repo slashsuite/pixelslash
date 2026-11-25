@@ -13,7 +13,7 @@ import {
   Stack,
   TextLink,
   Text,
-} from "@hackcove/ui-react";
+} from "@slashsuite/ui-react";
 import type { ModelView, ModelSource } from "#/db/models";
 import { removeOrgModel, removeProjectModel, saveOrgModel, saveProjectModel } from "#/server/model";
 
@@ -47,17 +47,17 @@ export function ModelSettings({
 
   return (
     <Card data-testid="model-settings">
-      <Stack>
+      <Stack gap="md">
         <SectionHeading>AI explanations</SectionHeading>
         {source && <ModelInUse source={source} orgSettingsHref={orgSettingsHref} />}
-        <Text as="p">
+        <Text>
           Any OpenAI-compatible vision endpoint. For each changed region of a branch build, the
           server sends that region&apos;s baseline, new and diff crops to this model only, and shows
           its label (intended, unintended or noise) and one sentence next to the region. With no
           model, or when a call fails, the shot is reviewed as plain pixels. Nothing is sent until
           this is saved.
         </Text>
-        <Stack as="form" onSubmit={save}>
+        <Stack gap="md" as="form" onSubmit={save}>
           <ModelFields
             fields={fields}
             setFields={setFields}
@@ -74,9 +74,9 @@ export function ModelSettings({
             label={removeLabel(scope, source)}
           />
           {error && (
-            <Text as="p" role="alert" tone="danger">
-              {error}
-            </Text>
+            <div role="alert">
+              <Text tone="danger">{error}</Text>
+            </div>
           )}
         </Stack>
       </Stack>
@@ -146,7 +146,7 @@ function ModelInUse({
     "org settings"
   );
   return (
-    <Text strong as="p" data-testid="model-in-use" data-source={source.source}>
+    <Text strong data-testid="model-in-use" data-source={source.source}>
       {source.source === "org" && (
         <>
           Using the org&apos;s model ({source.model.model}). Set a model below to override it for
@@ -179,9 +179,8 @@ function ModelFields({
   const set = (patch: Partial<Fields>) => setFields((f) => ({ ...f, ...patch }));
   return (
     <>
-      <Field label="Base URL" htmlFor="model-base-url-input">
+      <Field label="Base URL">
         <Input
-          id="model-base-url-input"
           value={fields.baseUrl}
           placeholder={EXAMPLE.baseUrl}
           disabled={!hydrated}
@@ -189,9 +188,8 @@ function ModelFields({
           data-testid="model-base-url"
         />
       </Field>
-      <Field label="Model" htmlFor="model-name-input">
+      <Field label="Model">
         <Input
-          id="model-name-input"
           value={fields.model}
           placeholder={EXAMPLE.model}
           disabled={!hydrated}
@@ -199,7 +197,7 @@ function ModelFields({
           data-testid="model-name"
         />
       </Field>
-      <Caption as="p">
+      <Caption>
         OpenCode Go works for a personal self-host (
         <Code>https://opencode.ai/inference/go/openai/v1</Code>, a Go model that takes images). A
         deployed service should use OpenCode Zen or the provider's own API, because Go is licensed
@@ -207,11 +205,9 @@ function ModelFields({
       </Caption>
       <Field
         label="API key"
-        htmlFor="model-key-input"
         hint={`Stored for this ${owner} and never shown again. A new base URL needs its key again.`}
       >
         <Input
-          id="model-key-input"
           type="password"
           autoComplete="off"
           value={fields.apiKey}
@@ -222,13 +218,16 @@ function ModelFields({
         />
       </Field>
       <Checkbox
-        align="start"
         checked={fields.autoPassNoise}
         disabled={!hydrated}
-        onChange={(e) => set({ autoPassNoise: e.target.checked })}
+        onChange={(checked) => set({ autoPassNoise: checked })}
         data-testid="model-auto-pass"
-        label={<Text strong>Auto-pass noise</Text>}
-        description="Accept a shot when the model labels every changed region noise. Off, noise is only labelled and a person still decides."
+        label={
+          <Text as="span" strong>
+            Auto-pass noise
+          </Text>
+        }
+        hint="Accept a shot when the model labels every changed region noise. Off, noise is only labelled and a person still decides."
       />
     </>
   );
@@ -252,13 +251,12 @@ function ModelActions({
   const missing =
     !fields.baseUrl.trim() || !fields.model.trim() || (!saved && !fields.apiKey.trim());
   return (
-    <Cluster gap="sm" wrap>
+    <Cluster gap="sm">
       <Button
         type="submit"
         disabled={!hydrated}
         disabledReason={missing ? "Give the base URL, the model and the key." : undefined}
-        busy={busy === "save"}
-        busyLabel="Saving…"
+        busy={busy === "save" && "Saving…"}
         data-testid="model-save"
       >
         Save model
@@ -269,15 +267,16 @@ function ModelActions({
             type="button"
             variant="ghost"
             disabled={!hydrated}
-            busy={busy === "remove"}
-            busyLabel="Removing…"
+            busy={busy === "remove" && "Removing…"}
             onClick={onRemove}
             tone="danger"
             data-testid="model-remove"
           >
             {label}
           </Button>
-          <Caption data-testid="model-key-set">Key set for {saved.baseUrl}</Caption>
+          <Caption as="span" data-testid="model-key-set">
+            Key set for {saved.baseUrl}
+          </Caption>
         </>
       )}
     </Cluster>

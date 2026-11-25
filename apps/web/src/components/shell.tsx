@@ -1,14 +1,14 @@
-import { Link, getRouteApi } from "@tanstack/react-router";
+import { getRouteApi } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import {
   AppShellBrand,
-  AppShellHideBelow,
+  Show,
   Avatar,
   Button,
   Cluster,
   ColourSchemeToggle,
   Text,
-} from "@hackcove/ui-react";
+} from "@slashsuite/ui-react";
 import { rememberTheme } from "#/lib/theme";
 import { useHydrated } from "#/lib/use-hydrated";
 
@@ -71,7 +71,7 @@ function ThemeToggle() {
   return (
     <ColourSchemeToggle
       store={false}
-      initial={theme === "dark" ? "dark" : "light"}
+      defaultValue={theme === "dark" ? "dark" : "light"}
       onChange={rememberTheme}
       disabled={!hydrated}
       data-testid="theme-toggle"
@@ -83,11 +83,13 @@ function ThemeToggle() {
 function UserMenu({ viewer }: { viewer: { login: string; name: string | null } }) {
   return (
     <Cluster gap="md">
-      <AppShellHideBelow data-testid="viewer">
-        <Avatar name={viewer.login} size="sm" title={viewer.name ?? viewer.login} />
-        <Text>{viewer.login}</Text>
-      </AppShellHideBelow>
-      <Button variant="link" render={(props) => <Link to="/settings" {...props} />}>
+      <Show from="sm" data-testid="viewer">
+        <Cluster gap="xs">
+          <Avatar name={viewer.login} size="sm" />
+          <Text as="span">{viewer.login}</Text>
+        </Cluster>
+      </Show>
+      <Button variant="link" href="/settings">
         Settings
       </Button>
       <form method="post" action="/auth/sign-out">
@@ -102,12 +104,7 @@ function UserMenu({ viewer }: { viewer: { login: string; name: string | null } }
 /** The mark and wordmark as one link home: the app for someone signed in, the landing page otherwise. */
 export function AppBrand() {
   const { viewer } = rootRoute.useLoaderData();
-  return (
-    <AppShellBrand
-      label={<Wordmark />}
-      render={(props) => <Link to={viewer ? "/orgs" : "/"} {...props} />}
-    />
-  );
+  return <AppShellBrand label={<Wordmark />} href={viewer ? "/orgs" : "/"} />;
 }
 
 /** The end of the AppShell header: the theme toggle and, when someone is signed in, who they are and Sign out. */

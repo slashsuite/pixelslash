@@ -6,7 +6,7 @@ import {
   Overline,
   Stack,
   Text,
-} from "@hackcove/ui-react";
+} from "@slashsuite/ui-react";
 import type { SnapshotView } from "#/db/review";
 import type { DiffOptions, OptionSource } from "#/db/schema";
 import { formatDateTime } from "#/lib/format";
@@ -62,7 +62,7 @@ export function Options({ snapshot, options }: { snapshot: SnapshotView; options
               <span data-testid={`option-${key}`}>{used[key] ?? "engine default"}</span>
             </KeyValue>
             {source && (
-              <Caption as="p" data-testid={`source-${key}`} tone="muted">
+              <Caption data-testid={`source-${key}`} tone="muted">
                 {source}
               </Caption>
             )}
@@ -89,9 +89,7 @@ export function Options({ snapshot, options }: { snapshot: SnapshotView; options
       ) : (
         list
       )}
-      <Text as="p" tone="muted">
-        {ignoreLine(snapshot)}
-      </Text>
+      <Text tone="muted">{ignoreLine(snapshot)}</Text>
     </Stack>
   );
 }

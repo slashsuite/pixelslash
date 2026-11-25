@@ -1,4 +1,4 @@
-import { Icon, Input, ListRow, Stack, Text } from "@hackcove/ui-react";
+import { Input, ListRow, Stack, Text } from "@slashsuite/ui-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { type SearchEntry, type SearchHit, search } from "../../content/search.ts";
 
@@ -78,7 +78,7 @@ export function DocsSearch(): ReactNode {
       <Stack gap="xs">
         <Input
           type="search"
-          icon={<Icon name="search" />}
+          icon="search"
           aria-label="Search the docs"
           placeholder={query === "" ? HINT : undefined}
           data-testid="docs-search"
@@ -90,14 +90,12 @@ export function DocsSearch(): ReactNode {
           }}
         />
         {searching && failed ? (
-          <Text as="p" data-testid="docs-search-status">
+          <Text data-testid="docs-search-status">
             The search index did not load. Reload the page to try again.
           </Text>
         ) : null}
         {searching && entries && hits.length === 0 ? (
-          <Text as="p" data-testid="docs-search-status">
-            Nothing matches "{query.trim()}".
-          </Text>
+          <Text data-testid="docs-search-status">Nothing matches "{query.trim()}".</Text>
         ) : null}
         {hits.length > 0 ? (
           <Stack as="ul" gap="xs" data-testid="docs-search-results">

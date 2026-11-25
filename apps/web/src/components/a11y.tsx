@@ -1,4 +1,4 @@
-import { Caption, Disclosure, Stack, SubsectionHeading, Text } from "@hackcove/ui-react";
+import { Caption, Disclosure, Stack, SubsectionHeading, Text } from "@slashsuite/ui-react";
 import {
   MAX_VIOLATIONS,
   type A11yDiff,
@@ -18,11 +18,13 @@ function ViolationList({ label, violations }: { label: string; violations: A11yV
         // Scan order, fixed for one page load.
         <li key={i}>
           <Stack gap="xs">
-            <Text as="p">
-              <Text strong>{v.rule}</Text>
+            <Text>
+              <Text as="span" strong>
+                {v.rule}
+              </Text>
               {v.impact ? ` (${v.impact})` : ""}: {v.help}
             </Text>
-            <Caption as="p" mono truncate title={v.selector}>
+            <Caption mono lines={1} title={v.selector}>
               {v.selector}
             </Caption>
           </Stack>
@@ -45,7 +47,7 @@ export function a11yLine(diff: A11yDiff): string | null {
 export function A11yPanel({ diff }: { diff: A11yDiff }) {
   if (diff.state === "off") return null;
   const omitted = diff.omitted > 0 && (
-    <Text as="p" tone="muted">
+    <Text tone="muted">
       {diff.omitted} more past the cap of {MAX_VIOLATIONS} a shot were not kept, so this list may be
       incomplete.
     </Text>
@@ -56,7 +58,7 @@ export function A11yPanel({ diff }: { diff: A11yDiff }) {
         <SubsectionHeading as="h2" size="sm">
           Accessibility on Branch ({diff.found.length})
         </SubsectionHeading>
-        <Text as="p" tone="muted">
+        <Text tone="muted">
           There is no scan on the baseline (or no baseline), so nothing here can be called new.
         </Text>
         {diff.found.length > 0 && <ViolationList label="Violations" violations={diff.found} />}
@@ -71,9 +73,7 @@ export function A11yPanel({ diff }: { diff: A11yDiff }) {
         Accessibility: new on Branch ({diff.fresh.length})
       </SubsectionHeading>
       {diff.fresh.length === 0 ? (
-        <Text as="p" color="muted">
-          Nothing new on Branch.
-        </Text>
+        <Text tone="muted">Nothing new on Branch.</Text>
       ) : (
         <ViolationList label="New violations" violations={diff.fresh} />
       )}

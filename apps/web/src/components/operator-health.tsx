@@ -10,7 +10,7 @@ import {
   TableHeaderCell,
   TableRow,
   Text,
-} from "@hackcove/ui-react";
+} from "@slashsuite/ui-react";
 import type { OperatorHealth, WindowHealth } from "#/db/admin-health";
 import { formatBytes, formatDateTime, formatNumber } from "#/lib/format";
 import { P95_MIN_BUILDS, P99_MIN_BUILDS } from "#/lib/timings";
@@ -39,33 +39,31 @@ function WindowSection({
       note={`Builds that ended since ${formatDateTime(w.since)}${capped ? ", the newest only (the read is capped)" : ""}. Times are median / 95th percentile / 99th percentile. The middle figure is the slowest when under ${P95_MIN_BUILDS} builds; the last reads n/a when under ${P99_MIN_BUILDS}. Each cell names its own n.`}
       testId={`admin-window-${w.key}`}
     >
-      <Text as="p" data-testid={`admin-${w.key}-finished`}>
+      <Text data-testid={`admin-${w.key}-finished`}>
         {plural(w.finished, "build")} finished
         {w.finished > 0 &&
           `: ${formatNumber(o.passed)} passed, ${formatNumber(o.changes)} changes, ${formatNumber(o.failed)} failed, ${formatNumber(o.errored)} errored.`}
         {w.finished === 0 && "."}
       </Text>
       {w.errored.length > 0 && (
-        <Table variant="plain" caption="Errored builds by reason">
+        <Table label="Errored builds by reason">
           <TableHead>
             <TableRow>
               <TableHeaderCell>Errored, by the first words of the error</TableHeaderCell>
-              <TableHeaderCell align="end">Builds</TableHeaderCell>
+              <TableHeaderCell numeric>Builds</TableHeaderCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {w.errored.map((e) => (
               <TableRow key={e.reason} data-testid={`admin-${w.key}-error`}>
                 <TableCell>{e.reason}</TableCell>
-                <TableCell numeric align="end">
-                  {formatNumber(e.count)}
-                </TableCell>
+                <TableCell numeric>{formatNumber(e.count)}</TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       )}
-      <Table variant="plain" caption="Step times">
+      <Table label="Step times">
         <TableHead>
           <TableRow>
             <TableHeaderCell>Wall time</TableHeaderCell>
@@ -85,11 +83,11 @@ function WindowSection({
           </TableRow>
         </TableBody>
       </Table>
-      <Caption as="p">
+      <Caption>
         Wall time is finished minus created. {plural(w.rerun, "build")} ran more than once and{" "}
         {w.rerun === 1 ? "is" : "are"} left out of the times.
       </Caption>
-      <Text as="p" data-testid={`admin-${w.key}-compares`}>
+      <Text data-testid={`admin-${w.key}-compares`}>
         {plural(w.snapshots, "snapshot")} · {formatNumber(w.comparesRun)} compared ·{" "}
         {plural(w.cacheHits, "cache hit")}; {plural(w.explainFailures, "model explanation")} failed.
         Failed summary calls:{" "}
@@ -140,20 +138,18 @@ function StorageSection({ health }: { health: OperatorHealth }) {
       note="Row counts are every row, smoke runs included. Sizes come from the bindings, never an estimate."
       testId="admin-storage"
     >
-      <Table variant="plain" caption="Row counts">
+      <Table label="Row counts">
         <TableHead>
           <TableRow>
             <TableHeaderCell>Table</TableHeaderCell>
-            <TableHeaderCell align="end">Rows</TableHeaderCell>
+            <TableHeaderCell numeric>Rows</TableHeaderCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {s.rows.map((r) => (
             <TableRow key={r.table} data-testid={`admin-rows-${r.table}`}>
               <TableCell>{r.table}</TableCell>
-              <TableCell numeric align="end">
-                {formatNumber(r.count)}
-              </TableCell>
+              <TableCell numeric>{formatNumber(r.count)}</TableCell>
             </TableRow>
           ))}
         </TableBody>

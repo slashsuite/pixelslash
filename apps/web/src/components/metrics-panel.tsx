@@ -1,4 +1,4 @@
-import { Caption, Disclosure, Stack, Text } from "@hackcove/ui-react";
+import { Caption, Disclosure, Stack, Text } from "@slashsuite/ui-react";
 import type { Metrics, MetricsPart } from "@slashsuite/pixelslash-engine/metrics-entry";
 
 /**
@@ -90,7 +90,7 @@ export function MetricsPanel({ metrics }: { metrics: Metrics | null }) {
       }
     >
       <Stack gap="xs" data-testid="metrics">
-        <Caption as="p">
+        <Caption>
           Logical px, from the top-left of{" "}
           <Text strong as="span">
             {metrics.root}
@@ -104,9 +104,7 @@ export function MetricsPanel({ metrics }: { metrics: Metrics | null }) {
             return (
               <li key={name} data-testid="metrics-part" data-part-name={name}>
                 <Stack gap="xs">
-                  <Text strong as="span">
-                    {name}
-                  </Text>
+                  <Text strong>{name}</Text>
                   <Measured part={part} />
                 </Stack>
               </li>

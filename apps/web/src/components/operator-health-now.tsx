@@ -7,7 +7,7 @@ import {
   TableHeaderCell,
   TableRow,
   Text,
-} from "@hackcove/ui-react";
+} from "@slashsuite/ui-react";
 import type { OperatorHealth } from "#/db/admin-health";
 import { formatDateTime, formatDuration, formatNumber } from "#/lib/format";
 import { BuildComparesTable } from "./operator-compares";
@@ -21,12 +21,12 @@ function StatusTable({ byStatus }: { byStatus: Now["byStatus"] }) {
   const statuses = Object.entries(byStatus).toSorted(([a], [b]) => a.localeCompare(b));
   if (statuses.length === 0)
     return (
-      <Text as="p" tone="muted" data-testid="admin-no-builds">
+      <Text tone="muted" data-testid="admin-no-builds">
         No builds yet.
       </Text>
     );
   return (
-    <Table variant="plain" caption="Builds by status">
+    <Table label="Builds by status">
       <TableHead>
         <TableRow>
           <TableHeaderCell>Status</TableHeaderCell>
@@ -49,14 +49,9 @@ function StatusTable({ byStatus }: { byStatus: Now["byStatus"] }) {
 
 function Oldest({ now }: { now: Now }) {
   const oldest = now.oldestInFlight;
-  if (!oldest)
-    return (
-      <Text as="p" data-testid="admin-oldest">
-        Nothing in flight.
-      </Text>
-    );
+  if (!oldest) return <Text data-testid="admin-oldest">Nothing in flight.</Text>;
   return (
-    <Text as="p" data-testid="admin-oldest">
+    <Text data-testid="admin-oldest">
       {`Oldest in flight: build ${oldest.id.slice(0, 8)}, ${formatDuration(oldest.ageMs)} old, ${oldest.status}, of ${plural(now.inFlight, "build")} in flight.`}
     </Text>
   );
@@ -75,7 +70,7 @@ function stuckLine(now: Now): string {
 function StuckTable({ stuck }: { stuck: Now["stuck"] }) {
   if (stuck.length === 0) return null;
   return (
-    <Table variant="plain" caption="Stuck builds">
+    <Table label="Stuck builds">
       <TableHead>
         <TableRow>
           <TableHeaderCell>Build</TableHeaderCell>
@@ -112,9 +107,7 @@ export function NowSection({ health }: { health: OperatorHealth }) {
         <BuildComparesTable rows={now.flying} total={now.inFlight} testId="admin-now-builds" />
       )}
       <Stack gap="xs">
-        <Text as="p" data-testid="admin-stuck-count">
-          {stuckLine(now)}
-        </Text>
+        <Text data-testid="admin-stuck-count">{stuckLine(now)}</Text>
         <StuckTable stuck={now.stuck} />
       </Stack>
     </HealthSection>

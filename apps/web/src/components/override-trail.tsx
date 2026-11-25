@@ -18,7 +18,7 @@ import {
   TableHeaderCell,
   TableRow,
   Text,
-} from "@hackcove/ui-react";
+} from "@slashsuite/ui-react";
 import { useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import type { DiffOptions } from "#/db/schema";
@@ -62,12 +62,12 @@ function optionsText(options: DiffOptions | null): string {
 function OverrideChanges({ changes }: { changes: Change[] }) {
   if (changes.length === 0)
     return (
-      <Text as="p" color="muted" data-testid="no-override-changes">
+      <Text tone="muted" data-testid="no-override-changes">
         No thresholds were changed in the review screen.
       </Text>
     );
   return (
-    <Table variant="plain" caption="Thresholds changed in review" data-testid="override-changes">
+    <Table label="Thresholds changed in review" data-testid="override-changes">
       <TableHead>
         <TableRow>
           <TableHeaderCell>When</TableHeaderCell>
@@ -130,8 +130,7 @@ function ClearButton({
       <Button
         variant="ghost"
         disabled={!hydrated}
-        busy={busy}
-        busyLabel="Clearing…"
+        busy={busy && "Clearing…"}
         onClick={clear}
         tone="danger"
         data-testid="override-list-clear"
@@ -139,9 +138,9 @@ function ClearButton({
         Clear
       </Button>
       {error && (
-        <Caption as="p" role="alert" tone="danger">
-          {error}
-        </Caption>
+        <div role="alert">
+          <Caption tone="danger">{error}</Caption>
+        </div>
       )}
     </>
   );
@@ -152,7 +151,7 @@ function ExportAsConfig({ exported, hydrated }: { exported: string; hydrated: bo
   return (
     <Disclosure summary="Export as config" data-testid="override-export">
       <Stack gap="sm">
-        <Text as="p" tone="muted">
+        <Text tone="muted">
           Merge each route&apos;s <Code>diff</Code>, <Code>ignore</Code> and <Code>variants</Code>{" "}
           into the route of that name in <Code>pixelslash.config.json</Code>, then clear the
           overrides and ignore boxes here: the builds measure the same. A key the config already
@@ -160,7 +159,7 @@ function ExportAsConfig({ exported, hydrated }: { exported: string; hydrated: bo
           image px, the config&apos;s in CSS px: the same at a deviceScaleFactor of 1, otherwise
           divide by it.
         </Text>
-        <Cluster justify="end">
+        <Cluster gap="xs" justify="end">
           <CopyButton text={exported} disabled={!hydrated} />
         </Cluster>
         <CodeBlock data-testid="override-export-json">{exported}</CodeBlock>
@@ -184,26 +183,26 @@ export function OverrideSettings({
 }) {
   return (
     <Card data-testid="diff-overrides">
-      <Stack>
+      <Stack gap="md">
         <Stack gap="xs">
           <SectionHeading>Diff thresholds set in review</SectionHeading>
-          <Text as="p">
+          <Text>
             Set from a shot&apos;s screen, for a test or one variant of it; they beat the
             config&apos;s values. Clearing one applies the config&apos;s again from the next build.
           </Text>
         </Stack>
         {overrides.list.length === 0 ? (
-          <Text as="p" color="muted" data-testid="no-overrides">
+          <Text tone="muted" data-testid="no-overrides">
             None. Set one from a shot&apos;s screen.
           </Text>
         ) : (
-          <Table variant="plain" caption="Diff thresholds set in review">
+          <Table label="Diff thresholds set in review">
             <TableHead>
               <TableRow>
                 <TableHeaderCell>Test</TableHeaderCell>
                 <TableHeaderCell>Options</TableHeaderCell>
                 <TableHeaderCell>Set</TableHeaderCell>
-                <TableHeaderCell align="end" srLabel="Actions" />
+                <TableHeaderCell align="end" label="Actions" />
               </TableRow>
             </TableHead>
             <TableBody>

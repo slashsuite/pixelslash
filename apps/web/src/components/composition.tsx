@@ -6,7 +6,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
-import { Caption, Legend, ListRow, Stack, SubsectionHeading, Text } from "@hackcove/ui-react";
+import { Caption, Legend, ListRow, Stack, SubsectionHeading, Text } from "@slashsuite/ui-react";
 import {
   GAP_COLOUR,
   MAX_FINDINGS,
@@ -69,7 +69,7 @@ export function CompositionLegend({ composition }: { composition: Composition })
       aria-label="Composition legend"
       items={[
         { label: `Not from ${library}`, tone: "warn", detail: gaps.length },
-        { label: "Special case", tone: "violet", swatch: "dashed", detail: special.length },
+        { label: "Special case", tone: "accent", swatch: "dashed", detail: special.length },
       ]}
     />
   );
@@ -131,7 +131,7 @@ function useRowFocus(finding: Finding) {
   const { focus, setFocus } = useContext(FocusContext);
   const focused = isFocused(focus, finding.kind, finding.index);
   return {
-    active: focused,
+    highlighted: focused,
     "data-focused": focused || undefined,
     onPointerEnter: () => setFocus(finding),
     onPointerLeave: () => setFocus(null),
@@ -142,11 +142,11 @@ function GapItem({ gap, index, library }: { gap: Gap; index: number; library: st
   const row = useRowFocus({ kind: "gap", index });
   return (
     <li>
-      <ListRow static size="sm" divided={index > 0} {...row}>
+      <ListRow size="sm" {...row}>
         <Caption as="code" mono>
           {gap.selector}
         </Caption>
-        <Text as="p">{gapReason(gap, library)}</Text>
+        <Text>{gapReason(gap, library)}</Text>
       </ListRow>
     </li>
   );
@@ -156,11 +156,11 @@ function SpecialItem({ special, index }: { special: SpecialCase; index: number }
   const row = useRowFocus({ kind: "special", index });
   return (
     <li>
-      <ListRow static size="sm" divided={index > 0} {...row}>
+      <ListRow size="sm" {...row}>
         <Caption as="code" mono>
           {special.selector}
         </Caption>
-        <Text as="p">{special.reason}</Text>
+        <Text>{special.reason}</Text>
       </ListRow>
     </li>
   );
@@ -176,7 +176,7 @@ export function CompositionPanel({ composition }: { composition: Composition | n
   return (
     <Stack as="section" gap="sm" aria-label="Composition">
       {omitted ? (
-        <Text as="p" tone="muted">
+        <Text tone="muted">
           {omitted} more past the cap of {MAX_FINDINGS} a shot were not kept.
         </Text>
       ) : null}
@@ -185,16 +185,14 @@ export function CompositionPanel({ composition }: { composition: Composition | n
           {library} gaps on Branch ({gaps.length})
         </SubsectionHeading>
         {gaps.length === 0 ? (
-          <Text as="p" tone="muted">
-            Everything styled here comes from {library}.
-          </Text>
+          <Text tone="muted">Everything styled here comes from {library}.</Text>
         ) : (
-          <ul aria-label={`${library} gaps`}>
+          <Stack as="ul" divided aria-label={`${library} gaps`}>
             {gaps.map((gap, i) => (
               // Walk order, fixed for one page load.
               <GapItem key={i} gap={gap} index={i} library={library} />
             ))}
-          </ul>
+          </Stack>
         )}
       </div>
       <div>
@@ -202,15 +200,13 @@ export function CompositionPanel({ composition }: { composition: Composition | n
           Special cases on Branch ({special.length})
         </SubsectionHeading>
         {special.length === 0 ? (
-          <Text as="p" tone="muted">
-            Nothing on this shot is declared custom.
-          </Text>
+          <Text tone="muted">Nothing on this shot is declared custom.</Text>
         ) : (
-          <ul aria-label="Special cases">
+          <Stack as="ul" divided aria-label="Special cases">
             {special.map((s, i) => (
               <SpecialItem key={i} special={s} index={i} />
             ))}
-          </ul>
+          </Stack>
         )}
       </div>
     </Stack>

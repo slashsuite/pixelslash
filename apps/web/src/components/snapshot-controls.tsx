@@ -1,4 +1,4 @@
-import { Button, Cluster, ClusterGrow, SegmentedControl } from "@hackcove/ui-react";
+import { Button, Cluster, ClusterGrow, SegmentedControl } from "@slashsuite/ui-react";
 import type { ReactNode } from "react";
 import type { Crop } from "../../../../packages/engine/src/report-crop.ts";
 import { type Composition, CompositionLegend } from "#/components/composition";
@@ -157,12 +157,12 @@ export function ViewerControls({
 }) {
   const hydrated = useHydrated();
   return (
-    <Cluster gap="md" wrap>
-      <Cluster gap="xs" wrap>
+    <Cluster gap="md">
+      <Cluster gap="xs">
         <Segmented label="View mode" options={MODES} value={mode} onChange={onMode} />
         {modeControls}
       </Cluster>
-      <Cluster gap="xs" wrap>
+      <Cluster gap="xs">
         <Button
           variant="outline"
           size="sm"

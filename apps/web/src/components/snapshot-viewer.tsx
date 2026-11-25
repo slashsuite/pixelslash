@@ -1,4 +1,4 @@
-import { CardGrid } from "@hackcove/ui-react";
+import { CardGrid } from "@slashsuite/ui-react";
 import { type ReactNode, useState } from "react";
 import { type Crop, changeCrop } from "../../../../packages/engine/src/report-crop.ts";
 import type { Composition } from "#/components/composition";

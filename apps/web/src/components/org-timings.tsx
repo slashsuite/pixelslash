@@ -1,4 +1,3 @@
-import { Link } from "@tanstack/react-router";
 import {
   Stack,
   Table,
@@ -9,11 +8,12 @@ import {
   TableRow,
   Text,
   TextLink,
-} from "@hackcove/ui-react";
+} from "@slashsuite/ui-react";
 import type { ProjectTimings } from "#/db/timings-stats";
 import { formatDuration } from "#/lib/format";
 import { P95_MIN_BUILDS, STEPS, STEP_LABELS, TOTAL_EXPLAINED, type Step } from "#/lib/timings";
 import { plural } from "./org-projects";
+import { hrefTo } from "#/lib/href";
 
 /**
  * The org's Timings tab (ob 1792): for each project, the median and the 95th percentile of every
@@ -46,12 +46,15 @@ function Cell({
       }
     >
       <span data-testid={`timings-${step}`}>
-        {formatDuration(stats.p50, { exact: true })} <Text tone="muted">/</Text>{" "}
+        {formatDuration(stats.p50, { exact: true })}{" "}
+        <Text as="span" tone="muted">
+          /
+        </Text>{" "}
         {formatDuration(stats.tail === "max" ? stats.max : stats.p95, { exact: true })}
         {stats.tail === "max" && (
           <>
             {" "}
-            <Text tone="muted" data-testid={`timings-${step}-tail`}>
+            <Text as="span" tone="muted" data-testid={`timings-${step}-tail`}>
               max
             </Text>
           </>
@@ -74,12 +77,7 @@ function Row({ project }: { project: ProjectTimings }) {
   return (
     <TableRow data-testid="timings-row">
       <TableCell>
-        <TextLink
-          stretch
-          render={(props) => (
-            <Link to="/projects/$projectId" params={{ projectId: project.projectId }} {...props} />
-          )}
-        >
+        <TextLink stretch href={hrefTo("/projects/$projectId", { projectId: project.projectId })}>
           {project.name}
         </TextLink>
       </TableCell>
@@ -100,14 +98,9 @@ function Row({ project }: { project: ProjectTimings }) {
 }
 
 export function TimingsPanel({ projects }: { projects: ProjectTimings[] }) {
-  if (projects.length === 0)
-    return (
-      <Text as="p" tone="muted">
-        No timings for this organization.
-      </Text>
-    );
+  if (projects.length === 0) return <Text tone="muted">No timings for this organization.</Text>;
   const explained = (
-    <Text as="p" tone="muted">
+    <Text tone="muted">
       Median / 95th percentile of each server step, over builds that finished in the last 30 days.
       With under {P95_MIN_BUILDS} builds the second figure is the slowest, and says max. A step a
       build did not run is left out, and so is a build that took more than one run. A step's own
@@ -123,7 +116,11 @@ export function TimingsPanel({ projects }: { projects: ProjectTimings[] }) {
         <Stack as="ul" gap="xs">
           {projects.map((project) => (
             <Text as="li" key={project.projectId} tone="muted" data-testid="timings-empty">
-              {projects.length > 1 && <Text strong>{project.name}: </Text>}
+              {projects.length > 1 && (
+                <Text as="span" strong>
+                  {project.name}:{" "}
+                </Text>
+              )}
               {emptyReason(project)}
             </Text>
           ))}
@@ -133,7 +130,7 @@ export function TimingsPanel({ projects }: { projects: ProjectTimings[] }) {
   return (
     <Stack as="section" gap="sm" aria-label="Timings">
       {explained}
-      <Table caption="Timings per project">
+      <Table label="Timings per project">
         <TableHead>
           <TableRow>
             <TableHeaderCell>Project</TableHeaderCell>

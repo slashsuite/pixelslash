@@ -70,7 +70,7 @@ test("a flaky shot under each policy: badge, summary line, config line, resolve 
   await expect(control).toContainText("takes effect from the next build");
   await control.getByRole("button", { name: "copy" }).first().click();
   // The button keeps its name; the status region beside it announces the copy.
-  await expect(control.getByRole("status").first()).toHaveText("copied");
+  await expect(control.getByRole("status").first()).toHaveText("Copied");
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('"flaky": "review"');
 
   // The Flakes list: both open; resolve one with a note, then reopen it.

@@ -1,4 +1,4 @@
-import { Card, Icon, Stack, SubsectionHeading, Text, TextLink } from "@hackcove/ui-react";
+import { Card, Icon, Stack, SubsectionHeading, Text, TextLink } from "@slashsuite/ui-react";
 import type { ReactNode } from "react";
 import { EXTRA_NAV, GROUPS, LISTED_PAGES } from "../../content/docs-map.ts";
 
@@ -54,7 +54,7 @@ export function DocsGroupGrid(): ReactNode {
           </div>
           <Card>
             <Stack gap="xs">
-              <Text as="p">{group.summary}</Text>
+              <Text>{group.summary}</Text>
               <ul
                 className={
                   long[index]

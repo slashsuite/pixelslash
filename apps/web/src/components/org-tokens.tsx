@@ -18,7 +18,7 @@ import {
   TableHeaderCell,
   TableRow,
   Text,
-} from "@hackcove/ui-react";
+} from "@slashsuite/ui-react";
 import { formatDateTime } from "#/lib/format";
 import { issueOrgTokenFn, revokeOrgTokenFn } from "#/server/org-token-fns";
 
@@ -49,20 +49,16 @@ export function OrgTokensPanel({
   const [issued, setIssued] = useState<string | null>(null);
   return (
     <Card>
-      <Stack>
-        <Text as="p">
+      <Stack gap="md">
+        <Text>
           An org token lets CI reach every project in {orgName}: it creates a project by name with{" "}
           <Code>pixelslash project create</Code> and uploads to one with <Code>--project NAME</Code>
           . It is shown once, when issued. A project's own CI token, in its settings, still reaches
           only that project.
         </Text>
         {issued && (
-          <Callout
-            tone="warn"
-            role="status"
-            title="Copy this token now. It will not be shown again."
-          >
-            <CopyLine text={issued} data-testid="issued-org-token" />
+          <Callout tone="warn" title="Copy this token now. It will not be shown again.">
+            <CopyLine label="token" text={issued} data-testid="issued-org-token" />
           </Callout>
         )}
         <IssueForm orgId={orgId} onIssued={setIssued} />
@@ -95,7 +91,7 @@ function IssueForm({ orgId, onIssued }: { orgId: string; onIssued: (token: strin
   };
   return (
     <Stack as="form" gap="xs" onSubmit={submit}>
-      <Cluster gap="sm" wrap>
+      <Cluster gap="sm">
         <Input
           aria-label="Org token name, e.g. monorepo CI"
           placeholder="Token name, e.g. monorepo CI"
@@ -106,18 +102,17 @@ function IssueForm({ orgId, onIssued }: { orgId: string; onIssued: (token: strin
         <Button
           type="submit"
           disabledReason={empty ? emptyReason : undefined}
-          busy={busy}
-          busyLabel="Issuing…"
+          busy={busy && "Issuing…"}
         >
           Issue org token
         </Button>
       </Cluster>
       {error ? (
-        <Text as="p" role="alert" tone="danger">
-          {error}
-        </Text>
+        <div role="alert">
+          <Text tone="danger">{error}</Text>
+        </div>
       ) : (
-        empty && <Caption as="p">{emptyReason}</Caption>
+        empty && <Caption>{emptyReason}</Caption>
       )}
     </Stack>
   );
@@ -138,13 +133,13 @@ function TokenTable({ tokens, hydrated }: { tokens: OrgToken[]; hydrated: boolea
   };
   if (tokens.length === 0) {
     return (
-      <Text as="p" tone="muted" data-testid="no-org-tokens">
+      <Text tone="muted" data-testid="no-org-tokens">
         No org tokens yet. Issue one above to use a single secret across a monorepo's CI.
       </Text>
     );
   }
   return (
-    <Table variant="plain" caption="Org tokens">
+    <Table label="Org tokens">
       <TableHead>
         <TableRow>
           <TableHeaderCell>Name</TableHeaderCell>
@@ -152,7 +147,7 @@ function TokenTable({ tokens, hydrated }: { tokens: OrgToken[]; hydrated: boolea
           <TableHeaderCell>Created</TableHeaderCell>
           <TableHeaderCell>Last used</TableHeaderCell>
           <TableHeaderCell>Status</TableHeaderCell>
-          <TableHeaderCell align="end" srLabel="Actions" />
+          <TableHeaderCell align="end" label="Actions" />
         </TableRow>
       </TableHead>
       <TableBody>
@@ -170,7 +165,7 @@ function TokenTable({ tokens, hydrated }: { tokens: OrgToken[]; hydrated: boolea
                 {t.lastUsedAt ? formatDateTime(t.lastUsedAt) : "never"}
               </TableCell>
               <TableCell>
-                <Pill dot tone={active ? "emerald" : "slate"}>
+                <Pill dot tone={active ? "positive" : "neutral"}>
                   {active ? "active" : "revoked"}
                 </Pill>
               </TableCell>
@@ -179,8 +174,7 @@ function TokenTable({ tokens, hydrated }: { tokens: OrgToken[]; hydrated: boolea
                   <Button
                     variant="ghost"
                     disabled={!hydrated}
-                    busy={revoking === t.id}
-                    busyLabel="Revoking…"
+                    busy={revoking === t.id && "Revoking…"}
                     onClick={() => void revoke(t.id)}
                     tone="danger"
                     aria-label={`Revoke ${t.name}`}

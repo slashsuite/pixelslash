@@ -1,4 +1,4 @@
-import { Callout, ProseLayout, SidebarLayout } from "@hackcove/ui-react";
+import { Callout, ProseLayout, SidebarLayout } from "@slashsuite/ui-react";
 import type { ReactNode } from "react";
 import { SELF_HOST_DOC } from "../../content/repo-docs.ts";
 import { REPO_PUBLIC } from "../../content/links.ts";
@@ -8,10 +8,10 @@ import { DocsNav, EditLink } from "./docs";
 /** apps/web/SELF-HOST.md, rendered at build time. */
 export function SelfHostPage(): ReactNode {
   return (
-    <SidebarLayout rail={<DocsNav current="/self-host" />} railLabel="Docs">
+    <SidebarLayout aside={<DocsNav current="/self-host" />} asideLabel="Docs">
       <ProseLayout
         title="Self-host"
-        subtitle="apps/web/SELF-HOST.md from the repository, as it is at this commit."
+        description="apps/web/SELF-HOST.md from the repository, as it is at this commit."
         gap="lg"
       >
         {REPO_PUBLIC ? null : (

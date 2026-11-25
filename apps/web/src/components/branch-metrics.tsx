@@ -1,4 +1,4 @@
-import { Card, Cluster, KeyValue, KeyValueList, Overline, Stack, Text } from "@hackcove/ui-react";
+import { Card, Cluster, KeyValue, KeyValueList, Overline, Stack, Text } from "@slashsuite/ui-react";
 import { type BranchMetrics as Metrics, sparkPoints } from "#/lib/branch-metrics";
 import { formatDuration, formatNumber } from "#/lib/format";
 import { statsText } from "#/lib/run-card";
@@ -18,7 +18,7 @@ function Trend({ trend }: { trend: Metrics["trend"] }) {
   if (trend.length < 2) return null;
   if (trend.length === 2)
     return (
-      <Text mono numeric data-testid="branch-metrics-pair">
+      <Text as="span" mono numeric data-testid="branch-metrics-pair">
         {trend.map((p) => formatDuration(p.ms, { exact: true })).join(" → ")}
       </Text>
     );
@@ -50,7 +50,7 @@ export function BranchMetrics({ metrics }: { metrics: Metrics }) {
         <Overline as="h2" tone="muted">
           Last {metrics.window} builds
         </Overline>
-        <Text as="p" tone="muted" data-testid="branch-metrics-window">
+        <Text tone="muted" data-testid="branch-metrics-window">
           {`Over the branch's last ${metrics.window} builds: ${builds(metrics.builds)} here. Derived from times and shots the server stored.`}
         </Text>
         <KeyValueList align="start">
@@ -59,8 +59,8 @@ export function BranchMetrics({ metrics }: { metrics: Metrics }) {
           </KeyValue>
           {wall && (
             <KeyValue label="Build wall time">
-              <Cluster gap="sm" align="baseline" wrap>
-                <Text mono numeric data-testid="branch-metrics-wall">
+              <Cluster gap="sm" align="baseline">
+                <Text as="span" mono numeric data-testid="branch-metrics-wall">
                   {statsText(wall, wall.n === 1 ? "finished build" : "finished builds")}
                 </Text>
                 <Trend trend={metrics.trend} />
@@ -72,7 +72,7 @@ export function BranchMetrics({ metrics }: { metrics: Metrics }) {
           </KeyValue>
           {compareTime && (
             <KeyValue label="Per-compare time">
-              <Text mono numeric data-testid="branch-metrics-compare-time">
+              <Text as="span" mono numeric data-testid="branch-metrics-compare-time">
                 {statsText(compareTime, compareTime.n === 1 ? "shot" : "shots")}
               </Text>
             </KeyValue>

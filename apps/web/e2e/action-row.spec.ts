@@ -73,11 +73,15 @@ test("the action row keeps its place as j walks shots with short and long titles
   const wide = await walk(page);
   for (const { accept } of wide) expect(accept).toEqual(wide[0]?.accept);
 
-  // At a narrow width the action row lays out below the title on every shot, and stays put.
+  // At a narrow width the action row lays out below the title on every shot, the same distance
+  // under it. The breadcrumbs above may wrap (the current crumb, a long shot key, is never cut), so
+  // the whole bar can sit a line lower; the title line itself never pushes the action row.
   await page.setViewportSize({ width: 768, height: 900 });
   const narrow = await walk(page);
-  for (const { accept, title } of narrow) {
-    expect(accept.y).toBeGreaterThanOrEqual(title.y + title.height);
-    expect(accept).toEqual(narrow[0]?.accept);
+  const under = ({ accept, title }: (typeof narrow)[number]) => accept.y - title.y;
+  for (const shot of narrow) {
+    expect(shot.accept.y).toBeGreaterThanOrEqual(shot.title.y + shot.title.height);
+    expect(shot.accept.x).toBe(narrow[0]?.accept.x);
+    expect(under(shot)).toBe(narrow[0] && under(narrow[0]));
   }
 });

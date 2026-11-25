@@ -1,4 +1,3 @@
-import { Link } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
 import {
   Button,
@@ -11,12 +10,13 @@ import {
   Stack,
   TextLink,
   Text,
-} from "@hackcove/ui-react";
+} from "@slashsuite/ui-react";
 import { StatusBadge, useHydrated } from "#/components/ui";
 import type { BuildView, SnapshotView } from "#/db/review";
 import { firstToReview } from "#/lib/build-tabs";
 import { formatDateTime } from "#/lib/format";
 import { holdsChange, skippedFlaky } from "#/lib/snapshot-groups";
+import { hrefTo } from "#/lib/href";
 
 export function toReviewText(baseline: boolean, toReview: number): string {
   if (baseline) return "baseline set";
@@ -26,7 +26,7 @@ export function toReviewText(baseline: boolean, toReview: number): string {
 function Progress({ reviewed, total }: { reviewed: number; total: number }) {
   return (
     <Stack gap="xs" data-testid="review-progress">
-      <Text as="p" tone="muted">
+      <Text tone="muted">
         {total === 0 ? "No changed shots to review" : `${reviewed} of ${total} reviewed`}
       </Text>
       <ProgressBar value={reviewed} max={total} label="Changed shots reviewed" tone="positive" />
@@ -68,9 +68,7 @@ function SkippedFlaky({ projectId, count }: { projectId: string; count: number }
     <TextLink
       tone="warn"
       data-testid="skipped-flaky-count"
-      render={(props) => (
-        <Link to="/projects/$projectId/flakes" params={{ projectId }} {...props} />
-      )}
+      href={hrefTo("/projects/$projectId/flakes", { projectId })}
     >
       {count} skipped: flaky
     </TextLink>
@@ -82,13 +80,7 @@ function BranchLink({ projectId, branch }: { projectId: string; branch: string }
   return (
     <TextLink
       data-testid="branch-link"
-      render={(props) => (
-        <Link
-          to="/projects/$projectId/branches/$branch"
-          params={{ projectId, branch }}
-          {...props}
-        />
-      )}
+      href={hrefTo("/projects/$projectId/branches/$branch", { projectId, branch })}
     >
       Review the whole branch
     </TextLink>
@@ -117,13 +109,11 @@ function ReviewActions({
         <Button
           size="sm"
           data-testid="review-next"
-          render={(props) => (
-            <Link
-              to="/projects/$projectId/builds/$buildId/snapshots/$snapshotId"
-              params={{ projectId, buildId, snapshotId: next.id }}
-              {...props}
-            />
-          )}
+          href={hrefTo("/projects/$projectId/builds/$buildId/snapshots/$snapshotId", {
+            projectId,
+            buildId,
+            snapshotId: next.id,
+          })}
         >
           Review next
         </Button>
@@ -170,11 +160,11 @@ export function BuildHeader({
   const approvedEarlier = snapshots.filter((shot) => shot.approvedEarlier).length;
   const next = firstToReview(snapshots);
   return (
-    <Card as="section">
-      <Stack>
-        <Cluster gap="sm" wrap>
+    <Card>
+      <Stack gap="md">
+        <Cluster gap="sm">
           <MetaList>
-            <Text strong data-testid="build-branch">
+            <Text as="span" strong data-testid="build-branch">
               {build.branch}
             </Text>
             {build.branch !== defaultBranch && (
@@ -186,24 +176,24 @@ export function BuildHeader({
             {expiry && <span data-testid="build-expiry">{expiry}</span>}
           </MetaList>
           <StatusBadge status={build.status} />
-          <Text strong data-testid="to-review">
+          <Text as="span" strong data-testid="to-review">
             {toReviewText(baseline, toReview)}
           </Text>
           <SkippedFlaky projectId={projectId} count={skipped} />
           {approvedEarlier > 0 && (
-            <Text tone="muted" data-testid="approved-earlier-count">
+            <Text as="span" tone="muted" data-testid="approved-earlier-count">
               {approvedEarlier} approved earlier on this branch
             </Text>
           )}
         </Cluster>
         {baseline ? (
-          <Text as="p" data-testid="build-baseline">
+          <Text data-testid="build-baseline">
             This build is the baseline. It is the first build that can be a baseline for this
             project, so its {snapshots.length} shot{snapshots.length === 1 ? "" : "s"} have nothing
             to be compared with and need no review. Later builds are compared against it.
           </Text>
         ) : (
-          <Cluster gap="sm" align="end" wrap>
+          <Cluster gap="sm" align="end">
             <ClusterGrow>
               <Progress reviewed={changed.length - toReview} total={changed.length} />
             </ClusterGrow>

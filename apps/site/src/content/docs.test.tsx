@@ -52,9 +52,15 @@ const indexHtml = renderToStaticMarkup(<DocsIndexPage />);
 /** Every part of cli.md as the site shows it: the index lead and each cli page's body. */
 const bodies = [indexHtml, ...cliPages.map((page) => pageHtml.get(page.slug) ?? "")];
 
-/** The `id="…"` of every heading in a page's body, which is where an anchor lands. */
+/**
+ * The `id="…"` of every heading in a page's body, which is where an anchor lands. A React `useId`
+ * id (`_R_…`, a card title its link is labelled by) is no anchor and is unique within its page by
+ * construction, so it is left out.
+ */
 const idsIn = (html: string): string[] =>
-  [...html.matchAll(/<h[1-6][^>]*\sid="([^"]+)"/g)].map((m) => m[1] ?? "");
+  [...html.matchAll(/<h[1-6][^>]*\sid="([^"]+)"/g)]
+    .map((m) => m[1] ?? "")
+    .filter((id) => !id.startsWith("_R_"));
 
 describe("the docs map", () => {
   test("puts every H2 of cli.md on exactly one page", () => {

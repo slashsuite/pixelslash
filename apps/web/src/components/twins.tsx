@@ -1,5 +1,4 @@
-import { Caption, Overline, Stack, Text, TextLink } from "@hackcove/ui-react";
-import { Link } from "@tanstack/react-router";
+import { Caption, Overline, Stack, Text, TextLink } from "@slashsuite/ui-react";
 import { StaleBadge } from "#/components/stale";
 import { staleDate } from "#/lib/stale";
 import {
@@ -9,6 +8,7 @@ import {
   twinSourceLabel,
   unlinkedLine,
 } from "#/lib/twins";
+import { hrefTo } from "#/lib/href";
 
 /** The way into the parity view (PS-298): the key's shots on every platform side by side. */
 function CompareLink({
@@ -25,13 +25,10 @@ function CompareLink({
   return (
     <TextLink
       data-testid="compare-platforms"
-      render={(p) => (
-        <Link
-          to="/projects/$projectId/builds/$buildId/parity"
-          params={{ projectId, buildId }}
-          search={{ name, theme }}
-          {...p}
-        />
+      href={hrefTo(
+        "/projects/$projectId/builds/$buildId/parity",
+        { projectId, buildId },
+        { search: { name, theme } },
       )}
     >
       Compare platforms
@@ -63,17 +60,11 @@ export function TwinsRow({
         {entry.twins.map((t) => (
           <li key={t.snapshotId} data-testid="twin">
             <TextLink
-              render={(p) => (
-                <Link
-                  to="/projects/$projectId/builds/$buildId/snapshots/$snapshotId"
-                  params={{
-                    projectId: t.projectId,
-                    buildId: t.buildId,
-                    snapshotId: t.snapshotId,
-                  }}
-                  {...p}
-                />
-              )}
+              href={hrefTo("/projects/$projectId/builds/$buildId/snapshots/$snapshotId", {
+                projectId: t.projectId,
+                buildId: t.buildId,
+                snapshotId: t.snapshotId,
+              })}
             >
               {twinLabel(t)}
             </TextLink>
@@ -81,22 +72,20 @@ export function TwinsRow({
               <>
                 {" "}
                 <StaleBadge />
-                <Caption as="p" tone="muted" data-testid="twin-stale-cause">
+                <Caption tone="muted" data-testid="twin-stale-cause">
                   web changed, accepted by {t.stale.acceptedBy ?? "someone"}{" "}
                   {staleDate(t.stale.acceptedAt)}
                 </Caption>
               </>
             )}
-            <Caption as="p" tone="muted">
+            <Caption tone="muted">
               {t.viewport} · {twinSourceLabel(t.source)}
             </Caption>
           </li>
         ))}
         {entry.missing.length > 0 && (
           <li data-testid="twin-missing">
-            <Text as="span" tone="muted">
-              {`No ${entry.missing.join(" or ")} twin`}
-            </Text>
+            <Text tone="muted">{`No ${entry.missing.join(" or ")} twin`}</Text>
           </li>
         )}
       </Stack>
@@ -124,13 +113,11 @@ export function UnlinkedShots({
         {twins.unlinked.map((e) => (
           <li key={e.snapshotId} data-testid="unlinked-shot">
             <TextLink
-              render={(p) => (
-                <Link
-                  to="/projects/$projectId/builds/$buildId/snapshots/$snapshotId"
-                  params={{ projectId, buildId, snapshotId: e.snapshotId }}
-                  {...p}
-                />
-              )}
+              href={hrefTo("/projects/$projectId/builds/$buildId/snapshots/$snapshotId", {
+                projectId,
+                buildId,
+                snapshotId: e.snapshotId,
+              })}
             >
               {unlinkedLine(e)}
             </TextLink>{" "}

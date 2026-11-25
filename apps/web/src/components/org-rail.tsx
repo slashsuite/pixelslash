@@ -1,6 +1,6 @@
-import { Avatar, Button, Caption, ListRow, Overline, Pill, Stack } from "@hackcove/ui-react";
-import { Link } from "@tanstack/react-router";
+import { Avatar, Button, Caption, ListRow, Overline, Pill, Stack } from "@slashsuite/ui-react";
 import type { OrgOverview } from "#/db/orgs";
+import { hrefTo } from "#/lib/href";
 
 /**
  * The organizations down the left, each with how many of its projects have a latest build waiting
@@ -31,17 +31,17 @@ export function OrgRail({
               trailing={
                 org.waiting > 0 ? (
                   <Pill
-                    tone="amber"
+                    tone="warn"
                     round
                     title={`${org.waiting} ${org.waiting === 1 ? "project has" : "projects have"} shots to review`}
                   >
                     {org.waiting}
                   </Pill>
                 ) : (
-                  <Caption>0</Caption>
+                  <Caption as="span">0</Caption>
                 )
               }
-              render={(props) => <Link to="/orgs" search={{ org: org.id }} {...props} />}
+              href={hrefTo("/orgs", {}, { search: { org: org.id } })}
             >
               {org.name}
             </ListRow>

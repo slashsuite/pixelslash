@@ -1,4 +1,10 @@
-import { Caption, StackedBar, type StackedSegment, type TextTone, Text } from "@hackcove/ui-react";
+import {
+  Caption,
+  StackedBar,
+  type StackedSegment,
+  type TextTone,
+  Text,
+} from "@slashsuite/ui-react";
 import type { BuildSummary } from "#/db/build-list";
 import type { BuildCounts } from "#/db/build-counts";
 
@@ -34,12 +40,12 @@ function slicesOf(counts: BuildCounts): Slice[] {
 
 export function MixBar({ counts }: { counts: BuildCounts }) {
   const slices = slicesOf(counts);
-  if (slices.length === 0) return <Caption as="p">no shots</Caption>;
-  return <StackedBar data-testid="snapshot-mix" size="sm" label="Shots" segments={slices} legend />;
+  if (slices.length === 0) return <Caption>no shots</Caption>;
+  return <StackedBar data-testid="snapshot-mix" size="sm" label="Shots" items={slices} legend />;
 }
 
 /** The stripe down a row's leading edge: amber when work is waiting, the verdict otherwise. */
-export function stripeToneOf(build: MixBuild | null): TextTone {
+export function stripeToneOf(build: MixBuild | null): Exclude<TextTone, "neutral"> {
   if (!build) return "muted";
   if (build.counts.toReview > 0) return "warn";
   if (build.status === "failed" || build.status === "errored") return "danger";
@@ -53,13 +59,13 @@ const UNMEASURED = new Set<MixBuild["status"]>(["uploading", "processing", "erro
 function ToReviewCount({ build, defaultBranch }: { build: MixBuild; defaultBranch: string }) {
   if (build.counts.toReview > 0) {
     return (
-      <Text strong tone="warn" data-testid="to-review">
+      <Text as="span" strong tone="warn" data-testid="to-review">
         {build.counts.toReview} to review
       </Text>
     );
   }
   return (
-    <Text tone="muted" data-testid="to-review">
+    <Text as="span" tone="muted" data-testid="to-review">
       {build.branch === defaultBranch && build.status === "passed"
         ? "auto-accepted"
         : "nothing to review"}
@@ -75,10 +81,15 @@ export function ToReview({
   build: MixBuild | null;
   defaultBranch: string;
 }) {
-  if (!build) return <Text tone="muted">n/a</Text>;
+  if (!build)
+    return (
+      <Text as="span" tone="muted">
+        n/a
+      </Text>
+    );
   if (UNMEASURED.has(build.status)) {
     return (
-      <Text tone="muted" data-testid="to-review">
+      <Text as="span" tone="muted" data-testid="to-review">
         not measured
       </Text>
     );
@@ -87,7 +98,7 @@ export function ToReview({
     <>
       <ToReviewCount build={build} defaultBranch={defaultBranch} />
       {build.counts.skippedFlaky > 0 && (
-        <Caption as="p" tone="warn" data-testid="skipped-flaky-count">
+        <Caption tone="warn" data-testid="skipped-flaky-count">
           {build.counts.skippedFlaky} skipped: flaky
         </Caption>
       )}

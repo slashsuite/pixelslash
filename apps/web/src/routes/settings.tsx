@@ -21,7 +21,7 @@ import {
   TableHeaderCell,
   TableRow,
   Text,
-} from "@hackcove/ui-react";
+} from "@slashsuite/ui-react";
 import { Page, useHydrated } from "#/components/ui";
 import { formatDateTime } from "#/lib/format";
 import { TOKEN_EXPIRY_DAYS } from "#/lib/token-expiry";
@@ -39,31 +39,28 @@ function AccountSettings() {
   const [issued, setIssued] = useState<string | null>(null);
   return (
     <Page>
-      <ListLayout breadcrumbs={<Breadcrumbs crumbs={["Settings"]} />} title="Settings">
+      <ListLayout breadcrumbs={<Breadcrumbs items={["Settings"]} />} title="Settings">
         <Card>
-          <Stack>
+          <Stack gap="md">
             <Stack gap="xs">
               <SectionHeading>API tokens</SectionHeading>
-              <Text as="p">
+              <Text>
                 The CLI and MCP server act as you with a personal token: they see the organizations
                 and projects you see here. It is shown once, when issued. For CI, issue a project's
                 CI token in its settings instead.
               </Text>
             </Stack>
             {issued && (
-              <Callout
-                tone="warn"
-                role="status"
-                title="Copy this token now. It will not be shown again."
-              >
-                <CopyLine text={issued} data-testid="issued-token" />
+              <Callout tone="warn" title="Copy this token now. It will not be shown again.">
+                <CopyLine text={issued} label="token" data-testid="issued-token" />
               </Callout>
             )}
             <IssueForm onIssued={setIssued} />
             <TokenTable tokens={tokens} now={now} hydrated={hydrated} />
             <Stack gap="sm">
-              <Text as="p">Check a token from your machine with:</Text>
+              <Text>Check a token from your machine with:</Text>
               <CopyLine
+                label="token check command"
                 text={`curl -H "Authorization: Bearer $PIXELSLASH_TOKEN" ${serverUrl}/api/v1/me`}
                 disabled={!hydrated}
                 data-testid="token-usage"
@@ -104,7 +101,7 @@ function IssueForm({ onIssued }: { onIssued: (token: string) => void }) {
   };
   return (
     <Stack as="form" gap="xs" onSubmit={submit}>
-      <Cluster gap="sm" wrap>
+      <Cluster gap="sm">
         <Input
           aria-label="Token name, e.g. laptop"
           placeholder="Token name, e.g. laptop"
@@ -119,30 +116,29 @@ function IssueForm({ onIssued }: { onIssued: (token: string) => void }) {
           disabled={!hydrated}
           onChange={(e) => setDays(e.target.value)}
           width="auto"
-        >
-          {TOKEN_EXPIRY_DAYS.map((d) => (
-            <option key={d} value={String(d)}>
-              {d === 365 ? "Expires in 1 year" : `Expires in ${d} days`}
-            </option>
-          ))}
-          <option value="never">Never expires</option>
-        </Select>
+          items={[
+            ...TOKEN_EXPIRY_DAYS.map((d) => ({
+              value: String(d),
+              label: d === 365 ? "Expires in 1 year" : `Expires in ${d} days`,
+            })),
+            { value: "never", label: "Never expires" },
+          ]}
+        />
         <Button
           type="submit"
           disabled={!hydrated}
           disabledReason={empty ? emptyReason : undefined}
-          busy={busy}
-          busyLabel="Issuing…"
+          busy={busy && "Issuing…"}
         >
           Issue token
         </Button>
       </Cluster>
       {error ? (
-        <Text as="p" role="alert" tone="danger">
-          {error}
-        </Text>
+        <div role="alert">
+          <Text tone="danger">{error}</Text>
+        </div>
       ) : (
-        empty && hydrated && <Caption as="p">{emptyReason}</Caption>
+        empty && hydrated && <Caption>{emptyReason}</Caption>
       )}
     </Stack>
   );
@@ -171,13 +167,13 @@ function TokenTable({ tokens, now, hydrated }: { tokens: Token[]; now: Date; hyd
   };
   if (tokens.length === 0) {
     return (
-      <Text as="p" tone="muted" data-testid="no-tokens">
+      <Text tone="muted" data-testid="no-tokens">
         No tokens yet. Issue one above to use the CLI or MCP server as yourself.
       </Text>
     );
   }
   return (
-    <Table variant="plain" caption="Personal tokens">
+    <Table label="Personal tokens">
       <TableHead>
         <TableRow>
           <TableHeaderCell>Name</TableHeaderCell>
@@ -186,7 +182,7 @@ function TokenTable({ tokens, now, hydrated }: { tokens: Token[]; now: Date; hyd
           <TableHeaderCell>Last used</TableHeaderCell>
           <TableHeaderCell>Expires</TableHeaderCell>
           <TableHeaderCell>Status</TableHeaderCell>
-          <TableHeaderCell align="end" srLabel="Actions" />
+          <TableHeaderCell align="end" label="Actions" />
         </TableRow>
       </TableHead>
       <TableBody>
@@ -208,7 +204,7 @@ function TokenTable({ tokens, now, hydrated }: { tokens: Token[]; now: Date; hyd
                 {t.expiresAt ? formatDateTime(t.expiresAt) : "never"}
               </TableCell>
               <TableCell>
-                <Pill dot tone={active ? "emerald" : "slate"}>
+                <Pill dot tone={active ? "positive" : "neutral"}>
                   {state}
                 </Pill>
               </TableCell>
@@ -217,8 +213,7 @@ function TokenTable({ tokens, now, hydrated }: { tokens: Token[]; now: Date; hyd
                   <Button
                     variant="ghost"
                     disabled={!hydrated}
-                    busy={revoking === t.id}
-                    busyLabel="Revoking…"
+                    busy={revoking === t.id && "Revoking…"}
                     onClick={() => void revoke(t.id)}
                     tone="danger"
                     aria-label={`Revoke ${t.name}`}

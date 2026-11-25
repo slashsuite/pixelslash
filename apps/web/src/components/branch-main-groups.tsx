@@ -1,4 +1,3 @@
-import { Link } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
 import {
   Button,
@@ -10,7 +9,7 @@ import {
   Stack,
   TextLink,
   Text,
-} from "@hackcove/ui-react";
+} from "@slashsuite/ui-react";
 import { ShotThumb } from "#/components/shot-card";
 import { ReviewChip, useHydrated } from "#/components/ui";
 import {
@@ -20,6 +19,7 @@ import {
   decisionText,
   measuredFacts,
 } from "#/lib/branch-review";
+import { hrefTo } from "#/lib/href";
 
 const MAIN_HEADING: Record<MainGroup, string> = {
   rejected: "Rejected",
@@ -86,7 +86,6 @@ function MainRow({
   src,
   reviewable,
   onReview,
-  divided,
 }: {
   projectId: string;
   buildId: string;
@@ -94,16 +93,12 @@ function MainRow({
   src: string | undefined;
   reviewable: boolean;
   onReview: (snapshotId: string, state: "accepted" | "rejected") => Promise<void>;
-  /** Every row after the first draws the line above it. */
-  divided: boolean;
 }) {
   const shown = shot.mainDiffStatus === "changed" || shot.mainDiffStatus === "new";
   // The thumbnail draws the boxes measured against main, over the same branch shot.
   const thumb = { ...shot, diffStatus: shot.mainDiffStatus, diffResult: shot.mainDiffResult };
   return (
     <ListRow
-      static
-      divided={divided}
       data-testid="main-row"
       data-group={shot.mainGroup}
       leadingWidth="thumbnail"
@@ -111,16 +106,14 @@ function MainRow({
       actions={<MainRowActions shot={shot} reviewable={reviewable} onReview={onReview} />}
     >
       <Stack gap="xs">
-        <Cluster gap="xs" wrap>
+        <Cluster gap="xs">
           <TextLink
             data-testid="main-row-name"
-            render={(props) => (
-              <Link
-                to="/projects/$projectId/builds/$buildId/snapshots/$snapshotId"
-                params={{ projectId, buildId, snapshotId: shot.id }}
-                {...props}
-              />
-            )}
+            href={hrefTo("/projects/$projectId/builds/$buildId/snapshots/$snapshotId", {
+              projectId,
+              buildId,
+              snapshotId: shot.id,
+            })}
           >
             {shot.name}
           </TextLink>
@@ -131,11 +124,9 @@ function MainRow({
             {shot.theme}
           </MetaList>
         </Cluster>
-        <Text as="p" data-testid="main-row-what">
-          {againstMainText(shot)}
-        </Text>
+        <Text data-testid="main-row-what">{againstMainText(shot)}</Text>
         {shot.decision && (
-          <Text as="p" tone="muted" data-testid="main-row-who">
+          <Text tone="muted" data-testid="main-row-who">
             {decisionText(shot)}
           </Text>
         )}
@@ -176,31 +167,35 @@ export function MainGroups({
   onReview: (snapshotId: string, state: "accepted" | "rejected") => Promise<void>;
 }) {
   return (
-    <Stack gap="md">
+    <Stack>
       {MAIN_GROUPS.map((group) => {
         const rows = shots.filter((shot) => shot.mainGroup === group);
         if (rows.length === 0) return null;
         const list = (
-          <Card as="div" flush>
-            {rows.map((shot, index) => (
-              <MainRow
-                key={shot.id}
-                projectId={projectId}
-                buildId={buildId}
-                shot={shot}
-                src={thumbs[shot.id]}
-                reviewable={reviewable}
-                onReview={onReview}
-                divided={index > 0}
-              />
-            ))}
+          <Card flush>
+            <Stack divided>
+              {rows.map((shot) => (
+                <MainRow
+                  key={shot.id}
+                  projectId={projectId}
+                  buildId={buildId}
+                  shot={shot}
+                  src={thumbs[shot.id]}
+                  reviewable={reviewable}
+                  onReview={onReview}
+                />
+              ))}
+            </Stack>
           </Card>
         );
         const folded = FOLDED[group];
         return (
           <Stack as="section" key={group} gap="xs" data-testid={`main-group-${group}`}>
             <SectionHeading>
-              {MAIN_HEADING[group]} <Text tone="muted">({rows.length})</Text>
+              {MAIN_HEADING[group]}{" "}
+              <Text as="span" tone="muted">
+                ({rows.length})
+              </Text>
             </SectionHeading>
             {folded ? (
               <Fold count={rows.length} noun={folded}>

@@ -1,18 +1,16 @@
-import { Caption, type Crumb } from "@hackcove/ui-react";
-import { Link } from "@tanstack/react-router";
+import { Caption, type Crumb } from "@slashsuite/ui-react";
 import type { ReactNode } from "react";
+import { hrefTo } from "#/lib/href";
 
 /** The crumbs the review pages share, so each page lists only the ones above it. */
 export function orgCrumb(org: { id: string; name: string }): Crumb {
-  return { label: org.name, render: (props) => <Link to="/orgs" {...props} /> };
+  return { label: org.name, href: "/orgs" };
 }
 
 export function projectCrumb(project: { id: string; name: string }): Crumb {
   return {
     label: project.name,
-    render: (props) => (
-      <Link to="/projects/$projectId" params={{ projectId: project.id }} {...props} />
-    ),
+    href: hrefTo("/projects/$projectId", { projectId: project.id }),
   };
 }
 
@@ -29,7 +27,10 @@ export function projectCrumbs(project: {
 export function buildCrumbLabel(build: { branch: string; commitSha: string }): ReactNode {
   return (
     <>
-      {build.branch} <Caption mono>{build.commitSha.slice(0, 7)}</Caption>
+      {build.branch}{" "}
+      <Caption as="span" mono>
+        {build.commitSha.slice(0, 7)}
+      </Caption>
     </>
   );
 }
@@ -40,12 +41,6 @@ export function buildCrumb(
 ): Crumb {
   return {
     label: buildCrumbLabel(build),
-    render: (props) => (
-      <Link
-        to="/projects/$projectId/builds/$buildId"
-        params={{ projectId, buildId: build.id }}
-        {...props}
-      />
-    ),
+    href: hrefTo("/projects/$projectId/builds/$buildId", { projectId, buildId: build.id }),
   };
 }

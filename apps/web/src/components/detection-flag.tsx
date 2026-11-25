@@ -1,6 +1,5 @@
 import {
   Button,
-  ButtonGroup,
   Caption,
   Card,
   Cluster,
@@ -14,12 +13,14 @@ import {
   Stack,
   TextLink,
   Text,
-} from "@hackcove/ui-react";
-import { Link, useRouter } from "@tanstack/react-router";
+} from "@slashsuite/ui-react";
+import { useRouter } from "@tanstack/react-router";
 import { type FormEvent, useState } from "react";
 import type { ProjectFlag, SnapshotFlag } from "#/db/flags";
 import type { FlagKind, IgnoreRect } from "#/db/schema";
 import { flagShot, withdrawShotFlag } from "#/server/flag-fns";
+import { hrefTo } from "#/lib/href";
+import { FlagFormActions } from "./flag-form-actions";
 
 const FLAG_LABELS: Record<FlagKind, string> = {
   missed: "Missed change",
@@ -95,14 +96,12 @@ function FlagList({ flags }: { flags: SnapshotFlag[] }) {
       <Stack as="ul" gap="xs">
         {flags.map((flag) => (
           <li key={flag.id} data-testid="detection-flag" data-kind={flag.kind}>
-            <Pill tone={flag.kind === "missed" ? "amber" : "blue"}>{FLAG_LABELS[flag.kind]}</Pill>{" "}
-            <Text tone="muted">by {flag.mine ? "you" : flag.by}</Text>
-            {flag.note && <Text as="p">{flag.note}</Text>}
-            {flag.rect && (
-              <Caption as="p" tone="muted">
-                {rectText(flag.rect)}
-              </Caption>
-            )}
+            <Pill tone={flag.kind === "missed" ? "warn" : "info"}>{FLAG_LABELS[flag.kind]}</Pill>{" "}
+            <Text as="span" tone="muted">
+              by {flag.mine ? "you" : flag.by}
+            </Text>
+            {flag.note && <Text>{flag.note}</Text>}
+            {flag.rect && <Caption tone="muted">{rectText(flag.rect)}</Caption>}
           </li>
         ))}
       </Stack>
@@ -119,12 +118,7 @@ function KindPicker({ kind, onKind }: { kind: FlagKind | null; onKind: (kind: Fl
       onChange={(value) => KINDS.filter((option) => option === value).forEach(onKind)}
     >
       {KINDS.map((option) => (
-        <Radio
-          key={option}
-          value={option}
-          label={FLAG_LABELS[option]}
-          description={KIND_HINTS[option]}
-        />
+        <Radio key={option} value={option} label={FLAG_LABELS[option]} hint={KIND_HINTS[option]} />
       ))}
     </RadioGroup>
   );
@@ -139,7 +133,7 @@ function drawLabel(draft: FlagDraft): string {
 function AreaPicker({ draft }: { draft: FlagDraft }) {
   const { canDraw } = draft;
   return (
-    <Cluster gap="xs" wrap>
+    <Cluster gap="xs">
       <Button
         type="button"
         variant="outline"
@@ -153,7 +147,7 @@ function AreaPicker({ draft }: { draft: FlagDraft }) {
       </Button>
       {draft.rect && (
         <>
-          <Caption data-testid="flag-rect" tone="muted">
+          <Caption as="span" data-testid="flag-rect" tone="muted">
             {rectText(draft.rect)}
           </Caption>
           <Button type="button" variant="ghost" onClick={() => draft.setRect(null)} size="sm">
@@ -207,7 +201,9 @@ function FlagForm({
       <Stack as="form" gap="sm" onSubmit={save} aria-label="Flag detection">
         <fieldset>
           <legend>
-            <Text strong>{mine ? "Edit your flag" : "Flag detection"}</Text>
+            <Text as="span" strong>
+              {mine ? "Edit your flag" : "Flag detection"}
+            </Text>
           </legend>
           <KindPicker kind={kind} onKind={setKind} />
         </fieldset>
@@ -220,35 +216,17 @@ function FlagForm({
         />
         <AreaPicker draft={draft} />
         {error && (
-          <Text as="p" role="alert" tone="danger">
-            {error}
-          </Text>
+          <div role="alert">
+            <Text tone="danger">{error}</Text>
+          </div>
         )}
-        <ButtonGroup>
-          <Button
-            type="submit"
-            disabledReason={kind ? undefined : "Pick missed change or false positive"}
-            busy={busy}
-            busyLabel="Saving…"
-            size="sm"
-          >
-            {mine ? "Save flag" : "Flag"}
-          </Button>
-          {mine && (
-            <Button
-              type="button"
-              variant="outline"
-              disabled={busy}
-              onClick={() => run(() => withdrawShotFlag({ data: ids }))}
-              size="sm"
-            >
-              Withdraw
-            </Button>
-          )}
-          <Button type="button" variant="ghost" onClick={draft.close} size="sm">
-            Cancel
-          </Button>
-        </ButtonGroup>
+        <FlagFormActions
+          picked={kind !== null}
+          mine={Boolean(mine)}
+          busy={busy}
+          onWithdraw={() => run(() => withdrawShotFlag({ data: ids }))}
+          onCancel={draft.close}
+        />
       </Stack>
     </Card>
   );
@@ -284,7 +262,10 @@ export function ProjectFlags({ projectId, flags }: { projectId: string; flags: P
     <Section
       title={
         <>
-          Detection flags <Text tone="muted">{flags.length}</Text>
+          Detection flags{" "}
+          <Text as="span" tone="muted">
+            {flags.length}
+          </Text>
         </>
       }
       actions={
@@ -294,34 +275,38 @@ export function ProjectFlags({ projectId, flags }: { projectId: string; flags: P
       }
     >
       <Card flush>
-        {flags.map((flag, i) => (
-          <ListRow
-            key={flag.id}
-            static
-            divided={i > 0}
-            data-testid="project-flag"
-            leading={
-              <Pill tone={flag.kind === "missed" ? "amber" : "blue"}>{FLAG_LABELS[flag.kind]}</Pill>
-            }
-          >
-            <Cluster gap="xs" align="baseline" wrap>
-              <TextLink
-                render={(p) => (
-                  <Link
-                    to="/projects/$projectId/builds/$buildId/snapshots/$snapshotId"
-                    params={{ projectId, buildId: flag.build.id, snapshotId: flag.snapshot.id }}
-                    {...p}
-                  />
-                )}
-              >
-                {flag.snapshot.name}
-              </TextLink>
-              <Text tone="muted">on {flag.build.branch}</Text>
-              <Caption tone="muted">by {flag.by}</Caption>
-            </Cluster>
-            {flag.note && <Text as="p">{flag.note}</Text>}
-          </ListRow>
-        ))}
+        <Stack divided>
+          {flags.map((flag) => (
+            <ListRow
+              key={flag.id}
+              data-testid="project-flag"
+              leading={
+                <Pill tone={flag.kind === "missed" ? "warn" : "info"}>
+                  {FLAG_LABELS[flag.kind]}
+                </Pill>
+              }
+            >
+              <Cluster gap="xs" align="baseline">
+                <TextLink
+                  href={hrefTo("/projects/$projectId/builds/$buildId/snapshots/$snapshotId", {
+                    projectId,
+                    buildId: flag.build.id,
+                    snapshotId: flag.snapshot.id,
+                  })}
+                >
+                  {flag.snapshot.name}
+                </TextLink>
+                <Text as="span" tone="muted">
+                  on {flag.build.branch}
+                </Text>
+                <Caption as="span" tone="muted">
+                  by {flag.by}
+                </Caption>
+              </Cluster>
+              {flag.note && <Text>{flag.note}</Text>}
+            </ListRow>
+          ))}
+        </Stack>
       </Card>
     </Section>
   );

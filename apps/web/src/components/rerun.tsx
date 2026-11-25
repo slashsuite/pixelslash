@@ -1,4 +1,4 @@
-import { Button, ButtonGroup, Caption, Overline, Stack, Text } from "@hackcove/ui-react";
+import { Button, ButtonGroup, Caption, Overline, Stack, Text } from "@slashsuite/ui-react";
 import { useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { useHydrated } from "#/components/ui";
@@ -31,9 +31,9 @@ function useRerun(projectId: string, buildId: string) {
 function RerunError({ error }: { error: string | null }) {
   if (!error) return null;
   return (
-    <Text as="p" role="alert" tone="danger">
-      {error}
-    </Text>
+    <div role="alert">
+      <Text tone="danger">{error}</Text>
+    </div>
   );
 }
 
@@ -46,8 +46,7 @@ export function RerunErrored({ projectId, buildId }: { projectId: string; buildI
       <Button
         variant="outline"
         disabled={!hydrated}
-        busy={busy}
-        busyLabel="Re-running…"
+        busy={busy && "Re-running…"}
         onClick={() => run(null)}
         size="sm"
         data-testid="rerun-errored"
@@ -92,15 +91,12 @@ function RerunShotButton({
   return (
     <Stack as="section" gap="xs">
       <Overline as="h2">Re-run</Overline>
-      <Caption as="p">
-        Measures the uploaded image again; a review stays if the result does.
-      </Caption>
+      <Caption>Measures the uploaded image again; a review stays if the result does.</Caption>
       <ButtonGroup>
         <Button
           variant="outline"
           disabled={!hydrated}
-          busy={busy}
-          busyLabel="Re-running…"
+          busy={busy && "Re-running…"}
           onClick={() => run(snapshot.id)}
           size="sm"
           data-testid="rerun-shot"

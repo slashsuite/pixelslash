@@ -1,11 +1,9 @@
-import { Link } from "@tanstack/react-router";
 import {
   Button,
   Callout,
   Caption,
   Cluster,
   ClusterGrow,
-  Icon,
   IconButton,
   Stack,
   Table,
@@ -16,11 +14,12 @@ import {
   TableRow,
   TextLink,
   Text,
-} from "@hackcove/ui-react";
+} from "@slashsuite/ui-react";
 import { MixBar, ToReview, stripeToneOf } from "#/components/build-mix";
 import { StatusBadge } from "#/components/ui";
 import type { LatestBuild, OrgOverview, ProjectOverview } from "#/db/orgs";
 import { formatNumber, formatRelative } from "#/lib/format";
+import { hrefTo } from "#/lib/href";
 
 /** The words for a number: `1 invite`, `2 invites`. */
 export function plural(count: number, one: string, many = `${one}s`): string {
@@ -36,13 +35,7 @@ function BuildCell({ project }: { project: ProjectOverview }) {
         <Text tone="muted">no builds</Text>
         <TextLink
           size="sm"
-          render={(props) => (
-            <Link
-              to="/projects/$projectId/settings"
-              params={{ projectId: project.id }}
-              {...props}
-            />
-          )}
+          href={hrefTo("/projects/$projectId/settings", { projectId: project.id })}
         >
           Set up uploads →
         </TextLink>
@@ -54,11 +47,15 @@ function BuildCell({ project }: { project: ProjectOverview }) {
       <Cluster gap="sm">
         <StatusBadge status={latest.status} />
         <ClusterGrow>
-          <Text truncate>{latest.branch}</Text>
+          <Text as="span" lines={1}>
+            {latest.branch}
+          </Text>
         </ClusterGrow>
-        <Caption mono>{latest.commitSha.slice(0, 7)}</Caption>
+        <Caption as="span" mono>
+          {latest.commitSha.slice(0, 7)}
+        </Caption>
       </Cluster>
-      {latest.prNumber !== null && <Caption>PR #{latest.prNumber}</Caption>}
+      {latest.prNumber !== null && <Caption as="span">PR #{latest.prNumber}</Caption>}
     </Stack>
   );
 }
@@ -87,12 +84,7 @@ function ProjectRow({ project, now }: { project: ProjectOverview; now: Date }) {
         indent={project.parentName === null ? undefined : 1}
         secondary={latest ? plural(shots, "shot") : "no builds yet"}
       >
-        <TextLink
-          stretch
-          render={(props) => (
-            <Link to="/projects/$projectId" params={{ projectId: project.id }} {...props} />
-          )}
-        >
+        <TextLink stretch href={hrefTo("/projects/$projectId", { projectId: project.id })}>
           {project.name}
         </TextLink>
       </TableCell>
@@ -100,7 +92,13 @@ function ProjectRow({ project, now }: { project: ProjectOverview; now: Date }) {
         <BuildCell project={project} />
       </TableCell>
       <TableCell>
-        {latest ? <MixBar counts={latest.counts} /> : <Text tone="muted">n/a</Text>}
+        {latest ? (
+          <MixBar counts={latest.counts} />
+        ) : (
+          <Text as="span" tone="muted">
+            n/a
+          </Text>
+        )}
       </TableCell>
       <TableCell>
         <ToReview build={latest} defaultBranch={project.defaultBranch} />
@@ -110,18 +108,11 @@ function ProjectRow({ project, now }: { project: ProjectOverview; now: Date }) {
       </TableCell>
       <TableCell align="end">
         <IconButton
+          icon="settings"
           variant="ghost"
           label={`${project.name} settings`}
-          render={(props) => (
-            <Link
-              to="/projects/$projectId/settings"
-              params={{ projectId: project.id }}
-              {...props}
-            />
-          )}
-        >
-          <Icon name="settings" />
-        </IconButton>
+          href={hrefTo("/projects/$projectId/settings", { projectId: project.id })}
+        />
       </TableCell>
     </TableRow>
   );
@@ -147,34 +138,34 @@ export function WaitingStrip({ org }: { org: OrgOverview }) {
         <Button
           variant="outline"
           size="sm"
-          render={(props) => (
-            <Link
-              to="/projects/$projectId/builds/$buildId"
-              params={{ projectId: next.id, buildId: next.latest.id }}
-              {...props}
-            />
-          )}
+          href={hrefTo("/projects/$projectId/builds/$buildId", {
+            projectId: next.id,
+            buildId: next.latest.id,
+          })}
         >
           Review next
         </Button>
       }
     >
-      <Cluster gap="sm" wrap>
+      <Cluster gap="sm">
         {waiting.map((project, index) => (
           <Cluster key={project.id} gap="sm">
-            {index > 0 && <Text tone="muted">·</Text>}
+            {index > 0 && (
+              <Text as="span" tone="muted">
+                ·
+              </Text>
+            )}
             <TextLink
-              render={(props) => (
-                <Link
-                  to="/projects/$projectId/builds/$buildId"
-                  params={{ projectId: project.id, buildId: project.latest.id }}
-                  {...props}
-                />
-              )}
+              href={hrefTo("/projects/$projectId/builds/$buildId", {
+                projectId: project.id,
+                buildId: project.latest.id,
+              })}
             >
               {labelOf(project)} · {project.latest.branch}
             </TextLink>
-            <Text tone="muted">{project.latest.counts.toReview} to review</Text>
+            <Text as="span" tone="muted">
+              {project.latest.counts.toReview} to review
+            </Text>
           </Cluster>
         ))}
       </Cluster>
@@ -184,7 +175,7 @@ export function WaitingStrip({ org }: { org: OrgOverview }) {
 
 export function ProjectTable({ org, now }: { org: OrgOverview; now: Date }) {
   return (
-    <Table caption="Projects">
+    <Table label="Projects">
       <TableHead>
         <TableRow>
           <TableHeaderCell>Project</TableHeaderCell>
@@ -192,7 +183,7 @@ export function ProjectTable({ org, now }: { org: OrgOverview; now: Date }) {
           <TableHeaderCell>Snapshots</TableHeaderCell>
           <TableHeaderCell>To review</TableHeaderCell>
           <TableHeaderCell>Updated</TableHeaderCell>
-          <TableHeaderCell align="end" srLabel="Settings" />
+          <TableHeaderCell align="end" label="Settings" />
         </TableRow>
       </TableHead>
       <TableBody>

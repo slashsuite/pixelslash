@@ -9,14 +9,14 @@ import {
   Stack,
   TextLink,
   Text,
-} from "@hackcove/ui-react";
-import { Link } from "@tanstack/react-router";
+} from "@slashsuite/ui-react";
 import { ShotThumb, measured } from "#/components/shot-card";
 import { ReviewChip, StatusBadge, useHydrated } from "#/components/ui";
 import type { MemberBuild } from "#/db/commit-group";
 import type { ChangeTotals, CommitReviewGroup } from "#/db/commit-review";
 import type { SnapshotView } from "#/db/review";
 import { awaitsDecision } from "#/lib/snapshot-groups";
+import { hrefTo } from "#/lib/href";
 
 /*
  * The parts of the commit's combined review (`/projects/$projectId/commits/$sha`): a section per
@@ -88,7 +88,6 @@ function ChangeRow({
   src,
   focused,
   busy,
-  divided,
   onReview,
 }: {
   group: Ran;
@@ -96,14 +95,11 @@ function ChangeRow({
   src: string | undefined;
   focused: boolean;
   busy: boolean;
-  divided: boolean;
   onReview: (state: "accepted" | "rejected") => void;
 }) {
   const open = decidable(group) && awaitsDecision(shot);
   return (
     <ListRow
-      static
-      divided={divided}
       id={`shot-${shot.id}`}
       data-testid="commit-row"
       data-state={shot.reviewState}
@@ -114,20 +110,14 @@ function ChangeRow({
       actions={<RowActions shot={shot} open={open} busy={busy} onReview={onReview} />}
     >
       <Stack gap="xs">
-        <Cluster gap="xs" wrap>
+        <Cluster gap="xs">
           <TextLink
             data-testid="commit-row-name"
-            render={(props) => (
-              <Link
-                to="/projects/$projectId/builds/$buildId/snapshots/$snapshotId"
-                params={{
-                  projectId: group.projectId,
-                  buildId: group.build.id,
-                  snapshotId: shot.id,
-                }}
-                {...props}
-              />
-            )}
+            href={hrefTo("/projects/$projectId/builds/$buildId/snapshots/$snapshotId", {
+              projectId: group.projectId,
+              buildId: group.build.id,
+              snapshotId: shot.id,
+            })}
           >
             {shot.name}
           </TextLink>
@@ -138,9 +128,9 @@ function ChangeRow({
             {shot.theme}
           </MetaList>
         </Cluster>
-        <Text as="p">{measured(shot, false)}</Text>
+        <Text>{measured(shot, false)}</Text>
         {shot.reviewedBy && (
-          <Text as="p" tone="muted" data-testid="commit-row-who">
+          <Text tone="muted" data-testid="commit-row-who">
             {shot.reviewState} by {shot.reviewedBy}
           </Text>
         )}
@@ -150,24 +140,23 @@ function ChangeRow({
 }
 
 /** A subproject that did not run here: what it holds is its last build's, so it counts nothing. */
-function NotRunRow({ group, divided }: { group: Group; divided: boolean }) {
+function NotRunRow({ group }: { group: Group }) {
   const last = group.lastBuild;
   return (
-    <ListRow static divided={divided} data-testid="commit-not-run-row">
-      <Cluster gap="xs" wrap>
-        <Text>{group.name}</Text>
-        <Text tone="muted">not run on this commit (unchanged)</Text>
+    <ListRow data-testid="commit-not-run-row">
+      <Cluster gap="xs">
+        <Text as="span">{group.name}</Text>
+        <Text as="span" tone="muted">
+          not run on this commit (unchanged)
+        </Text>
         {last && (
           <TextLink
             mono
             data-testid="commit-last-build"
-            render={(props) => (
-              <Link
-                to="/projects/$projectId/builds/$buildId"
-                params={{ projectId: group.projectId, buildId: last.id }}
-                {...props}
-              />
-            )}
+            href={hrefTo("/projects/$projectId/builds/$buildId", {
+              projectId: group.projectId,
+              buildId: last.id,
+            })}
           >
             last build {short(last.commitSha)}
           </TextLink>
@@ -183,12 +172,17 @@ export function NotRun({ groups }: { groups: Group[] }) {
   return (
     <Stack as="section" gap="xs" data-testid="commit-not-run">
       <SectionHeading>
-        Not run on this commit <Text tone="muted">({groups.length})</Text>
+        Not run on this commit{" "}
+        <Text as="span" tone="muted">
+          ({groups.length})
+        </Text>
       </SectionHeading>
-      <Card as="div" flush>
-        {groups.map((group, index) => (
-          <NotRunRow key={group.projectId} group={group} divided={index > 0} />
-        ))}
+      <Card flush>
+        <Stack divided>
+          {groups.map((group) => (
+            <NotRunRow key={group.projectId} group={group} />
+          ))}
+        </Stack>
       </Card>
     </Stack>
   );
@@ -211,20 +205,17 @@ export function GroupSection({
 }) {
   return (
     <Stack as="section" gap="xs" data-testid="commit-group" data-project={group.name}>
-      <Cluster gap="xs" wrap>
+      <Cluster gap="xs">
         <SectionHeading>{group.name}</SectionHeading>
         <StatusBadge status={group.build.status} />
-        <Text tone="muted" data-testid="commit-group-totals">
+        <Text as="span" tone="muted" data-testid="commit-group-totals">
           {totalsText(group.totals)}
         </Text>
         <TextLink
-          render={(props) => (
-            <Link
-              to="/projects/$projectId/builds/$buildId"
-              params={{ projectId: group.projectId, buildId: group.build.id }}
-              {...props}
-            />
-          )}
+          href={hrefTo("/projects/$projectId/builds/$buildId", {
+            projectId: group.projectId,
+            buildId: group.build.id,
+          })}
         >
           build page
         </TextLink>
@@ -235,19 +226,20 @@ export function GroupSection({
         </Callout>
       )}
       {group.snapshots.length > 0 && (
-        <Card as="div" flush>
-          {group.snapshots.map((shot, index) => (
-            <ChangeRow
-              key={shot.id}
-              group={group}
-              shot={shot}
-              src={thumbs[shot.id]}
-              focused={shot.id === focusId}
-              busy={busy}
-              divided={index > 0}
-              onReview={(state) => onReview(group, shot, state)}
-            />
-          ))}
+        <Card flush>
+          <Stack divided>
+            {group.snapshots.map((shot) => (
+              <ChangeRow
+                key={shot.id}
+                group={group}
+                shot={shot}
+                src={thumbs[shot.id]}
+                focused={shot.id === focusId}
+                busy={busy}
+                onReview={(state) => onReview(group, shot, state)}
+              />
+            ))}
+          </Stack>
         </Card>
       )}
     </Stack>

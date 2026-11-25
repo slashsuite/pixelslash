@@ -1,5 +1,5 @@
 import { type PointerEvent, type ReactNode, useRef, useState } from "react";
-import { OutlineRegion } from "@hackcove/ui-react";
+import { OutlineRegion } from "@slashsuite/ui-react";
 import type { Crop } from "../../../../packages/engine/src/report-crop.ts";
 import { useRegionNote } from "#/components/ai-notes";
 import type { DiffRegion, IgnoreRect } from "#/db/schema";
@@ -274,7 +274,6 @@ export function IgnoreAreas({
           hatched
           data-testid="ignore-box"
           data-source={source}
-          title={`ignored (${source}): ${rect.width}×${rect.height} at ${rect.x},${rect.y}`}
         />
       ))}
     </>

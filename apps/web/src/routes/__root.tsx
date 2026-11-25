@@ -1,4 +1,4 @@
-import { appShellRootClassFor } from "@hackcove/ui-react";
+import { appShellRootClassFor } from "@slashsuite/ui-react";
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
 import { type ReactNode, useEffect } from "react";
 import { startBrowserSentry } from "#/lib/sentry-browser";

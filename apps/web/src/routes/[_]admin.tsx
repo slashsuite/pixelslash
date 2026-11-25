@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Breadcrumbs, PageHeader, Stack } from "@hackcove/ui-react";
+import { Breadcrumbs, PageHeader, Stack } from "@slashsuite/ui-react";
 import { Page } from "#/components/ui";
 import { OperatorHealthView } from "#/components/operator-health";
 import { getOperatorHealth } from "#/server/admin";
@@ -19,7 +19,7 @@ function OperatorHealthPage() {
   return (
     <Page>
       <PageHeader
-        breadcrumbs={<Breadcrumbs crumbs={["Operator health"]} />}
+        breadcrumbs={<Breadcrumbs items={["Operator health"]} />}
         title="Operator health"
       />
       <Stack>

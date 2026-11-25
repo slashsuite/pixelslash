@@ -1,12 +1,4 @@
-import {
-  Button,
-  Card,
-  EmptyState,
-  FieldDialog,
-  SidebarLayout,
-  Stack,
-  Text,
-} from "@hackcove/ui-react";
+import { Button, EmptyState, FieldDialog, SidebarLayout, Stack, Text } from "@slashsuite/ui-react";
 import { createFileRoute, getRouteApi, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { ModelSettings } from "#/components/model-settings";
@@ -72,7 +64,7 @@ function Orgs() {
   return (
     <Page>
       <SidebarLayout
-        rail={
+        aside={
           <OrgRail
             orgs={orgs}
             selectedId={selected?.id ?? null}
@@ -135,7 +127,6 @@ function OrgDialogs({
           title="New project"
           description={`A project holds one app's builds, in ${selected.name}.`}
           label="Project name"
-          inputLabel="New project name"
           placeholder="e.g. storefront"
           hint="Shown in lists and in the upload URL."
           emptyReason="Type a name first."
@@ -150,7 +141,6 @@ function OrgDialogs({
           title="New organization"
           description="An organization owns projects and the people who review them."
           label="Organization name"
-          inputLabel="New organization name"
           placeholder="e.g. Acme"
           hint="You become its first member."
           emptyReason="Type a name first."
@@ -170,7 +160,6 @@ function OrgDialogs({
           title="Invite to this organization"
           description={`They join ${selected.name} when they sign in with that GitHub login or email.`}
           label="GitHub login or email"
-          inputLabel="Invite by GitHub login or email"
           placeholder="e.g. octo-dev or ada@example.com"
           hint="An email joins them whether they sign in with Google or with a GitHub account that has it."
           emptyReason="Type a GitHub login or an email first."
@@ -187,21 +176,20 @@ function OrgDialogs({
 function NoOrgs({ hydrated, onNew }: { hydrated: boolean; onNew: () => void }) {
   return (
     <Stack width="narrow">
-      <Card as="div" dashed="filled" data-testid="no-orgs">
-        <EmptyState
-          title="No organizations yet"
-          actions={
-            <Button disabled={!hydrated} onClick={onNew}>
-              + New organization
-            </Button>
-          }
-        >
-          <Text as="p" tone="muted">
-            An organization owns your projects and the people who review them. Create one to add
-            projects.
-          </Text>
-        </EmptyState>
-      </Card>
+      <EmptyState
+        data-testid="no-orgs"
+        title="No organizations yet"
+        actions={
+          <Button disabled={!hydrated} onClick={onNew}>
+            + New organization
+          </Button>
+        }
+      >
+        <Text tone="muted">
+          An organization owns your projects and the people who review them. Create one to add
+          projects.
+        </Text>
+      </EmptyState>
     </Stack>
   );
 }
@@ -229,7 +217,7 @@ function ProjectsPanel({
     );
   }
   return (
-    <Stack gap="md">
+    <Stack>
       <WaitingStrip org={org} />
       <ProjectTable org={org} now={now} />
     </Stack>

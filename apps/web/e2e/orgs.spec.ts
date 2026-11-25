@@ -9,8 +9,9 @@ async function issueToken(page: Page) {
   await expect(page.getByTestId("no-tokens")).toBeVisible();
   await expect(page.locator("[data-hydrated=true]")).toHaveCount(1);
   // Empty, the button is grey and says why rather than doing nothing.
-  await expect(page.getByRole("button", { name: "Issue token" })).toBeDisabled();
-  await expect(page.getByText("Name the token first")).toBeVisible();
+  const issue = page.getByRole("button", { name: "Issue token" });
+  await expect(issue).toBeDisabled();
+  await expect(issue).toHaveAccessibleDescription(/Name the token first/);
 
   await page.getByLabel("Token name, e.g. github-actions").fill("github-actions");
   await page.getByRole("button", { name: "Issue token" }).click();
@@ -57,14 +58,13 @@ test("create an org, a project and a CI token by clicking; an empty org says wha
   );
   await expect(page.getByTestId("upload-command").locator("code")).toContainText("--server http");
 
-  // A disabled button is grey, says why, and is a real disabled control.
+  // Creating with no name says why on the field and puts the focus back in it.
   await page.getByRole("button", { name: "+ New project" }).first().click();
-  const create = page.getByRole("button", { name: "Create project" });
-  await expect(create).toBeDisabled();
-  await expect(create).toHaveAttribute("title", "Type a name first.");
+  await expect(page.getByLabel("Project name")).toBeFocused();
+  await page.getByRole("button", { name: "Create project" }).click();
   await expect(page.getByRole("dialog")).toContainText("Type a name first.");
-  expect(await create.evaluate((el) => getComputedStyle(el).cursor)).toBe("not-allowed");
-  await expect(page.getByLabel("New project name")).toBeFocused();
+  await expect(page.getByLabel("Project name")).toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByLabel("Project name")).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
 

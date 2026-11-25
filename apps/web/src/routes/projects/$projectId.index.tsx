@@ -1,8 +1,7 @@
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import {
   Breadcrumbs,
   Button,
-  Card,
   Code,
   CopyLine,
   EmptyState,
@@ -11,7 +10,7 @@ import {
   Steps,
   TextLink,
   Text,
-} from "@hackcove/ui-react";
+} from "@slashsuite/ui-react";
 import { orgCrumb, projectCrumb } from "#/components/crumbs";
 import { SubprojectList } from "#/components/subprojects";
 import { ProjectFlags } from "#/components/detection-flag";
@@ -20,6 +19,7 @@ import { StaleList } from "#/components/stale";
 import { Page, useHydrated } from "#/components/ui";
 import { getProjectPage } from "#/server/fns";
 import { getSubprojects } from "#/server/subprojects";
+import { hrefTo } from "#/lib/href";
 
 export const Route = createFileRoute("/projects/$projectId/")({
   loader: async ({ params }) => {
@@ -40,9 +40,9 @@ function ProjectPage() {
   return (
     <Page>
       <ListLayout
-        breadcrumbs={<Breadcrumbs crumbs={[orgCrumb(org), ...parentCrumbs, project.name]} />}
+        breadcrumbs={<Breadcrumbs items={[orgCrumb(org), ...parentCrumbs, project.name]} />}
         title={project.name}
-        subtitle={
+        description={
           builds.length === 0
             ? "No builds yet."
             : `Builds newest first. ${builds.length} in this project.`
@@ -52,38 +52,23 @@ function ProjectPage() {
             {newestSha && (
               <Button
                 data-testid="commit-review-link"
-                render={(props) => (
-                  <Link
-                    to="/projects/$projectId/commits/$sha"
-                    params={{ projectId: project.id, sha: newestSha }}
-                    {...props}
-                  />
-                )}
+                href={hrefTo("/projects/$projectId/commits/$sha", {
+                  projectId: project.id,
+                  sha: newestSha,
+                })}
               >
                 Review commit {newestSha.slice(0, 7)}
               </Button>
             )}
             <Button
               variant="outline"
-              render={(props) => (
-                <Link
-                  to="/projects/$projectId/flakes"
-                  params={{ projectId: project.id }}
-                  {...props}
-                />
-              )}
+              href={hrefTo("/projects/$projectId/flakes", { projectId: project.id })}
             >
               Flakes
             </Button>
             <Button
               variant="outline"
-              render={(props) => (
-                <Link
-                  to="/projects/$projectId/settings"
-                  params={{ projectId: project.id }}
-                  {...props}
-                />
-              )}
+              href={hrefTo("/projects/$projectId/settings", { projectId: project.id })}
             >
               Settings
             </Button>
@@ -138,37 +123,34 @@ function EmptyProject({
   const command = `PIXELSLASH_TOKEN=… pixelslash upload DIR --server ${serverUrl}${flag}`;
   const tokenOwner = project.parent ?? project;
   return (
-    <Card as="div" dashed="filled" data-testid="empty-project">
-      <EmptyState title="No builds yet">
-        <Text as="p" tone="muted">
-          A build is one upload of snapshots from CI or your machine. Builds on <Code>main</Code>{" "}
-          are accepted as they land; a branch's builds are compared against them.
-        </Text>
-        <Steps>
-          <Step
-            title={
-              <>
-                Issue a CI token in{" "}
-                <TextLink
-                  render={(props) => (
-                    <Link
-                      to="/projects/$projectId/settings"
-                      params={{ projectId: tokenOwner.id }}
-                      {...props}
-                    />
-                  )}
-                >
-                  {project.parent ? `${project.parent.name}'s settings` : "Settings"}
-                </TextLink>
-                .
-              </>
-            }
+    <EmptyState data-testid="empty-project" title="No builds yet">
+      <Text tone="muted">
+        A build is one upload of snapshots from CI or your machine. Builds on <Code>main</Code> are
+        accepted as they land; a branch's builds are compared against them.
+      </Text>
+      <Steps>
+        <Step
+          title={
+            <>
+              Issue a CI token in{" "}
+              <TextLink
+                href={hrefTo("/projects/$projectId/settings", { projectId: tokenOwner.id })}
+              >
+                {project.parent ? `${project.parent.name}'s settings` : "Settings"}
+              </TextLink>
+              .
+            </>
+          }
+        />
+        <Step title="Upload a snapshot dir with it:">
+          <CopyLine
+            label="upload command"
+            text={command}
+            disabled={!hydrated}
+            data-testid="upload-command"
           />
-          <Step title="Upload a snapshot dir with it:">
-            <CopyLine text={command} disabled={!hydrated} data-testid="upload-command" />
-          </Step>
-        </Steps>
-      </EmptyState>
-    </Card>
+        </Step>
+      </Steps>
+    </EmptyState>
   );
 }

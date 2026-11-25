@@ -1,4 +1,3 @@
-import { Link } from "@tanstack/react-router";
 import {
   Caption,
   Card,
@@ -13,11 +12,12 @@ import {
   TableRow,
   Text,
   TextLink,
-} from "@hackcove/ui-react";
+} from "@slashsuite/ui-react";
 import { MixBar, ToReview, stripeToneOf } from "#/components/build-mix";
 import { StatusBadge } from "#/components/ui";
 import type { BuildSummary } from "#/db/build-list";
 import { formatRelative } from "#/lib/format";
+import { hrefTo } from "#/lib/href";
 
 /** The builds: a stacked card each on a phone, the table from the kit's `sm` up. */
 export function BuildsList({
@@ -35,21 +35,22 @@ export function BuildsList({
     <>
       {/* A phone gets one stacked row per build; the table, which the kit scrolls sideways, would hide three of its five columns. */}
       <div className="sm:hidden">
-        <Card as="div" flush>
-          {builds.map((build, index) => (
-            <BuildCard
-              key={build.id}
-              projectId={projectId}
-              defaultBranch={defaultBranch}
-              build={build}
-              now={now}
-              divided={index > 0}
-            />
-          ))}
+        <Card flush>
+          <Stack divided>
+            {builds.map((build) => (
+              <BuildCard
+                key={build.id}
+                projectId={projectId}
+                defaultBranch={defaultBranch}
+                build={build}
+                now={now}
+              />
+            ))}
+          </Stack>
         </Card>
       </div>
       <div className="hidden sm:block">
-        <Table caption="Builds">
+        <Table label="Builds">
           <TableHead>
             <TableRow>
               <TableHeaderCell>Branch</TableHeaderCell>
@@ -97,21 +98,20 @@ function BuildMeta({
   build: BuildSummary;
 }) {
   return (
-    <Cluster gap="xs" wrap>
-      <Caption mono>{build.commitSha.slice(0, 7)}</Caption>
-      {build.prNumber !== null && <Caption>PR #{build.prNumber}</Caption>}
+    <Cluster gap="xs">
+      <Caption as="span" mono>
+        {build.commitSha.slice(0, 7)}
+      </Caption>
+      {build.prNumber !== null && <Caption as="span">PR #{build.prNumber}</Caption>}
       {build.branch !== defaultBranch && (
         <TextLink
           size="sm"
           tone="muted"
           data-testid="branch-link"
-          render={(props) => (
-            <Link
-              to="/projects/$projectId/branches/$branch"
-              params={{ projectId, branch: build.branch }}
-              {...props}
-            />
-          )}
+          href={hrefTo("/projects/$projectId/branches/$branch", {
+            projectId,
+            branch: build.branch,
+          })}
         >
           whole branch
         </TextLink>
@@ -126,37 +126,30 @@ function BuildCard({
   defaultBranch,
   build,
   now,
-  divided,
 }: {
   projectId: string;
   defaultBranch: string;
   build: BuildSummary;
   now: Date;
-  divided: boolean;
 }) {
   return (
     <ListRow
-      divided={divided}
-      render={(props) => (
-        <Link
-          to="/projects/$projectId/builds/$buildId"
-          params={{ projectId, buildId: build.id }}
-          {...props}
-        />
-      )}
+      href={hrefTo("/projects/$projectId/builds/$buildId", { projectId, buildId: build.id })}
     >
       <Stack gap="xs" data-testid="build-card">
         <Cluster justify="between" gap="sm">
-          <Text strong>{build.branch}</Text>
+          <Text as="span" strong>
+            {build.branch}
+          </Text>
           <StatusBadge status={listStatus(build)} />
         </Cluster>
         <BuildMeta projectId={projectId} defaultBranch={defaultBranch} build={build} />
         <MixBar counts={build.counts} />
-        <Cluster justify="between" gap="sm" wrap>
+        <Cluster justify="between" gap="sm">
           <div>
             <ToReview build={build} defaultBranch={defaultBranch} />
           </div>
-          <Text tone="muted">
+          <Text as="span" tone="muted">
             <span data-testid="rel-time" title={build.createdAt.toISOString()}>
               {formatRelative(build.createdAt, now)}
             </span>
@@ -185,13 +178,7 @@ function BuildRow({
       >
         <TextLink
           stretch
-          render={(props) => (
-            <Link
-              to="/projects/$projectId/builds/$buildId"
-              params={{ projectId, buildId: build.id }}
-              {...props}
-            />
-          )}
+          href={hrefTo("/projects/$projectId/builds/$buildId", { projectId, buildId: build.id })}
         >
           {build.branch}
         </TextLink>

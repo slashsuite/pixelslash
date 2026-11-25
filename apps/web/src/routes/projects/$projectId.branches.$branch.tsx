@@ -9,8 +9,8 @@ import {
   Stack,
   TextLink,
   Text,
-} from "@hackcove/ui-react";
-import { Link, createFileRoute, useRouter } from "@tanstack/react-router";
+} from "@slashsuite/ui-react";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { MainGroups } from "#/components/branch-main-groups";
 import { BranchMetrics } from "#/components/branch-metrics";
@@ -34,6 +34,7 @@ import { BUILD_TABS, setsBaseline, tabCounts } from "#/lib/build-tabs";
 import { formatDateTime } from "#/lib/format";
 import { getBranchPage } from "#/server/branch";
 import { reviewShot } from "#/server/fns";
+import { hrefTo } from "#/lib/href";
 
 export const Route = createFileRoute("/projects/$projectId/branches/$branch")({
   validateSearch: (search: Record<string, unknown>): { mode?: "since" } =>
@@ -54,22 +55,21 @@ function BranchMeta({
   buildCount,
 }: Pick<Loaded, "project" | "build" | "buildCount">) {
   return (
-    <Cluster gap="xs" wrap data-testid="branch-meta">
-      <Text tone="muted">newest build</Text>
+    <Cluster gap="xs" data-testid="branch-meta">
+      <Text as="span" tone="muted">
+        newest build
+      </Text>
       <TextLink
         mono
         data-testid="branch-head"
-        render={(props) => (
-          <Link
-            to="/projects/$projectId/builds/$buildId"
-            params={{ projectId: project.id, buildId: build.id }}
-            {...props}
-          />
-        )}
+        href={hrefTo("/projects/$projectId/builds/$buildId", {
+          projectId: project.id,
+          buildId: build.id,
+        })}
       >
         {short(build.commitSha)}
       </TextLink>
-      {build.prNumber !== null && <Text>PR #{build.prNumber}</Text>}
+      {build.prNumber !== null && <Text as="span">PR #{build.prNumber}</Text>}
       <StatusBadge status={build.status} />
       <MetaList>
         {formatDateTime(build.createdAt)}
@@ -106,7 +106,7 @@ function BranchPage() {
     <Page>
       <ListLayout
         breadcrumbs={
-          <Breadcrumbs crumbs={[orgCrumb(org), ...projectCrumbs(project), build.branch]} />
+          <Breadcrumbs items={[orgCrumb(org), ...projectCrumbs(project), build.branch]} />
         }
         title={`${project.name} · ${build.branch}`}
       >
@@ -115,11 +115,7 @@ function BranchPage() {
         <BranchMetrics metrics={data.metrics} />
         <MainSummaryBox summary={summary} status={build.status} />
         <ModeTabs projectId={project.id} branch={build.branch} active={mode} />
-        {error && (
-          <Callout tone="danger" role="alert">
-            {error}
-          </Callout>
-        )}
+        {error && <Callout tone="danger">{error}</Callout>}
         {mode === "main" ? (
           <AgainstMain
             projectId={project.id}
@@ -160,7 +156,7 @@ function AgainstMain({
 }: Parameters<typeof MainGroups>[0] & { defaultBranch: string; summary: MainSummary }) {
   return (
     <Stack as="section" data-testid="mode-body-main">
-      <Text as="p" tone="muted">
+      <Text tone="muted">
         Everything this branch changes, measured from the accepted shot at the merge-base. This is
         the final review before merging.
       </Text>
@@ -180,7 +176,7 @@ function AgainstMain({
         reviewable={reviewable}
         onReview={onReview}
       />
-      <Text as="p" tone="muted">
+      <Text tone="muted">
         Older builds made before against-main measuring show &ldquo;not measured against main&rdquo;
         and are not counted. &ldquo;Ready to merge&rdquo; only reads the review states above; it is
         not an approval of its own.
@@ -211,7 +207,7 @@ function SinceLastBuild({
   const lines = sinceLastBuildLines(snapshots);
   return (
     <Stack as="section" data-testid="mode-body-since">
-      <Text as="p" tone="muted">
+      <Text tone="muted">
         {previous
           ? `What build ${head} changed compared with build ${previous} on this branch. The same view as the build page.`
           : `Build ${head} is the branch's first build, so it is compared with the accepted shots it started from. The same view as the build page.`}
@@ -227,7 +223,10 @@ function SinceLastBuild({
           {/* The removed and not-measured lists head themselves, by group. */}
           {(tab.id === "changed" || tab.id === "new" || tab.id === "unchanged") && (
             <SectionHeading>
-              {tab.label} <Text tone="muted">({counts[tab.id]})</Text>
+              {tab.label}{" "}
+              <Text as="span" tone="muted">
+                ({counts[tab.id]})
+              </Text>
             </SectionHeading>
           )}
           <TabBody

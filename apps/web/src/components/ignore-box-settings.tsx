@@ -13,7 +13,7 @@ import {
   TableHeaderCell,
   TableRow,
   Text,
-} from "@hackcove/ui-react";
+} from "@slashsuite/ui-react";
 import { useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { type Variant, variantLabel } from "#/components/override-trail";
@@ -60,8 +60,7 @@ function ClearBox({
       <Button
         variant="ghost"
         disabled={!hydrated}
-        busy={busy}
-        busyLabel="Clearing…"
+        busy={busy && "Clearing…"}
         onClick={clear}
         tone="danger"
         data-testid="ignore-list-clear"
@@ -69,9 +68,9 @@ function ClearBox({
         Clear
       </Button>
       {error && (
-        <Caption as="p" role="alert" tone="danger">
-          {error}
-        </Caption>
+        <div role="alert">
+          <Caption tone="danger">{error}</Caption>
+        </div>
       )}
     </>
   );
@@ -89,12 +88,12 @@ function TestCell({ box }: { box: Box }) {
 function BoxTrail({ trail }: { trail: Box[] }) {
   if (trail.length === 0)
     return (
-      <Text as="p" color="muted" data-testid="no-ignore-trail">
+      <Text tone="muted" data-testid="no-ignore-trail">
         No boxes were drawn in the review screen.
       </Text>
     );
   return (
-    <Table variant="plain" caption="Ignore boxes drawn in review" data-testid="ignore-trail">
+    <Table label="Ignore boxes drawn in review" data-testid="ignore-trail">
       <TableHead>
         <TableRow>
           <TableHeaderCell>Test</TableHeaderCell>
@@ -134,27 +133,27 @@ export function IgnoreBoxSettings({
 }) {
   return (
     <Card data-testid="ignore-box-settings">
-      <Stack>
+      <Stack gap="md">
         <Stack gap="xs">
           <SectionHeading>Ignore boxes drawn in review</SectionHeading>
-          <Text as="p">
+          <Text>
             Drawn on a shot&apos;s screen, for a test or one variant of it, in image px; the server
             diff skips them along with the config&apos;s and manifest&apos;s areas. The export above
             carries them. Clearing one measures those pixels again from the next build.
           </Text>
         </Stack>
         {boxes.length === 0 ? (
-          <Text as="p" color="muted" data-testid="no-ignore-boxes">
+          <Text tone="muted" data-testid="no-ignore-boxes">
             None. Draw one from a shot&apos;s screen.
           </Text>
         ) : (
-          <Table variant="plain" caption="Ignore boxes">
+          <Table label="Ignore boxes">
             <TableHead>
               <TableRow>
                 <TableHeaderCell>Test</TableHeaderCell>
                 <TableHeaderCell>Box</TableHeaderCell>
                 <TableHeaderCell>Drawn</TableHeaderCell>
-                <TableHeaderCell align="end" srLabel="Actions" />
+                <TableHeaderCell align="end" label="Actions" />
               </TableRow>
             </TableHead>
             <TableBody>

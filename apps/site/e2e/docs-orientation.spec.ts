@@ -166,6 +166,9 @@ test("a rail taller than the viewport scrolls inside itself, under the header", 
 }, info) => {
   test.skip(isPhone(info), "the sticky columns are a desktop view");
   await page.setViewportSize({ width: 1440, height: 420 });
+  // The kit's fold slides open over 200ms; reduced motion opens it at once, so its height is final
+  // before the rail is scrolled to its end.
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(PAGE, { waitUntil: "networkidle" });
   const nav = page.getByTestId("docs-nav");
   // Open the last group: its last link is the rail's end, and it is not in view yet.

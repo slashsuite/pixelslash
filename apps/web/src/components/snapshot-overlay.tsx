@@ -8,7 +8,7 @@ import {
   type LegendItem,
   RegionFrame,
   Stack,
-} from "@hackcove/ui-react";
+} from "@slashsuite/ui-react";
 import { useState } from "react";
 import type { Crop } from "../../../../packages/engine/src/report-crop.ts";
 import { RegionBoxes, type Scale, Viewport } from "#/components/snapshot-frame";
@@ -42,7 +42,7 @@ export function OverlayControls({
   const hydrated = useHydrated();
   return (
     <label className="flex items-center gap-2">
-      <Caption>Opacity</Caption>
+      <Caption as="span">Opacity</Caption>
       <input
         type="range"
         aria-label="Overlay opacity"
@@ -54,7 +54,9 @@ export function OverlayControls({
         onChange={(e) => overlay.setOpacity(Number(e.target.value))}
         className="w-32"
       />
-      <Caption numeric>{overlay.opacity}%</Caption>
+      <Caption as="span" numeric>
+        {overlay.opacity}%
+      </Caption>
     </label>
   );
 }
@@ -114,17 +116,19 @@ function Controls({
     return n === 0 ? [] : [{ label: kind, tone, detail: n }];
   });
   return (
-    <Cluster gap="sm" wrap>
+    <Cluster gap="sm">
       <Checkbox
         label="Diff image"
         size="sm"
         checked={showDiff}
         disabled={!hydrated || !diffUrl}
-        onChange={(e) => onShowDiff(e.target.checked)}
+        onChange={(checked) => onShowDiff(checked)}
       />
       <Legend items={items} />
       {!diffUrl && regions.length > 0 && (
-        <Caption>No diff image for this comparison; the boxes are the measured regions.</Caption>
+        <Caption as="span">
+          No diff image for this comparison; the boxes are the measured regions.
+        </Caption>
       )}
     </Cluster>
   );
@@ -159,7 +163,7 @@ export function SnapshotOverlay({
   return (
     <Stack gap="xs">
       <Viewport width={result?.branchWidth ?? null} scale={scale} crop={crop}>
-        <Card as="div" flush>
+        <Card flush>
           <ShotStack
             name={name}
             shown={branchUrl ?? mainUrl}

@@ -9,34 +9,26 @@ import {
   Pill,
   Stack,
   Text,
-} from "@hackcove/ui-react";
+} from "@slashsuite/ui-react";
 import { useState } from "react";
 import type { OrgInvite, OrgMember, OrgOverview } from "#/db/orgs";
 import { formatDay } from "#/lib/format";
 
-function MemberRow({
-  member,
-  isViewer,
-  divided,
-}: {
-  member: OrgMember;
-  isViewer: boolean;
-  divided: boolean;
-}) {
+function MemberRow({ member, isViewer }: { member: OrgMember; isViewer: boolean }) {
   return (
     <ListRow
-      static
       data-testid="member-row"
-      divided={divided}
       leading={<Avatar name={member.login} />}
-      trailing={<Text tone="muted">joined {formatDay(member.joinedAt)}</Text>}
+      trailing={
+        <Text as="span" tone="muted">
+          joined {formatDay(member.joinedAt)}
+        </Text>
+      }
     >
       <Text strong as="b">
         {member.login}
       </Text>
-      <Caption as="p">
-        {[member.name, isViewer ? "you" : null].filter(Boolean).join(" · ") || " "}
-      </Caption>
+      <Caption>{[member.name, isViewer ? "you" : null].filter(Boolean).join(" · ") || " "}</Caption>
     </ListRow>
   );
 }
@@ -54,16 +46,16 @@ function InviteRow({
   const [error, setError] = useState<string | null>(null);
   return (
     <ListRow
-      static
       data-testid="invite-row"
-      divided
       leading={<Avatar name="?" />}
       trailing={
         <Cluster gap="sm">
           {error && (
-            <Caption role="alert" tone="danger">
-              {error}
-            </Caption>
+            <span role="alert">
+              <Caption as="span" tone="danger">
+                {error}
+              </Caption>
+            </span>
           )}
           <Pill>pending</Pill>
         </Cluster>
@@ -72,8 +64,7 @@ function InviteRow({
         <Button
           variant="ghost"
           disabled={!hydrated}
-          busy={busy}
-          busyLabel="Withdrawing…"
+          busy={busy && "Withdrawing…"}
           aria-label={`Withdraw invite for ${inviteName(invite)}`}
           onClick={() => {
             setBusy(true);
@@ -92,7 +83,7 @@ function InviteRow({
       <Text strong as="b">
         {inviteName(invite)}
       </Text>
-      <Caption as="p">
+      <Caption>
         {invite.githubLogin === null
           ? "signs in with that email to join"
           : "signs in with GitHub to join"}
@@ -137,7 +128,7 @@ function InviteForm({
         );
       }}
     >
-      <Cluster gap="sm" wrap>
+      <Cluster gap="sm">
         <Input
           aria-label="Invite a member by GitHub login or email"
           placeholder="GitHub login or email, e.g. octo-dev"
@@ -151,18 +142,17 @@ function InviteForm({
           type="submit"
           disabled={!hydrated}
           disabledReason={empty ? "Type a GitHub login or an email first." : undefined}
-          busy={busy}
-          busyLabel="Inviting…"
+          busy={busy && "Inviting…"}
         >
           Invite
         </Button>
       </Cluster>
       {error ? (
-        <Text as="p" role="alert" tone="danger">
-          {error}
-        </Text>
+        <div role="alert">
+          <Text tone="danger">{error}</Text>
+        </div>
       ) : (
-        <Caption as="p">
+        <Caption>
           {empty
             ? "Type a GitHub login or an email first."
             : "They join when they sign in with that login or email."}
@@ -187,20 +177,26 @@ export function MembersPanel({
   onWithdraw: (invite: OrgInvite) => Promise<unknown>;
 }) {
   return (
-    <Stack gap="md">
+    <Stack>
       <InviteForm hydrated={hydrated} onInvite={onInvite} />
       <Card flush>
-        {org.members.map((member, index) => (
-          <MemberRow
-            key={member.userId}
-            member={member}
-            isViewer={member.login === viewerLogin}
-            divided={index > 0}
-          />
-        ))}
-        {org.invites.map((invite) => (
-          <InviteRow key={invite.id} invite={invite} onWithdraw={onWithdraw} hydrated={hydrated} />
-        ))}
+        <Stack divided>
+          {org.members.map((member) => (
+            <MemberRow
+              key={member.userId}
+              member={member}
+              isViewer={member.login === viewerLogin}
+            />
+          ))}
+          {org.invites.map((invite) => (
+            <InviteRow
+              key={invite.id}
+              invite={invite}
+              onWithdraw={onWithdraw}
+              hydrated={hydrated}
+            />
+          ))}
+        </Stack>
       </Card>
     </Stack>
   );
