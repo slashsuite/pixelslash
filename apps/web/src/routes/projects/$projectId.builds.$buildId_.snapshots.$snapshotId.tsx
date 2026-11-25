@@ -16,11 +16,12 @@ import { SidePanel } from "#/components/snapshot-side-panel";
 import { SnapshotViewer, useViewState, type ViewState } from "#/components/snapshot-viewer";
 import { buildCrumb, orgCrumb, projectCrumbs } from "#/components/crumbs";
 import { Page } from "#/components/ui";
+import type { ShotRef } from "#/db/change-set";
 import { formatNumber, formatPercent } from "#/lib/format";
 import { ignoreAreas } from "#/lib/ignore-areas";
 import { shotLabeller } from "#/lib/shot-label";
 import { skippedFlaky } from "#/lib/snapshot-groups";
-import { type DecisionState, useDecision } from "#/lib/use-decision";
+import { type CommitRef, type DecisionState, useDecision } from "#/lib/use-decision";
 import { useRefreshWhile } from "#/lib/use-refresh-while";
 import { useReviewKeys } from "#/lib/use-review-keys";
 import { useWalk } from "#/lib/use-walk";
@@ -47,8 +48,15 @@ function useShotDecision(data: ReturnType<typeof Route.useLoaderData>, reviewabl
   const projectId = data.project.id;
   const buildId = data.build.id;
   const snapshotId = data.snapshot.id;
-  const go = useWalk(projectId, buildId);
   const navigate = useNavigate();
+  const go = useCallback(
+    (shot: ShotRef) =>
+      void navigate({
+        to: "/projects/$projectId/builds/$buildId/snapshots/$snapshotId",
+        params: shot,
+      }),
+    [navigate],
+  );
   const review = useCallback(
     (state: DecisionState) =>
       // Only an accept moves on to another shot, so only an accept asks where to.
@@ -63,7 +71,12 @@ function useShotDecision(data: ReturnType<typeof Route.useLoaderData>, reviewabl
       }),
     [navigate, projectId, buildId],
   );
-  return useDecision({ reviewable, review, go, toBuild });
+  const toCommit = useCallback(
+    (commit: CommitRef) =>
+      void navigate({ to: "/projects/$projectId/commits/$sha", params: commit }),
+    [navigate],
+  );
+  return useDecision({ reviewable, review, go, toBuild, toCommit });
 }
 
 function DecisionError({ error }: { error: string | null }) {

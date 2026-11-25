@@ -97,3 +97,57 @@ test("a commit's changes across the subprojects are reviewed on one page", async
   await open(page, `/projects/${e2eId}/commits/${SHA_WORK}`);
   await page.waitForURL(`**/projects/${projectId}/commits/${SHA_WORK}`);
 });
+
+/**
+ * A review started on one subproject's shot walks the commit's whole change set: accepting the
+ * last change of the first subproject opens the second's first change, with no stop on a build
+ * page between, the counter counts both, and the commit's page shows once nothing waits.
+ */
+test("accepting shot after shot walks every subproject of the commit, then the commit's page", async ({
+  page,
+  provision,
+}) => {
+  const { orgId, projectId, token } = await provision({ org: "Walk Co", project: "storefront" });
+  for (const name of ["e2e", "storybook"])
+    sql(
+      `INSERT INTO projects (id, org_id, name, diff_location, parent_project_id) VALUES ('${randomUUID()}', '${orgId}', '${name}', 'server', '${projectId}')`,
+    );
+  const main = { branch: "main", commitSha: SHA_MAIN };
+  const work = {
+    branch: "work",
+    commitSha: SHA_WORK,
+    mergeBaseSha: SHA_MAIN,
+    ancestorShas: [SHA_MAIN],
+  };
+  for (const subproject of [undefined, "e2e", "storybook"])
+    await uploadBuild(token, { ...main, ...(subproject ? { subproject } : {}) }, shots(WHITE));
+  await uploadBuild(token, work, shots(WHITE));
+  const e2eWork = await uploadBuild(token, { ...work, subproject: "e2e" }, shots(CHANGED));
+  const storybookWork = await uploadBuild(
+    token,
+    { ...work, subproject: "storybook" },
+    shots(CHANGED),
+  );
+
+  // Start on e2e's first change, from the commit's page.
+  await open(page, `/projects/${projectId}/commits/${SHA_WORK}`);
+  const e2e = page.locator('[data-testid="commit-group"][data-project="e2e"]');
+  await e2e.getByTestId("commit-row-name").first().click();
+  await page.waitForURL(`**/builds/${e2eWork}/snapshots/**`);
+  const position = page.getByTestId("review-position");
+  await expect(position).toHaveText("change 1 of 4");
+
+  await page.keyboard.press("a");
+  await expect(position).toHaveText("change 2 of 4");
+  // e2e's last change: the next is storybook's first, not e2e's build page.
+  await page.keyboard.press("a");
+  await page.waitForURL(`**/builds/${storybookWork}/snapshots/**`);
+  await expect(position).toHaveText("change 3 of 4");
+  await page.keyboard.press("a");
+  await expect(position).toHaveText("change 4 of 4");
+
+  // Nothing waits anywhere: the commit's page, every change accepted.
+  await page.keyboard.press("a");
+  await page.waitForURL(`**/projects/${projectId}/commits/${SHA_WORK}`);
+  await expect(page.getByTestId("commit-totals")).toHaveText("4 changes · 4 accepted");
+});
