@@ -33,6 +33,8 @@ jobs:
       pull-requests: write
     uses: slashsuite/uislash/.github/workflows/ui-review.yml@main
     with:
+      # The kit's published component reference, since it moved from hack-cove.com.
+      llms-url: https://slashslash.build/uislash/llms.txt
       paths: |
         apps/web/src/**/*.tsx
         apps/web/src/**/*.css
