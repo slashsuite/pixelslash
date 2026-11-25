@@ -1,13 +1,13 @@
 import { describe, expect, test } from "vitest";
 import { sha } from "#/diff/test-builds";
 import { CHANGED, PLAIN, world } from "#/github/test-world";
-import { changeSetOf, nextAfterDecision, positionInSet } from "./change-set";
+import { changeSetOf, nextAfterDecision } from "./change-set";
 import { buildView } from "./review";
 
 /**
  * A review walks a commit's whole change set: the newest build of a project and of each of its
- * subprojects on the commit. Accepting the last change of one build moves on to the next build's,
- * and only when none waits anywhere is the review done.
+ * subprojects on the commit. The plain walk (on to the next subproject, then the commit's page, and
+ * the counter) is proved in `e2e/commit-review.spec.ts`; these are the edges it does not reach.
  */
 
 /** P with `subs` subprojects, a main build of each, then sha(2) with a change in each of `changed`. */
@@ -52,24 +52,6 @@ async function changeSet(subs: string[], changed: string[]) {
 }
 
 describe("a review across a commit's change set", () => {
-  test("accepting the last change of one subproject moves to the next subproject's first", async () => {
-    const w = await changeSet(["a", "b"], ["a", "b"]);
-    const after = await w.decide("a", "accepted");
-    expect(after.next).toEqual(await w.shotOf("b"));
-    expect(after.buildStatus).toBe("passed");
-  });
-
-  test("it is done only when nothing in the set waits, and then names the commit", async () => {
-    const w = await changeSet(["a", "b"], ["a", "b"]);
-    await w.decide("a", "accepted");
-    const after = await w.decide("b", "accepted");
-    expect(after).toEqual({
-      buildStatus: "passed",
-      next: null,
-      commit: { projectId: w.top, sha: sha(2) },
-    });
-  });
-
   test("a review started on a later subproject wraps round to an earlier one still waiting", async () => {
     const w = await changeSet(["a", "b"], ["a", "b"]);
     expect((await w.decide("b", "accepted")).next).toEqual(await w.shotOf("a"));
@@ -79,13 +61,6 @@ describe("a review across a commit's change set", () => {
     const w = await changeSet(["a", "b", "c"], ["a", "b", "c"]);
     await w.decide("b", "rejected");
     expect((await w.decide("a", "accepted")).next).toEqual(await w.shotOf("c"));
-  });
-
-  test("the counter counts the whole set, in the commit page's order", async () => {
-    const w = await changeSet(["a", "b"], ["a", "b"]);
-    const b = await w.shotOf("b");
-    const set = await changeSetOf(w.db, b.projectId, b.buildId);
-    expect(positionInSet(set, [], b.snapshotId)).toEqual({ index: 2, total: 2 });
   });
 
   test("a project with no subprojects has no change set: its own build is the whole review", async () => {

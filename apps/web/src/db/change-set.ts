@@ -1,9 +1,10 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { awaitsDecision, holdsChange } from "#/lib/snapshot-groups";
+import { inChunks } from "./chunks";
 import { commitGroup, hasSubprojects } from "./commit-group";
 import { type Db, NotFoundError } from "./db";
-import { type SnapshotView, afterDecision, buildView } from "./review";
-import { type BuildStatus, builds, projects } from "./schema";
+import { type SnapshotView, afterDecision, inReviewOrder } from "./review";
+import { type BuildStatus, builds, projects, snapshots } from "./schema";
 
 /*
  * A commit's change set: every shot that holds a change in the newest build of a top-level project
@@ -16,9 +17,36 @@ import { type BuildStatus, builds, projects } from "./schema";
 /** Where a shot of the set lives: what the shot page's address needs. */
 export type ShotRef = { projectId: string; buildId: string; snapshotId: string };
 
-type Step = ShotRef & { shot: SnapshotView; decidable: boolean };
+const STEP_COLUMNS = {
+  id: snapshots.id,
+  buildId: snapshots.buildId,
+  name: snapshots.name,
+  platform: snapshots.platform,
+  browser: snapshots.browser,
+  viewport: snapshots.viewport,
+  theme: snapshots.theme,
+  diffStatus: snapshots.diffStatus,
+  mainDiffStatus: snapshots.mainDiffStatus,
+  rebaselineNeeded: snapshots.rebaselineNeeded,
+  carriedFrom: snapshots.carriedFrom,
+  staleOf: snapshots.staleOf,
+  reviewState: snapshots.reviewState,
+  flakeId: snapshots.flakeId,
+  flakyPolicy: snapshots.flakyPolicy,
+};
 
-export type ChangeSet = { topProjectId: string; commitSha: string; steps: Step[] };
+/**
+ * Every shot of `buildIds` in one read, with only what placing it in the walk and asking whether it
+ * waits need: the shot page asks for the set on every load, so it does not read whole builds.
+ */
+const shotsOf = (db: Db, buildIds: string[]) =>
+  inChunks(buildIds, 0, (part) =>
+    db.select(STEP_COLUMNS).from(snapshots).where(inArray(snapshots.buildId, part)),
+  );
+
+type Step = ShotRef & { shot: Awaited<ReturnType<typeof shotsOf>>[number]; decidable: boolean };
+
+type ChangeSet = { topProjectId: string; commitSha: string; steps: Step[] };
 
 /**
  * The change set the build belongs to, or null when there is none to walk: its project has no
@@ -43,22 +71,19 @@ export async function changeSetOf(
   if (!(await hasSubprojects(db, topProjectId))) return null;
   const members = await commitGroup(db, topProjectId, build.commitSha);
   if (!members.some((m) => m.build?.id === build.id)) return null;
-  const steps = await Promise.all(
-    members.map(async (m): Promise<Step[]> => {
-      if (!m.build) return [];
-      const { id, status } = m.build;
-      const decidable = status === "changes" || status === "passed";
-      const view = await buildView(db, m.projectId, id);
-      return view.snapshots.filter(holdsChange).map((shot) => ({
-        projectId: m.projectId,
-        buildId: id,
-        snapshotId: shot.id,
-        shot,
-        decidable,
-      }));
-    }),
+  const ran = members.flatMap((m) => (m.build ? [m.build] : []));
+  const rows = await shotsOf(
+    db,
+    ran.map((b) => b.id),
   );
-  return { topProjectId, commitSha: build.commitSha, steps: steps.flat() };
+  const steps = ran.flatMap(({ projectId: memberId, id, status }) => {
+    const decidable = status === "changes" || status === "passed";
+    return rows
+      .filter((shot) => shot.buildId === id && holdsChange(shot))
+      .toSorted(inReviewOrder)
+      .map((shot) => ({ projectId: memberId, buildId: id, snapshotId: shot.id, shot, decidable }));
+  });
+  return { topProjectId, commitSha: build.commitSha, steps };
 }
 
 /**
@@ -66,7 +91,7 @@ export async function changeSetOf(
  * builds after `buildId` and wrapping to the earlier ones; null when none waits. A build that
  * takes no decisions (failed, or not finished) is passed over.
  */
-export function nextInOtherBuild(set: ChangeSet, buildId: string): ShotRef | null {
+function nextInOtherBuild(set: ChangeSet, buildId: string): ShotRef | null {
   const at = set.steps.findIndex((s) => s.buildId === buildId);
   const ordered = at < 0 ? set.steps : [...set.steps.slice(at), ...set.steps.slice(0, at)];
   const next = ordered.find((s) => s.buildId !== buildId && s.decidable && awaitsDecision(s.shot));
