@@ -135,33 +135,25 @@ async function giveUpOn(
 }
 
 /**
- * Up to `limit` slots, each running `run` over what `next` hands it, one job at a time, until `next`
- * has none. `fill` starts slots while one is free and `next` has a job; `settled` resolves once no
- * slot is running.
+ * Runs `run` on up to `limit` jobs at once. `fill` takes jobs from `next` while fewer than `limit`
+ * run, and runs again as each one ends; `settled` resolves once none is running.
  */
-function slots(limit: number, next: () => Kept | undefined, run: (job: Kept) => Promise<void>) {
+function pool(limit: number, next: () => Kept | undefined, run: (job: Kept) => Promise<void>) {
   const live = new Set<Promise<void>>();
-  let running = 0;
-  async function slot(first: Kept): Promise<void> {
-    for (let job: Kept | undefined = first; job; job = next()) await run(job);
-    // Counted down here, in the same turn as the last `next`, not in a `finally`: a job taken after
-    // that must see this slot has ended, and start one of its own.
-    running -= 1;
-  }
-  const free = () => (running < limit ? next() : undefined);
-  return {
-    fill: (): void => {
-      for (let job = free(); job; job = free()) {
-        running += 1;
-        const done = slot(job);
-        live.add(done);
-        void done.then(() => live.delete(done));
-      }
-    },
-    settled: async (): Promise<void> => {
-      while (live.size > 0) await Promise.all(live);
-    },
+  const take = () => (live.size < limit ? next() : undefined);
+  const fill = (): void => {
+    for (let job = take(); job; job = take()) {
+      const done: Promise<void> = run(job).then(() => {
+        live.delete(done);
+        fill();
+      });
+      live.add(done);
+    }
   };
+  const settled = async (): Promise<void> => {
+    while (live.size > 0) await Promise.all(live);
+  };
+  return { fill, settled };
 }
 
 /** The queue and its listener's handler; `render` is the engine's, or a test's. */
@@ -180,25 +172,33 @@ export function renderWorker(
 
   const save = () => store?.save([...current, ...queue, ...spent].map(kept));
 
-  const pool = slots(
-    builds,
-    () => (stopping ? undefined : queue.shift()),
-    async (job) => {
-      job.starts += 1;
-      current.push(job);
-      save();
-      const started = Date.now();
-      // A throw here is the renderer's own bug: renderBundle reports a render's failure itself.
-      const outcome = await render(job).catch((e: unknown): RenderOutcome => ({
-        ok: false,
-        error: String(e),
-      }));
-      log(rendered(job, outcome, started));
-      current.splice(current.indexOf(job), 1);
-      save();
-    },
-  );
-  const { fill: kick, settled } = pool;
+  /**
+   * The next build to start, if one may start now. A build started before (left by a worker that
+   * was killed) renders alone: two builds at once both count a kill, and the one that did not cause
+   * it must not run out of starts beside the one that did.
+   */
+  function next(): Kept | undefined {
+    const head = queue[0];
+    if (stopping || !head) return undefined;
+    if (current.some((job) => job.starts > 1) || (head.starts > 0 && current.length > 0))
+      return undefined;
+    return queue.shift();
+  }
+
+  const { fill: kick, settled } = pool(builds, next, async (job) => {
+    job.starts += 1;
+    current.push(job);
+    save();
+    const started = Date.now();
+    // A throw here is the renderer's own bug: renderBundle reports a render's failure itself.
+    const outcome = await render(job).catch((e: unknown): RenderOutcome => ({
+      ok: false,
+      error: String(e),
+    }));
+    log(rendered(job, outcome, started));
+    current.splice(current.indexOf(job), 1);
+    save();
+  });
 
   async function take(request: Request): Promise<Response> {
     // The bundle's own script runs on this loopback too. A page cannot send this content type to

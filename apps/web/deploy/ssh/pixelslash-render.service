@@ -46,8 +46,8 @@ ProtectControlGroups=yes
 IPAddressDeny=any
 IPAddressAllow=localhost
 # Each browser is a few hundred MB; the web app keeps its 4000M. Over this the kernel kills the
-# renderer; it starts again and renders that build again, and a build it is killed under three times
-# ends errored, naming why.
+# renderer; it starts again and renders those builds again, one at a time, and a build it is killed
+# under three times ends errored, naming why.
 MemoryMax=3000M
 MemorySwapMax=0
 OOMPolicy=stop

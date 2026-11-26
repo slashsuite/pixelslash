@@ -708,11 +708,11 @@ It renders two builds at once (`RENDER_BUILDS=2` in the unit; unset, one), each 
 browser and that many shots, in the order they came. A uislash pull request is a dozen builds, one
 per group: a build spends part of its time on its plan, its bundle, a browser and its slowest
 stories, and the other one fills those gaps. The twelve builds of one such pull request, captured on
-4 reserved cores and 4 GB (the CT's shape), took 148 and 156 s one build at a time, 95 and 109 s two
+4 reserved cores (the CT has four) and 4 GB, took 148 and 156 s one build at a time, 95 and 109 s two
 at a time, 89 s three at a time, and 150 s one at a time with eight shots each, peaking at about
 1.1 GB. Two is the setting: a third adds little and its own browser's memory under the same limit.
-The
-renderer is one process, so a kill (its memory limit) stops both builds, and each is started again.
+The renderer is one process, so a kill (its memory limit) stops both builds. Each is then started
+again on its own, so the kill counts only against the build that caused it.
 
 It is off until the CT's `.dev.vars.e2e` names it. To turn it on, add
 

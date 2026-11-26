@@ -224,22 +224,25 @@ describe("the render worker", () => {
     expect(store.saved.map((j) => j.buildId)).toEqual(["d"]);
   });
 
-  test("a job taken as a slot runs out of work is rendered, not stranded", async () => {
-    const rendered: string[] = [];
-    const worker = renderWorker(
-      async (job) => {
-        rendered.push(job.buildId);
-        return { ok: true, snapshots: 1 };
-      },
-      () => {},
-      { builds: 2 },
-    );
-    await worker.handle(post({ buildId: "a", token: "t" }));
-    await worker.handle(post({ buildId: "b", token: "t" }));
+  test("with builds: 2, a build left by a killed worker renders alone, then two run at once again", async () => {
+    const gated = gatedRender();
+    const store = memoryStore([
+      { buildId: "a", token: "t", starts: 1 },
+      { buildId: "b", token: "t", starts: 0 },
+      { buildId: "c", token: "t", starts: 0 },
+    ]);
+    const worker = renderWorker(gated.render, () => {}, { store, builds: 2 });
+    await worker.resume();
+    await tick();
+    expect(gated.events).toEqual(["start a"]);
+    gated.release();
+    await tick();
+    await tick();
+    expect(gated.events).toEqual(["start a", "end a", "start b", "start c"]);
+    gated.release();
+    gated.release();
     await worker.settled();
-    await worker.handle(post({ buildId: "c", token: "t" }));
-    await worker.settled();
-    expect(rendered).toEqual(["a", "b", "c"]);
+    expect(store.saved).toEqual([]);
   });
 
   test("a stop with nothing rendering resolves at once", async () => {
