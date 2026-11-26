@@ -1,6 +1,6 @@
 {
   "name": "@slashsuite/pixelslash",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Visual review from the command line: capture Main and Branch, pixel-diff them, write a report.",
   "keywords": [
     "cli",

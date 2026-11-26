@@ -7,6 +7,33 @@ release is the tag `v<version>` (see `.github/workflows/release.yml`).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-26
+
+### Added
+
+- `pixelslash upload --bundle DIR` sends a static Storybook build instead of shots. A self-hosted review
+  app with its renderer turned on shoots every story with the same viewports, themes and parameters as
+  `capture`. The hosted review app does not render bundles yet (#319).
+- `pixelslash builds --subproject NAME` lists a subproject's builds under the `--project` parent (#327).
+
+### Changed
+
+- A region whose block moved intact is now reported as a `moved` region with its offset ("moved down
+  4 px, content identical") instead of red changed pixels, in `report.html` and the upload. A region's
+  kind may now be `moved` (#309).
+- `upload` sends each shot's capture environment with its baseline request, so a project whose
+  environment changed re-baselines instead of refusing the next branch build (#321).
+
+### Fixed
+
+- `--help` and `-h` print the command's usage and exit 0 for every command. Before, some commands
+  exited 2 with `missing value for --help` (#327).
+- `compare` and `check` copy a new shot (one with no baseline) into `--out` and show it under "New on
+  Branch" in `index.html` (#327).
+- Capture no longer times out on pages with lazy images far below the fold. Every capture error now
+  names its shot, and the retry pass reports every shot that failed again (#308).
+- Upload error messages no longer print the signed query of a baseline image link (#310).
+
 ## [0.8.0] - 2026-11-21
 
 ### Changed
