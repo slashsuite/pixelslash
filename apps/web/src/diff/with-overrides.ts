@@ -16,6 +16,7 @@ const UNMEASURED: Partial<SnapshotRow> = {
   diffStatus: null,
   rebaselineNeeded: false,
   mainBaselineKey: null,
+  mainBaselineSnapshotId: null,
   mainDiffStatus: null,
 };
 /** A review given on a result the new options replace is decided again (`settleReviews` in a re-diff). */

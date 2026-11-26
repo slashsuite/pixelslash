@@ -60,6 +60,7 @@ const CLEARED = {
   rebaselineNeeded: false,
   diffError: null,
   mainBaselineKey: null,
+  mainBaselineSnapshotId: null,
   mainDiffStatus: null,
   aiReview: null,
   aiQueuedAt: null,
@@ -67,7 +68,7 @@ const CLEARED = {
 } as const;
 
 async function clearResults(db: Db, targets: SnapshotRow[]): Promise<void> {
-  // The nine cleared fields are bound beside the ids.
+  // The ten cleared fields are bound beside the ids.
   for (const part of chunk(
     targets.map((t) => t.id),
     Object.keys(CLEARED).length,

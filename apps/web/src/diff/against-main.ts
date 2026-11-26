@@ -20,11 +20,12 @@ import { type Comparer, type SnapshotRow, serverComparer } from "./compare";
 
 type MainFields = Pick<
   typeof snapshots.$inferInsert,
-  "mainBaselineKey" | "mainDiffStatus" | "mainDiffResult"
+  "mainBaselineKey" | "mainBaselineSnapshotId" | "mainDiffStatus" | "mainDiffResult"
 >;
 
 const notMeasured: MainFields = {
   mainBaselineKey: null,
+  mainBaselineSnapshotId: null,
   mainDiffStatus: null,
   mainDiffResult: null,
 };
@@ -41,13 +42,24 @@ function reusable(shot: SnapshotRow, main: BaselineSnapshot): boolean {
   );
 }
 
-/** Whether the stored result against main still stands for this pick, so a resumed run does not measure it again. */
+/**
+ * Whether the stored result against main still stands for this pick, so a resumed run does not
+ * measure it again. The pick is the shot, not its image key: one image is many shots' key, and
+ * their ignore areas may differ. A row measured before the shot was stored has no id, and is
+ * measured again.
+ */
 export function mainStands(shot: SnapshotRow, main: BaselineSnapshot | undefined): boolean {
-  if (shot.mainBaselineKey !== (main?.imageKey ?? null)) return false;
+  if (shot.mainBaselineSnapshotId !== (main?.id ?? null)) return false;
   if (!main) return shot.mainDiffStatus === "new";
   if (main.envFingerprint !== shot.envFingerprint) return shot.mainDiffStatus === null;
   return shot.mainDiffStatus !== null;
 }
+
+/** The main shot a result is against: its image, for the page, and the shot, for `mainStands`. */
+const measuredAgainst = (main: BaselineSnapshot) => ({
+  mainBaselineKey: main.imageKey,
+  mainBaselineSnapshotId: main.id,
+});
 
 async function against(
   compare: Comparer | null,
@@ -57,19 +69,19 @@ async function against(
   if (!main) return { ...notMeasured, mainDiffStatus: "new" };
   // A different environment would be a wall of false diffs: the page says it was not measured.
   if (main.envFingerprint !== shot.envFingerprint)
-    return { ...notMeasured, mainBaselineKey: main.imageKey };
+    return { ...notMeasured, ...measuredAgainst(main) };
   if (reusable(shot, main))
     return {
-      mainBaselineKey: main.imageKey,
+      ...measuredAgainst(main),
       mainDiffStatus: shot.diffStatus,
       mainDiffResult: shot.diffResult,
     };
   // A CI run measures each shot against its own pick only: one that cannot reuse its own diff is
   // not measured against main, and is never diffed here instead.
-  if (!compare) return { ...notMeasured, mainBaselineKey: main.imageKey };
+  if (!compare) return { ...notMeasured, ...measuredAgainst(main) };
   const measured = await compare(shot, main);
   return {
-    mainBaselineKey: main.imageKey,
+    ...measuredAgainst(main),
     mainDiffStatus: measured.changed ? "changed" : "unchanged",
     mainDiffResult: measured.diffResult,
   };

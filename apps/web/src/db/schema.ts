@@ -384,6 +384,14 @@ export const snapshots = sqliteTable(
      * it, the page draws its boxes from `main_diff_result`. It stays so migration 0013 stays additive.
      */
     mainBaselineKey: text("main_baseline_key"),
+    /**
+     * The main shot itself, beside `main_baseline_key`: one image is many shots' key since images are
+     * stored by hash, and those shots may differ in ignore areas, so whether a stored result against
+     * main still stands is read from the shot, as `baseline_snapshot_id` is for the shot's own diff.
+     * Null with `main_baseline_key`, and on rows measured before it existed. No foreign key, like
+     * `carried_from`.
+     */
+    mainBaselineSnapshotId: text("main_baseline_snapshot_id"),
     mainDiffKey: text("main_diff_key"),
     mainDiffStatus: text("main_diff_status", { enum: DIFF_STATUSES }),
     mainDiffResult: text("main_diff_result", { mode: "json" }).$type<DiffResult>(),

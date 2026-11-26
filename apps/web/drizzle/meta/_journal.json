@@ -281,6 +281,13 @@
       "when": 1795650667132,
       "tag": "0039_builds_render_plan",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "6",
+      "when": 1795687788290,
+      "tag": "0040_main_baseline_shot",
+      "breakpoints": true
     }
   ]
 }
