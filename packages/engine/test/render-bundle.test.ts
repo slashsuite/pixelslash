@@ -3,7 +3,7 @@ import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { packBundle } from "../src/bundle-archive.ts";
 import { renderPlan } from "../src/bundle-plan.ts";
-import { renderBundle, reportRenderError } from "../src/render-bundle.ts";
+import { renderBundle, renderConcurrency, reportRenderError } from "../src/render-bundle.ts";
 import { isObj } from "../src/upload-client.ts";
 import { type Call, fakeServer, metaOf } from "./fake-server.ts";
 import { cleanup, tmp } from "./upload-fixtures.ts";
@@ -77,13 +77,24 @@ async function api(exclude: string[]) {
   });
 }
 
+describe("renderConcurrency", () => {
+  test("a plan that names none takes the renderer's own count, not one shot for a busy host", () => {
+    expect(renderConcurrency(undefined, 4)).toBe(4);
+  });
+
+  test("a plan may ask for fewer than the renderer gives, never more", () => {
+    expect(renderConcurrency(2, 4)).toBe(2);
+    expect(renderConcurrency(10, 4)).toBe(4);
+  });
+});
+
 describe("renderBundle", () => {
   test("shoots each story of the bundle and sends the shots into the build it was given", async () => {
     const fake = await api(["*--broken"]);
     const scratch = await tmp();
     const outcome = await renderBundle(
       { buildId: "b1", token: "psr_b1.sig" },
-      { server: "https://ps.example", scratch, maxConcurrency: 2 },
+      { server: "https://ps.example", scratch, concurrency: 2 },
       { ...pinned, fetch: fake.fetch },
     );
     expect(outcome).toEqual({ ok: true, snapshots: 1 });
