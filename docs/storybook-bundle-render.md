@@ -1,6 +1,6 @@
 # Storybook bundle upload, rendered on the server: design
 
-Status: **proposed**, waiting on the maintainer's approval. Nothing in this note is built yet.
+Status: **approved, built in part.** The CLI's `upload --bundle`, the API (section 2), the render token and the self-host's renderer (`apps/web/deploy/ssh/render-worker.ts`, `pixelslash-render.service`) are built. The production renderer host is not, and the renderer runs the release's Playwright Chromium rather than the pinned capture image.
 
 ## 0. Why
 

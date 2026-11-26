@@ -18,6 +18,7 @@ import type { DiffLocation } from "#/db/schema";
 import { retentionDaysOf } from "#/lib/retention";
 import { type BlobStore, type SweepBlobStore, r2BlobStore, r2SweepStore } from "#/storage/blobs";
 import type { RateLimiter } from "./rate-limit";
+import type { RenderDispatch } from "#/api/render";
 import { type SentryConfig, sentryConfigOf } from "./sentry-config";
 
 /**
@@ -84,6 +85,13 @@ export const sentryConfig = (): SentryConfig | null => sentryConfigOf(env);
 
 /** The oldest CLI the API takes (`x.y.z`, ob 1729); empty takes any. Set in `vars`. */
 export const minCliVersion = (): string | undefined => env.MIN_CLI_VERSION || undefined;
+
+/**
+ * Where a bundle build goes to be rendered (`RENDER_URL`, docs/storybook-bundle-render.md): the
+ * renderer's job endpoint, which only a self-host runs. Empty refuses bundle builds.
+ */
+export const renderDispatch = (): RenderDispatch | undefined =>
+  env.RENDER_URL ? { url: env.RENDER_URL } : undefined;
 
 /** Where a new project diffs (ob 1727): `DEFAULT_DIFF_LOCATION`, read by `diffLocationOf`. */
 export const defaultDiffLocation = (): DiffLocation => diffLocationOf(env.DEFAULT_DIFF_LOCATION);

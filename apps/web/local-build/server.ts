@@ -9,7 +9,8 @@ import { STATE, WEB, run } from "./paths";
  * The local-build suite's server (PS-15): the production build, served by `vite preview` over a fresh
  * local D1 and R2 in `.wrangler/local-build`, and nothing else. No GitHub stand-in and no error sink
  * are started, and every URL the build can call out to points at a port nothing listens
- * on, so the run reaches no host but this machine. It is integration: a local build on local data.
+ * on, but its bundle renderer's (`RENDER_URL`), which render.local-build.test.ts serves on loopback, so
+ * the run reaches no host but this machine. It is integration: a local build on local data.
  *
  * This file is the config's `globalSetup`: the server is built and started once per run, and its URL
  * reaches the tests through `inject("localBuildUrl")` (`serverUrl()` in harness.ts).
@@ -18,17 +19,21 @@ import { STATE, WEB, run } from "./paths";
 declare module "vitest" {
   export interface ProvidedContext {
     localBuildUrl: string;
+    /** Where the build hands a bundle build to be rendered; render.local-build.test.ts listens there. */
+    renderPort: number;
   }
 }
 
 /** The built app's env: the e2e build, its state dir, and its outbound URLs on a closed port. */
-function buildEnv(dead: number) {
+function buildEnv(dead: number, render: number) {
   return {
     PIXELSLASH_E2E: "1",
     CLOUDFLARE_ENV: "e2e",
     PIXELSLASH_E2E_STATE: STATE,
     // The build's outbound URLs, all on a closed loopback port.
     PIXELSLASH_E2E_STUB_PORT: String(dead),
+    // The bundle renderer: a port the render test starts deploy/ssh/render-worker.ts on.
+    PIXELSLASH_E2E_RENDER_PORT: String(render),
     TMPDIR: join(WEB, STATE, "tmp"),
   };
 }
@@ -64,8 +69,8 @@ async function waitUntilUp(child: ChildProcess, url: string) {
 export default async function setup(project: TestProject) {
   rmSync(join(WEB, STATE), { recursive: true, force: true });
   mkdirSync(join(WEB, STATE, "tmp"), { recursive: true });
-  const [port, dead] = [await freePort(), await freePort()];
-  const env = buildEnv(dead);
+  const [port, dead, render] = [await freePort(), await freePort(), await freePort()];
+  const env = buildEnv(dead, render);
   run(["run", "build"], env);
   const migrate = ["d1", "migrations", "apply", "DB", "--local", "--env", "e2e"];
   run(["x", "wrangler", ...migrate, "--persist-to", STATE], env);
@@ -78,6 +83,7 @@ export default async function setup(project: TestProject) {
   const url = `http://localhost:${port}`;
   await waitUntilUp(child, url);
   project.provide("localBuildUrl", url);
+  project.provide("renderPort", render);
   return async () => {
     child.kill("SIGTERM");
     await new Promise((r) => (child.exitCode === null ? child.once("exit", r) : r(null)));

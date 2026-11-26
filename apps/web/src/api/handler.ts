@@ -1,16 +1,14 @@
-import { type Actor, actorBuild, actorUser } from "#/db/actor";
+import { actorUser } from "#/db/actor";
 import { buildProject, projectIdOf, skippedBuild } from "./build-target";
 import { type Build, createBuild, finaliseBuild, putSnapshot } from "#/db/builds";
 import { putHeldSnapshots } from "#/db/held-snapshots";
-import type { Db } from "#/db/db";
-import { type ProcessDeps, processBuild } from "#/diff/process";
-import type { DiffLocation } from "#/db/schema";
-import { type CheckRunDeps, syncCheckRuns } from "#/github/check-run";
-import { type RateLimiter, overApiLimit, retryAfter } from "#/server/rate-limit";
+import { processBuild } from "#/diff/process";
+import { syncCheckRuns } from "#/github/check-run";
+import { overApiLimit, retryAfter } from "#/server/rate-limit";
 import { ServerTimer, withServerTiming } from "#/server/server-timing";
 import { type BlobStore, orgBlobs } from "#/storage/blobs";
 import { endAbandoned } from "./abandoned";
-import { authorize, bearer } from "./authorize";
+import { bearer } from "./authorize";
 import { snapshotForm } from "./snapshot-form";
 import { parseBatch } from "./validate-batch";
 import { createProjectByName } from "./project-create";
@@ -35,34 +33,29 @@ import { BadRequest, object, parseFinalise, parseNewBuild } from "./validate";
 import { knownImages } from "./known";
 import { belowMinimum } from "./cli-version";
 import { errorOf, failWith } from "./api-error";
+import {
+  dispatchRender,
+  dropBundle,
+  parseRender,
+  reaches,
+  renderRefusal,
+  tokenActor,
+} from "./render";
+import { RENDER_ENDPOINTS } from "./render-endpoints";
+import {
+  type ApiDeps,
+  type BuildOwner,
+  type Ctx,
+  type Endpoint,
+  at,
+  fail,
+  json,
+  match,
+  onBuild,
+  withBuild,
+} from "./endpoint";
 
-export type ApiDeps = {
-  db: Db;
-  store: BlobStore;
-  /** Signs the image URLs the read API returns; read only when one is. */
-  imageSecret: () => string;
-  /** The oldest CLI (`x.y.z`) this server takes; unset takes any. */
-  minCliVersion?: string | undefined;
-  /** The engine's diff for finalise; a test passes one that throws (ob 1727). */
-  diff?: ProcessDeps["diff"];
-  /** The self-host's pixel limit for finalise's diff, `DIFF_LIMIT_MPX`; unset admits every shot. */
-  diffLimitMpx?: ProcessDeps["diffLimitMpx"];
-  /** Where a finalised build's changed shots go to be explained (ob 1875). */
-  explainQueue?: ProcessDeps["explainQueue"];
-  /** `MODEL_KEY_SECRET`, which opens the project's stored model key (ob 1786). */
-  modelKeySecret?: ProcessDeps["modelKeySecret"];
-  /** Where a project made through the API diffs (ob 1787). */
-  defaultDiffLocation: () => DiffLocation;
-  /** The GitHub App and public URL a finalised build's commit status is synced with (PS-23); unset syncs none. */
-  checkRuns?: Omit<CheckRunDeps, "db">;
-  /** Counts requests per token, or per client IP when the token is refused (PS-250); unset counts none. */
-  rateLimit?: RateLimiter | undefined;
-};
-
-const json = (body: unknown, status = 200) => Response.json(body, { status });
-const fail = (status: number, error: string) => json({ error }, status);
-
-type Ctx = ApiDeps & { actor: Actor; request: Request; timer: ServerTimer };
+export type { ApiDeps } from "./endpoint";
 
 /** `skipped: true`: the build stands for a run that captured nothing on purpose. */
 function skippedOf(body: unknown): boolean {
@@ -87,9 +80,16 @@ async function startBuild(ctx: Ctx): Promise<Response> {
       await syncCheckRuns({ db: ctx.db, ...ctx.checkRuns }, [made.id]);
     return json({ ...made, diffLocation: project.diffLocation }, made.skipped ? 201 : 200);
   }
-  if (project.diffLocation === "ci" && object(body, "body").clientDiff !== true)
+  const renderPlan = parseRender(body);
+  const refused = renderPlan === null ? null : renderRefusal(ctx, project.diffLocation);
+  if (refused) return fail(409, refused);
+  if (
+    renderPlan === null &&
+    project.diffLocation === "ci" &&
+    object(body, "body").clientDiff !== true
+  )
     return fail(426, "this project diffs in CI; upgrade the CLI");
-  const id = await createBuild(ctx.db, project.id, input);
+  const id = await createBuild(ctx.db, project.id, { ...input, renderPlan });
   await endAbandoned(ctx, project.id);
   return json({ id, diffLocation: project.diffLocation }, 201);
 }
@@ -106,8 +106,14 @@ async function addHeldSnapshots(ctx: Ctx, build: Build): Promise<Response> {
   return json(await putHeldSnapshots({ db: ctx.db, timer: ctx.timer }, build, sent));
 }
 
-async function closeBuild(ctx: Ctx, build: Build, { orgId }: BuildOwner): Promise<Response> {
-  const { snapshots, timings } = parseFinalise(await jsonBody(ctx.request));
+async function closeBuild(ctx: Ctx, build: Build, owner: BuildOwner): Promise<Response> {
+  const body = await jsonBody(ctx.request);
+  // A bundle build's CLI finalises with `{render: true}`: the renderer sends the shots, then the count.
+  if (!ctx.rendering && object(body, "body").render === true)
+    return dispatchRender(ctx, build, owner);
+  const { orgId } = owner;
+  const { snapshots, timings } = parseFinalise(body);
+  if (ctx.rendering) await dropBundle(ctx, build, owner);
   const done = await ctx.timer.time("finalise", () =>
     finaliseBuild(ctx.db, build, snapshots, timings),
   );
@@ -151,18 +157,6 @@ async function me(ctx: Ctx): Promise<Response> {
   return json({ kind: "user", user: await actorUser(ctx.db, ctx.actor.userId) });
 }
 
-/**
- * One endpoint. `upload` marks the endpoints from before the read API (ob 1729): their errors stay
- * `{error: "…"}`, which the shipped CLI reads, and their replies carry no `api_version`. Every
- * other endpoint answers errors as `{error: {code, message}}`.
- */
-type Endpoint = {
-  method: "GET" | "POST" | "PUT";
-  path: string;
-  upload?: true;
-  run: (ctx: Ctx, params: string[]) => Promise<Response>;
-};
-
 const reads = (ctx: Ctx): ReadCtx & { store: BlobStore } => ({
   db: ctx.db,
   store: ctx.store,
@@ -171,8 +165,6 @@ const reads = (ctx: Ctx): ReadCtx & { store: BlobStore } => ({
   imageSecret: ctx.imageSecret,
   query: new URL(ctx.request.url).searchParams,
 });
-
-const at = (params: string[], i: number) => params[i] ?? "";
 
 /** A route whose one `:id` goes to a read with the token's actor. */
 const byId =
@@ -193,35 +185,16 @@ async function preview(ctx: Ctx): Promise<Response> {
   return previewBaselines(picks(ctx), projectIdOf(body, ctx.actor), body);
 }
 
-/** The org a build's blobs live in, and where its project diffs. */
-type BuildOwner = { orgId: string; diffLocation: DiffLocation };
-
-async function withBuild(
-  ctx: Ctx,
-  buildId: string,
-  run: (build: Build, owner: BuildOwner) => Promise<Response>,
-): Promise<Response> {
-  const { build, ...owner } = await ctx.timer.time("build", () =>
-    actorBuild(ctx.db, ctx.actor, buildId),
-  );
-  return run(build, owner);
-}
-
 /** Every endpoint the API has. The API table in docs/cli.md is checked against this list. */
 export const ENDPOINTS: readonly Endpoint[] = [
   { method: "GET", path: "/api/v1/me", upload: true, run: (ctx) => me(ctx) },
   { method: "POST", path: "/api/v1/builds", upload: true, run: (ctx) => startBuild(ctx) },
-  {
-    method: "PUT",
-    path: "/api/v1/builds/:id/snapshots",
-    upload: true,
-    run: (ctx, p) => withBuild(ctx, at(p, 0), (build, owner) => addSnapshot(ctx, build, owner)),
-  },
+  { method: "PUT", path: "/api/v1/builds/:id/snapshots", upload: true, run: onBuild(addSnapshot) },
   {
     method: "POST",
     path: "/api/v1/builds/:id/snapshots/batch",
     upload: true,
-    run: (ctx, p) => withBuild(ctx, at(p, 0), (build) => addHeldSnapshots(ctx, build)),
+    run: onBuild((ctx, build) => addHeldSnapshots(ctx, build)),
   },
   {
     method: "POST",
@@ -232,12 +205,8 @@ export const ENDPOINTS: readonly Endpoint[] = [
         json(await knownImages(ctx.db, build.projectId, await jsonBody(ctx.request))),
       ),
   },
-  {
-    method: "POST",
-    path: "/api/v1/builds/:id/finalize",
-    upload: true,
-    run: (ctx, p) => withBuild(ctx, at(p, 0), (build, owner) => closeBuild(ctx, build, owner)),
-  },
+  { method: "POST", path: "/api/v1/builds/:id/finalize", upload: true, run: onBuild(closeBuild) },
+  ...RENDER_ENDPOINTS,
   {
     method: "POST",
     path: "/api/v1/builds/:id/baselines",
@@ -280,24 +249,24 @@ export const ENDPOINTS: readonly Endpoint[] = [
   { method: "POST", path: "/api/v1/builds/:id/accept-all", run: acceptBuild },
 ];
 
-/** The `:param` values when `path` fits the pattern, else null. */
-function match(pattern: string, path: string[]): string[] | null {
-  const want = pattern.split("/").filter(Boolean);
-  if (want.length !== path.length) return null;
-  const params: string[] = [];
-  for (const [i, part] of want.entries()) {
-    const got = path[i] ?? "";
-    if (part.startsWith(":")) {
-      if (!got) return null;
-      try {
-        params.push(decodeURIComponent(got));
-      } catch {
-        return null;
-      }
-    } else if (part !== got) return null;
-  }
-  return params;
+type Hit = { endpoint: Endpoint; params: string[] };
+
+/** Why a matched request is not run: no such path, a path without that method, or out of the token's reach. */
+function miss(
+  hit: Hit | undefined,
+  pathFits: boolean,
+  rendering: string | undefined,
+): "absent" | "method" | "unreached" | null {
+  if (!hit) return pathFits ? "method" : "absent";
+  return reaches(`${hit.endpoint.method} ${hit.endpoint.path}`, hit.params, rendering)
+    ? null
+    : "unreached";
 }
+
+const missFailure = (missed: string | null) =>
+  missed === "method"
+    ? { status: 405, code: "method_not_allowed", message: "method not allowed" }
+    : { status: 404, code: "not_found", message: "not found" };
 
 /**
  * The API, `/api/v1/…`, as a plain Request → Response so tests and the Worker route share it.
@@ -311,27 +280,35 @@ export async function handleApi(request: Request, deps: ApiDeps): Promise<Respon
   return withServerTiming(await route(request, deps, timer), timer);
 }
 
-async function route(request: Request, deps: ApiDeps, timer: ServerTimer): Promise<Response> {
+/** The endpoints whose path fits the request, the one whose method does too, and whether it is an upload's. */
+function endpointOf(request: Request) {
   const path = new URL(request.url).pathname.split("/").filter(Boolean);
   const fits = ENDPOINTS.flatMap((e) => {
     const params = match(e.path, path);
     return params ? [{ endpoint: e, params }] : [];
   });
   const hit = fits.find(({ endpoint }) => endpoint.method === request.method);
-  const upload = (hit ?? fits[0])?.endpoint.upload === true;
+  return { fits, hit, upload: (hit ?? fits[0])?.endpoint.upload === true };
+}
+
+/** The token's actor (and the build a render token names), and whether it is over the rate limit. */
+async function authenticate(deps: ApiDeps, request: Request) {
+  const who = await tokenActor(deps, request);
+  return {
+    ...who,
+    limited: await overApiLimit(deps.rateLimit, request, who.actor && bearer(request)),
+  };
+}
+
+async function route(request: Request, deps: ApiDeps, timer: ServerTimer): Promise<Response> {
+  const { fits, hit, upload } = endpointOf(request);
   if (belowMinimum(request, deps.minCliVersion))
     return failWith(upload, {
       status: 426,
       code: "cli_outdated",
       message: `upgrade the CLI: this server needs pixelslash ${deps.minCliVersion} or newer`,
     });
-  const { actor, limited } = await timer.time("auth", async () => {
-    const who = await authorize({ db: deps.db, request });
-    return {
-      actor: who,
-      limited: await overApiLimit(deps.rateLimit, request, who && bearer(request)),
-    };
-  });
+  const { actor, rendering, limited } = await timer.time("auth", () => authenticate(deps, request));
   if (limited)
     return retryAfter(
       failWith(upload, {
@@ -346,17 +323,11 @@ async function route(request: Request, deps: ApiDeps, timer: ServerTimer): Promi
       code: "unauthorized",
       message: "missing, wrong, expired or revoked token",
     });
-  if (!hit) {
-    if (fits.length > 0)
-      return failWith(upload, {
-        status: 405,
-        code: "method_not_allowed",
-        message: "method not allowed",
-      });
-    return failWith(false, { status: 404, code: "not_found", message: "not found" });
-  }
+  const missed = miss(hit, fits.length > 0, rendering);
+  if (missed || !hit) return failWith(upload && missed !== "absent", missFailure(missed));
   try {
-    return await hit.endpoint.run({ ...deps, actor, request, timer }, hit.params);
+    const ctx: Ctx = { ...deps, actor, request, timer, ...(rendering ? { rendering } : {}) };
+    return await hit.endpoint.run(ctx, hit.params);
   } catch (e) {
     return failWith(upload, errorOf(e));
   }

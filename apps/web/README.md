@@ -653,3 +653,36 @@ a client reaches it directly, so there is no pool socket to reset and the plugin
 (it stays for `vite preview` on a development machine). A client whose keep-alive socket workerd closes right
 after a long answer can still see a reset; the CLI retries a network error for 30 s (1, 2, 4, 8 and 15 s), and a
 finalize is resumable. Whether the CT's workerd does that is checked by the CT run in `perf/README.md`.
+
+### The bundle renderer (opt-in)
+
+`pixelslash upload --bundle DIR` sends a static Storybook build instead of shots, and the server
+renders it (`docs/storybook-bundle-render.md`). On the CT that is `pixelslash-render`
+(`deploy/ssh/render-worker.ts`): a loopback listener on `127.0.0.1:3100` that the web unit hands each
+bundle build to, and a queue that renders one build at a time with the engine's `renderBundle`, the
+CLI's capture code, then uploads the shots and finalises with a token that reaches only that build's
+render paths. It holds no secret of its own and talks only to `127.0.0.1:3000`.
+
+It is off until the CT's `.dev.vars.e2e` names it. To turn it on, add
+
+```
+RENDER_URL=http://127.0.0.1:3100/jobs
+```
+
+and deploy the current sha again (`release.sh`, above). `update.sh` then creates the system user
+`pixelslash-render`, installs the release's Playwright Chromium headless shell (with its system
+packages) into `/var/lib/pixelslash-render/browsers`, installs `pixelslash-render.service` and
+restarts it after the web unit. Without `RENDER_URL` a deploy installs none of it, retires a unit a
+previous deploy left, and the API answers a bundle build `409`, so the CLI says to capture on the
+client. A renderer that does not take a job (down, or 50 builds queued) makes the CLI's finalise a
+`502`; a build the renderer dies under is left `uploading` and ends as an abandoned build does.
+
+The bundle is a pull request's own code, so the unit is fenced: its own user with no login, no
+access to the app's state or `.dev.vars.e2e`, loopback only (`IPAddressAllow=localhost`), a read-only
+system, a private `/tmp` for each job's bundle and shots, Chromium's sandbox left on, and
+`MemoryMax=3000M` beside the web unit's 4000M. Logs: `journalctl -u pixelslash-render -f`, one line
+per build (`render <id>: <n> shots in <s>` or `failed in <s>: <reason>`), never the token.
+
+The renderer's Chromium is the release's Playwright build, not the pinned capture image, so a
+project that switches from client capture may see its baselines change once; accept them on the
+first bundle build. Docker and Cloudflare have no renderer: `RENDER_URL` stays empty there.

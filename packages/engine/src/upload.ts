@@ -162,17 +162,21 @@ function checkOutcome(id: string, done: unknown): void {
   }
 }
 
-type OpenBuild = {
+export type OpenBuild = {
   id: string;
   /** Where the project diffs; absent from a server from before ob 1727, which always diffs itself. */
   diffLocation: DiffLocation | undefined;
 };
 
-/** `clientDiff` says this CLI can measure: a project that diffs in CI refuses one that cannot. */
-async function openBuild(
+/**
+ * `clientDiff` says this CLI can measure: a project that diffs in CI refuses one that cannot.
+ * `extra` goes in the same body: a bundle upload's `render`.
+ */
+export async function openBuild(
   client: Client,
   ctx: GitContext,
   opts: Pick<UploadOptions, "projectId" | "subproject" | "brief">,
+  extra: Record<string, unknown> = { clientDiff: true },
 ): Promise<OpenBuild> {
   const { projectId, subproject, brief } = opts;
   const body = await send(client, {
@@ -184,7 +188,7 @@ async function openBuild(
       ...(projectId ? { projectId } : {}),
       ...(subproject ? { subproject } : {}),
       ...(brief ? { brief } : {}),
-      clientDiff: true,
+      ...extra,
     }),
   });
   if (!isObj(body) || typeof body.id !== "string")
@@ -210,6 +214,38 @@ export async function uploadSnapshots(
   deps: UploadDeps = {},
 ): Promise<UploadResult> {
   const env = deps.env ?? process.env;
+  const warn = deps.warn ?? (() => {});
+  let ctx: GitContext | undefined;
+  const result = await sendShots(opts, deps, async (client) => {
+    ctx = await gitContext({ ...opts.git, env, warn });
+    return openBuild(client, ctx, opts);
+  });
+  if (!ctx) throw new UploadError("upload failed: no git context");
+  return { ...result, git: ctx };
+}
+
+/** Where the render of a bundle sends its shots: a build the CLI already opened (`upload --bundle`). */
+export type IntoBuild = Omit<UploadOptions, "git" | "projectId" | "subproject" | "brief"> & {
+  build: OpenBuild;
+};
+
+/**
+ * `uploadSnapshots` into a build that is already open, as the bundle renderer does with the build
+ * the CLI opened for it: no git context is read and no build opened; every shot, the flake pass and
+ * the finalise go as for any upload.
+ */
+export function uploadIntoBuild(
+  opts: IntoBuild,
+  deps: UploadDeps = {},
+): Promise<Omit<UploadResult, "git">> {
+  return sendShots(opts, deps, () => Promise.resolve(opts.build));
+}
+
+async function sendShots(
+  opts: Omit<UploadOptions, "git">,
+  deps: UploadDeps,
+  open: (client: Client) => Promise<OpenBuild>,
+): Promise<Omit<UploadResult, "git">> {
   if (!isHttpUrl(opts.server))
     throw new UsageError(`server must be an http(s) URL: ${opts.server}`);
   const base = opts.server.replace(/\/+$/, "");
@@ -220,7 +256,6 @@ export async function uploadSnapshots(
   const progress = deps.progress ?? newUploadProgress();
   progress.total = manifest.snapshots.length;
   const warn = deps.warn ?? (() => {});
-  const ctx = await gitContext({ ...opts.git, env, warn });
   const log = requestLog();
   const client: Client = {
     fetch: fetcher,
@@ -230,7 +265,7 @@ export async function uploadSnapshots(
     sleep: deps.sleep ?? ((ms) => Bun.sleep(ms)),
     onRequest: (step, ms, server) => log.record(step, ms, server),
   };
-  const { id, diffLocation } = await openBuild(client, ctx, opts);
+  const { id, diffLocation } = await open(client);
   progress.opened = true;
   progress.buildId = id;
   // A server from before ob 1727 has no baselines endpoint and diffs every build itself.
@@ -276,7 +311,6 @@ export async function uploadSnapshots(
     buildId: id,
     snapshots: manifest.snapshots.length,
     reshot: flakes.reshot(),
-    git: ctx,
     timings,
     ...outcome,
   };

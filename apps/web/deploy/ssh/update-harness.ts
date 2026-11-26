@@ -27,6 +27,7 @@ import { expect } from "vitest";
 const SCRIPT = fileURLToPath(new URL("./update.sh", import.meta.url));
 const LAN = fileURLToPath(new URL(".", import.meta.url));
 export const UNITS = ["pixelslash-stub.service", "pixelslash-web.service"];
+export const RENDER_UNIT = "pixelslash-render.service";
 export const WATCHDOG_UNITS = ["pixelslash-watchdog.service", "pixelslash-watchdog.timer"];
 
 let root = "";
@@ -56,9 +57,11 @@ export function setup() {
     chmodSync(join(stubs, name), 0o755);
   };
   stub("runuser", 'while [[ $1 != -- ]]; do shift; done\nshift\nexec "$@"');
-  for (const name of ["systemctl", "journalctl", "bun"])
+  // The renderer's user: `id` says it exists, so `useradd` is never reached; `chown` only logs.
+  for (const name of ["systemctl", "journalctl", "bun", "chown", "useradd"])
     stub(name, `echo "${name} $* @ $PWD" >>"$STUB_LOG"`);
   stub("bunx", bunxBody());
+  stub("id", "exit 0");
 
   const db = new Database(join(root, "d1.sqlite"));
   db.run("CREATE TABLE builds (id TEXT PRIMARY KEY, status TEXT, processing_started_at INTEGER)");
@@ -113,6 +116,14 @@ export function bunxBody(rest = ""): string {
   ].join("\n");
 }
 
+// The secrets release.sh adds to a release: the Sentry DSN when PIXELSLASH_SENTRY_DSN is set, and
+// the others by file name (`.github-app-id`, ...).
+function carry(dir: string, sentryDsn: string, carried: Record<string, string>) {
+  if (sentryDsn) writeFileSync(join(dir, ".sentry-dsn"), `${sentryDsn}\n`, { mode: 0o600 });
+  for (const [file, value] of Object.entries(carried))
+    writeFileSync(join(dir, file), `${value}\n`, { mode: 0o600 });
+}
+
 // A release tarball as release.sh packs it, cut down to what update.sh touches.
 export function pack(
   sha: string,
@@ -120,24 +131,24 @@ export function pack(
     broken = false,
     sentryDsn = "",
     carried = {},
+    render = false,
   }: {
     broken?: boolean;
     sentryDsn?: string;
     carried?: Record<string, string>;
+    /** Whether the release has the bundle renderer's unit. */
+    render?: boolean;
   } = {},
 ) {
   const dir = join(root, "pack", sha);
   mkdirSync(join(dir, "apps/web/deploy/ssh"), { recursive: true });
-  for (const unit of [...UNITS, ...WATCHDOG_UNITS, "watchdog.sh"])
+  const units = [...UNITS, ...WATCHDOG_UNITS, "watchdog.sh"];
+  for (const unit of render ? [...units, RENDER_UNIT] : units)
     copyFileSync(join(LAN, unit), join(dir, "apps/web/deploy/ssh", unit));
   mkdirSync(join(dir, "apps/web/dist/server"), { recursive: true });
   writeFileSync(join(dir, "apps/web/dist/server/index.js"), `// ${sha}\n`);
   if (broken) writeFileSync(join(dir, "apps/web/BROKEN"), "");
-  // What release.sh adds when PIXELSLASH_SENTRY_DSN is set.
-  if (sentryDsn) writeFileSync(join(dir, ".sentry-dsn"), `${sentryDsn}\n`, { mode: 0o600 });
-  // And the other secrets it carries, by file name (`.github-app-id`, ...).
-  for (const [file, value] of Object.entries(carried))
-    writeFileSync(join(dir, file), `${value}\n`, { mode: 0o600 });
+  carry(dir, sentryDsn, carried);
   const tarball = join(root, `pixelslash-${sha}.tar.gz`);
   const tar = spawnSync("tar", ["-czf", tarball, "-C", dir, "."]);
   expect(tar.status).toBe(0);
@@ -177,6 +188,7 @@ export function deploy(s: Setup, tarball: string, env: Record<string, string> = 
       PIXELSLASH_HELPER_KEY: s.helper.key,
       PIXELSLASH_OPENCODE_BIN: s.helper.bin,
       PIXELSLASH_D1_RETRY_SLEEP: "0",
+      PIXELSLASH_RENDER_HOME: join(root, "render-home"),
       STUB_LOG: s.log,
       STUB_DB: join(root, "d1.sqlite"),
       PATH: `${s.stubs}:${process.env["PATH"]}`,

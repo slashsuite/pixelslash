@@ -28,7 +28,8 @@
     "./similarity": "./src/similarity.ts",
     "./similarity-png": "./src/similarity-png.ts",
     "./sentry-scrub": "./src/sentry-scrub.ts",
-    "./brief": "./src/brief.ts"
+    "./brief": "./src/brief.ts",
+    "./bundle-tar": "./src/bundle-tar.ts"
   },
   "dependencies": {
     "axe-core": "^4.14.0",

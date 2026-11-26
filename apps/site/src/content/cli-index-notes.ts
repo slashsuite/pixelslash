@@ -37,6 +37,8 @@ export const FLAG_NOTES: Readonly<Record<string, string>> = {
     "How many shots run at once, 1 to 32, over the config's concurrency; it also bounds the re-captures of changed shots.",
   "--brief": "A file holding your own words on what the build means to change.",
   "--brief-text": "Your own words on what the build means to change, given inline.",
+  "--bundle":
+    "A static Storybook build to send instead of shots; the server renders every story in it.",
   "--wait":
     "Wait until the server decides the build, then exit with the code that decision maps to: 0 accepted or nothing changed, 4 a reviewer rejected a shot, 5 still waiting when `--timeout` ends, 3 the build errored or the server could not be reached.",
   "--timeout": "How long to wait before giving up, such as 30m.",

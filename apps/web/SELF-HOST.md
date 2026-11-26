@@ -226,6 +226,7 @@ are needed.
 | `SENTRY_RELEASE`, `SENTRY_ENVIRONMENT` | var | no | Labels on those reports. |
 | `PIXELSLASH_ALLOW_PRIVATE_MODEL_HOSTS` | var | no | `1` lets a project's model sit on a private network. Never on a deployment strangers sign in to. |
 | `DIFF_LIMIT_MPX` | var | no | The largest pair a server diff takes, in Mpx; a shot over it ends the build `errored`, naming the size. Not used on Cloudflare; leave unset there. The LAN self-host and Docker set 24.5. |
+| `RENDER_URL` | var | no | Where bundle builds (`pixelslash upload --bundle`) go to be rendered. Leave empty: there is no renderer on Cloudflare or in Docker, so a bundle build is refused (`409`) and the CLI captures on the client. The LAN self-host sets it in `.dev.vars.e2e` (`README.md`, "The bundle renderer"). |
 
 Bindings (`DB`, `BLOBS`, `EXPLAIN`, `API_RATE_LIMIT`, `SIGNIN_RATE_LIMIT`) come from `wrangler.jsonc`, not from
 `vars`.
@@ -298,5 +299,5 @@ the `remote` block in the script does: build, pack the tarball the way the scrip
 
 `release.sh` can also carry a Sentry DSN, the GitHub App (`PIXELSLASH_GITHUB_APP_ID`,
 `PIXELSLASH_GITHUB_APP_KEY`, `PIXELSLASH_PUBLIC_URL`) and, on the container, an AI explain helper. The server diff
-runs in the web unit, up to `DIFF_LIMIT_MPX`. These, the memory caps and the rest are in `README.md`, "Run it on the Proxmox
+runs in the web unit, up to `DIFF_LIMIT_MPX`, and an opt-in renderer for Storybook bundles (`RENDER_URL`). These, the memory caps and the rest are in `README.md`, "Run it on the Proxmox
 server".

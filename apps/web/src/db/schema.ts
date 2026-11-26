@@ -202,6 +202,12 @@ export const builds = sqliteTable(
      * most `BRIEF_LIMIT` characters; null when none was sent. Read by the summary, decides nothing.
      */
     brief: text("brief"),
+    /**
+     * A bundle build's render plan (`docs/storybook-bundle-render.md`): the config the server's
+     * renderer captures the uploaded Storybook build by, as JSON. Null for a build whose client
+     * captured its own shots, which is every build that does not ask to be rendered.
+     */
+    renderPlan: text("render_plan"),
     status: text("status", { enum: BUILD_STATUSES }).notNull().default("uploading"),
     /** Why processing ended in `errored`; null otherwise. Never a guess at a diff. */
     error: text("error"),

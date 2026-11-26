@@ -77,7 +77,7 @@
       "label": "Snapshot every Storybook story from its index",
       "ps": {
         "v": "y",
-        "note": "reads index.json from a running Storybook 7+; one snapshot per story, no route list",
+        "note": "reads index.json from a running Storybook 7+; one snapshot per story, no route list; or uploads a static build for a self-hosted server to render (upload --bundle)",
         "commit": "2082085"
       },
       "t": {
