@@ -64,7 +64,11 @@ const isJob = (v: unknown): v is RenderJob =>
   v.token.length > 0;
 
 const isKept = (v: unknown): v is Kept =>
-  isJob(v) && "starts" in v && Number.isInteger(v.starts) && (v.starts as number) >= 0;
+  isJob(v) &&
+  "starts" in v &&
+  typeof v.starts === "number" &&
+  Number.isInteger(v.starts) &&
+  v.starts >= 0;
 
 /** The queue in a file, replaced whole on each save; a file that cannot be read is an empty queue. */
 export function fileStore(path: string, warn: Log): QueueStore {
@@ -102,6 +106,14 @@ export function fileStore(path: string, warn: Log): QueueStore {
 
 const kept = ({ buildId, token, starts }: Kept): Kept => ({ buildId, token, starts });
 
+/** The log line for one finished render. */
+function rendered(job: RenderJob, outcome: RenderOutcome, started: number): string {
+  const took = `${((Date.now() - started) / 1000).toFixed(1)} s`;
+  return outcome.ok
+    ? `render ${job.buildId}: ${outcome.snapshots} shots in ${took}`
+    : `render ${job.buildId}: failed in ${took}: ${outcome.error.split("\n")[0] ?? ""}`;
+}
+
 /** The queue and its listener's handler; `render` is the engine's, or a test's. */
 export function renderWorker(render: Render, log: Log, { store, giveUp }: WorkerOptions = {}) {
   const queue: Kept[] = [];
@@ -127,12 +139,7 @@ export function renderWorker(render: Render, log: Log, { store, giveUp }: Worker
         ok: false,
         error: String(e),
       }));
-      const took = `${((Date.now() - started) / 1000).toFixed(1)} s`;
-      log(
-        outcome.ok
-          ? `render ${job.buildId}: ${outcome.snapshots} shots in ${took}`
-          : `render ${job.buildId}: failed in ${took}: ${outcome.error.split("\n")[0] ?? ""}`,
-      );
+      log(rendered(job, outcome, started));
       current = null;
       save();
     }
