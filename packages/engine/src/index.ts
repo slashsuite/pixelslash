@@ -112,6 +112,7 @@ export { uploadSkipped, type SkippedOptions } from "./upload-skipped.ts";
 export { uploadBundle } from "./upload-bundle.ts";
 export {
   renderBundle,
+  reportRenderError,
   type RenderJob,
   type RenderOptions,
   type RenderOutcome,

@@ -20,7 +20,7 @@ import { expect } from "vitest";
 
 // update.sh, the CT-side half of a LAN deploy, run against temp directories. The root-only pieces
 // are stubbed: `runuser` runs its command as this user; `systemctl`, `journalctl`, `bun` and `bunx`
-// only log. `wait_for_port` is replaced after the script is sourced: :3000 never opens while
+// only log, and `curl` answers the renderer's health from $STUB_RENDER_HEALTH. `wait_for_port` is replaced after the script is sourced: :3000 never opens while
 // `current` is a release holding a BROKEN file, which stands in for a serve.ts that exits. `bunx`
 // answers `wrangler d1 execute` from a real SQLite file (the builds table the test fills), so the
 // in-flight build check runs its real SQL; everything else it only logs.
@@ -62,6 +62,11 @@ export function setup() {
     stub(name, `echo "${name} $* @ $PWD" >>"$STUB_LOG"`);
   stub("bunx", bunxBody());
   stub("id", "exit 0");
+  // The renderer's /health: what $STUB_RENDER_HEALTH holds, or no renderer listening (curl's 7).
+  stub(
+    "curl",
+    'echo "curl $* @ $PWD" >>"$STUB_LOG"\n[[ -n ${STUB_RENDER_HEALTH:-} ]] || exit 7\necho "$STUB_RENDER_HEALTH"',
+  );
 
   const db = new Database(join(root, "d1.sqlite"));
   db.run("CREATE TABLE builds (id TEXT PRIMARY KEY, status TEXT, processing_started_at INTEGER)");

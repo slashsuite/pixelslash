@@ -6,6 +6,9 @@
 # removed with it, and Chromium's own sandbox left on (no --no-sandbox, and user namespaces are not
 # restricted, since the sandbox needs them). update.sh installs it only when the CT's
 # .dev.vars.e2e names a RENDER_URL; apps/web/README.md, "Run it on the Proxmox server".
+# Its queue lives in its state directory (RENDER_QUEUE), so a restart drops no build. A stop goes to
+# the worker alone (KillMode=mixed: not to its Chromium), which lets the build it is rendering
+# finish, then exits; one still rendering at TimeoutStopSec is killed and rendered again on start.
 [Unit]
 Description=PixelSlash bundle renderer
 After=network-online.target pixelslash-web.service
@@ -22,9 +25,12 @@ Environment=TMPDIR=/tmp
 Environment=RENDER_HOST=127.0.0.1
 Environment=RENDER_PORT=3100
 Environment=RENDER_API=http://127.0.0.1:3000
+Environment=RENDER_QUEUE=/var/lib/pixelslash-render/queue.json
 ExecStart=/home/pixelslash/.bun/bin/bun deploy/ssh/render-worker.ts
 Restart=on-failure
 RestartSec=2
+KillMode=mixed
+TimeoutStopSec=20min
 StateDirectory=pixelslash-render
 PrivateTmp=yes
 ProtectSystem=strict
@@ -37,7 +43,8 @@ ProtectControlGroups=yes
 IPAddressDeny=any
 IPAddressAllow=localhost
 # Each browser is a few hundred MB; the web app keeps its 4000M. Over this the kernel kills the
-# renderer, the build it was rendering is left uploading and errors as an abandoned build would.
+# renderer; it starts again and renders that build again, and a build it is killed under three times
+# ends errored, naming why.
 MemoryMax=3000M
 MemorySwapMax=0
 OOMPolicy=stop

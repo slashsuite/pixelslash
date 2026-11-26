@@ -3,7 +3,7 @@ import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { packBundle } from "../src/bundle-archive.ts";
 import { renderPlan } from "../src/bundle-plan.ts";
-import { renderBundle } from "../src/render-bundle.ts";
+import { renderBundle, reportRenderError } from "../src/render-bundle.ts";
 import { isObj } from "../src/upload-client.ts";
 import { type Call, fakeServer, metaOf } from "./fake-server.ts";
 import { cleanup, tmp } from "./upload-fixtures.ts";
@@ -115,5 +115,31 @@ describe("renderBundle", () => {
     );
     expect(outcome).toEqual({ ok: false, error: "render: not a build id" });
     expect(fake.calls).toEqual([]);
+  });
+
+  test("a build given up on is reported as a render error with its own token, and nothing else is sent", async () => {
+    const fake = await api([]);
+    await reportRenderError(
+      { buildId: "b1", token: "psr_b1.sig" },
+      { server: "https://ps.example/" },
+      "the renderer stopped 3 times",
+      { fetch: fake.fetch },
+    );
+    expect(fake.calls).toHaveLength(1);
+    expect(fake.calls[0]).toMatchObject({
+      method: "POST",
+      url: "https://ps.example/api/v1/builds/b1/render-error",
+      auth: "Bearer psr_b1.sig",
+      body: { error: "the renderer stopped 3 times" },
+    });
+    await reportRenderError(
+      { buildId: "../x", token: "t" },
+      { server: "https://ps.example" },
+      "e",
+      {
+        fetch: fake.fetch,
+      },
+    );
+    expect(fake.calls).toHaveLength(1);
   });
 });
