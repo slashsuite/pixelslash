@@ -1,3 +1,4 @@
+import { pathToFileURL } from "node:url";
 import { violationLine, type A11yDiff, type A11yViolation } from "./a11y-entry.ts";
 import type { Region } from "./regions.ts";
 import { esc } from "./report.ts";
@@ -7,8 +8,12 @@ export type CompareRow = {
   name: string;
   /** `chromium 1280x720 prefers: dark`: the rest of the identity; the scheme only when the compare varied it. */
   shot: string;
-  /** Relative to the index; only a changed snapshot has a report. */
+  /** A changed snapshot's `report.html`, relative to the index; else none. */
   report: string | undefined;
+  /** A new snapshot's PNG as copied under `--out`, relative to the index, for the report to show. */
+  shotHref?: string | undefined;
+  /** The same PNG, absolute, for the summary to name. */
+  shotFile?: string | undefined;
   changedPixels: number;
   /** The fingerprint fields that differ between Main and Branch; empty when they agree. */
   mismatch: string[];
@@ -32,8 +37,11 @@ type Rows = {
   failed?: CompareRow[] | undefined;
 };
 
-/** One name in a group: what the CLI prints and the report shows, and the entry's anchor on the page. */
-type ChangeName = { label: string; anchor: string };
+/**
+ * One name in a group: what the CLI prints and the report shows, the entry's anchor on the page,
+ * and, for a new shot, its PNG under `--out`.
+ */
+type ChangeName = { label: string; anchor: string; shotFile?: string | undefined };
 
 /** The snapshots that moved, in three groups; a group with nothing in it is left out. */
 type ChangeGroup = { group: "changed" | "new" | "removed"; names: ChangeName[] };
@@ -73,7 +81,7 @@ function anchorsOf(input: Rows): Map<CompareRow, string> {
 function changeGroups(input: Rows): ChangeGroup[] {
   const anchors = anchorsOf(input);
   const named = (rows: CompareRow[]) =>
-    rows.map((r) => ({ label: rowLabel(r), anchor: anchors.get(r) ?? "" }));
+    rows.map((r) => ({ label: rowLabel(r), anchor: anchors.get(r) ?? "", shotFile: r.shotFile }));
   const groups: ChangeGroup[] = [
     { group: "changed", names: named(input.changed) },
     { group: "new", names: named(input.added) },
@@ -153,15 +161,23 @@ function a11ySection(input: Rows): string {
   return `<section><h2>Accessibility (${rows.length} scanned)</h2>\n    <ul>\n      ${items}\n    </ul></section>`;
 }
 
+/** One name under a group; a new shot's ends with where its PNG is. */
+function nameLine(n: ChangeName): string {
+  return n.shotFile ? `  ${n.label}: ${pathToFileURL(n.shotFile).href}` : `  ${n.label}`;
+}
+
 /** How many names a group prints in the terminal before `+N more`. */
 const NAMES_PER_GROUP = 10;
 
-/** The lines that follow the counts line: `changed:` and the names under it, one group each, capped. */
+/**
+ * The lines that follow the counts line: `changed:` and the names under it, one group each, capped.
+ * A new shot's line ends with its PNG, `: file://…/branch.png`, so it can be opened from the output.
+ */
 export function changeLines(input: Rows): string[] {
   const cap = NAMES_PER_GROUP;
   return changeGroups(input).flatMap(({ group, names }) => [
     `${group}:`,
-    ...names.slice(0, cap).map((n) => `  ${n.label}`),
+    ...names.slice(0, cap).map(nameLine),
     ...(names.length > cap ? [`  +${names.length - cap} more`] : []),
   ]);
 }
@@ -193,6 +209,12 @@ function compareList(
     })
     .join("\n");
   return `<section><h2>${esc(title)} (${rows.length})</h2>\n    <ul>\n      ${items}\n    </ul></section>`;
+}
+
+/** A new shot, shown in full under its name: it has no baseline, so this is its check. */
+function newShot(r: CompareRow): string {
+  if (!r.shotHref) return "";
+  return `<br><a href="${esc(r.shotHref)}"><img class="new" src="${esc(r.shotHref)}" alt="${esc(rowLabel(r))}" loading="lazy"></a>`;
 }
 
 /**
@@ -231,7 +253,7 @@ export function renderCompareIndex(input: {
   const anchors = anchorsOf(input);
   const lists = [
     compareList("Changed", changed, anchors, px),
-    compareList("New on Branch", added, anchors, () => ""),
+    compareList("New on Branch", added, anchors, newShot),
     compareList("Removed from Branch", removed, anchors, () => ""),
     compareList(
       "Not compared",
@@ -262,6 +284,7 @@ export function renderCompareIndex(input: {
     ul { margin: 0; padding: 0 0 0 20px; }
     li { margin: 0 0 8px; }
     .shot { color: #888; }
+    img.new { display: block; max-width: min(100%, 640px); margin-top: 8px; border: 1px solid #333; }
     a { color: #9cf; }
   </style>
 </head>

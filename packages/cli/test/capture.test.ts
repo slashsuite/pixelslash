@@ -91,6 +91,26 @@ describe("pixelslash capture", () => {
     }
   });
 
+  test("--help prints the usage alone on stdout, exit 0", async () => {
+    for (const argv of [
+      ["capture", "--help"],
+      ["capture", "-h"],
+      ["capture", "--config", "x.json", "--help"],
+    ]) {
+      const cap = capture();
+      expect(await run(argv, cap.io, pinned)).toBe(0);
+      expect(cap.stdout).toMatch(/^pixelslash capture \[--config FILE\]/);
+      expect(cap.stderr).toBe("");
+    }
+    // Every command, and the bare pair mode, answers it the same way.
+    for (const argv of [["builds", "--help"], ["compare", "--help"], ["--help"]]) {
+      const cap = capture();
+      expect(await run(argv, cap.io, pinned)).toBe(0);
+      expect(cap.stdout).toMatch(/^pixelslash /);
+      expect(cap.stderr).toBe("");
+    }
+  });
+
   test("a bad flag or a bad config is a usage error, exit 2", async () => {
     const cap = capture();
     expect(await run(["capture", "--live", "x"], cap.io, pinned)).toBe(2);

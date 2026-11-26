@@ -173,15 +173,14 @@ async function relay(
   for await (const chunk of stream) sink.write(decoder.decode(chunk, { stream: true }));
 }
 
-const COMMANDS: Record<
-  string,
-  {
-    usage: string;
-    /** The stage a crash is put down to until the command says it has moved on. */
-    stage?: Stage;
-    run: (argv: string[], io: Io, deps: CliDeps) => Promise<number>;
-  }
-> = {
+type Command = {
+  usage: string;
+  /** The stage a crash is put down to until the command says it has moved on. */
+  stage?: Stage;
+  run: (argv: string[], io: Io, deps: CliDeps) => Promise<number>;
+};
+
+const COMMANDS: Record<string, Command> = {
   init: { usage: INIT_USAGE, run: runInit },
   capture: { usage: CAPTURE_USAGE, stage: "capture", run: runCapture },
   compare: { usage: COMPARE_USAGE, stage: "compare", run: (argv, io) => runCompare(argv, io) },
@@ -210,12 +209,28 @@ const COMMANDS: Record<
   project: { usage: PROJECT_USAGE, run: runProject },
 };
 
+/**
+ * `--help` or `-h` anywhere on the line: the usage, on stdout, exit 0. No flag takes a value that
+ * starts with `--`, so `--help` is never a value; `-h` only counts on its own after the command.
+ */
+function wantsHelp(args: string[]): boolean {
+  return args.includes("--help") || args[0] === "-h";
+}
+
+/** `--version`, or `--help` for the command or the CLI: what to print, before any command runs. */
+function infoFor(argv: string[], command: Command | undefined): string | undefined {
+  if (argv[0] === "--version") return `pixelslash ${CLIENT_VERSION}`;
+  if (wantsHelp(command ? argv.slice(1) : argv)) return command?.usage ?? USAGE;
+  return undefined;
+}
+
 export async function run(argv: string[], io: Io = process, deps: CliDeps = {}): Promise<number> {
-  if (argv[0] === "--version") {
-    io.stdout.write(`pixelslash ${CLIENT_VERSION}\n`);
+  const command = COMMANDS[argv[0] ?? ""];
+  const info = infoFor(argv, command);
+  if (info !== undefined) {
+    io.stdout.write(`${info}\n`);
     return 0;
   }
-  const command = COMMANDS[argv[0] ?? ""];
   // A bad PIXELSLASH_DIFF_CORES is a usage error (exit 2) before any command starts work.
   const checked =
     <T>(work: () => Promise<T>) =>

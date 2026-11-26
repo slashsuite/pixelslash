@@ -97,7 +97,8 @@ async function filesOf(dir: string, result: SnapshotCompareResult): Promise<Map<
 /** The rows of a result, without the timings. */
 function rowsOf(r: SnapshotCompareResult) {
   const { timings: _, indexPath: __, ...rows } = r;
-  return rows;
+  // A new shot's file is under each run's own --out; `filesOf` compares the files themselves.
+  return { ...rows, added: rows.added.map(({ shotFile: ___, ...row }) => row) };
 }
 
 /**
