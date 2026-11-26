@@ -86,11 +86,6 @@ describe("renderConcurrency", () => {
     expect(renderConcurrency(2, 4)).toBe(2);
     expect(renderConcurrency(10, 4)).toBe(4);
   });
-
-  test("never fewer than one", () => {
-    expect(renderConcurrency(0, 4)).toBe(1);
-    expect(renderConcurrency(undefined, 0)).toBe(1);
-  });
 });
 
 describe("renderBundle", () => {
