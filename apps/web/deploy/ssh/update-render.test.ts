@@ -23,10 +23,12 @@ describe("update.sh and the bundle renderer", () => {
     expect(lines.slice(1).map((l) => l.replace(/ @ .*/, ""))).toEqual([
       `chown -R pixelslash-render:pixelslash-render ${join(s.home, "..", "render-home")}`,
       "systemctl enable --quiet pixelslash-render",
-      "systemctl restart pixelslash-render",
+      "systemctl restart --no-block pixelslash-render",
     ]);
     const web = commands.findIndex((l) => l.startsWith("systemctl restart pixelslash-stub"));
-    const render = commands.findIndex((l) => l.startsWith("systemctl restart pixelslash-render"));
+    const render = commands.findIndex((l) =>
+      l.startsWith("systemctl restart --no-block pixelslash-render"),
+    );
     expect(web).toBeGreaterThan(-1);
     expect(render).toBeGreaterThan(web);
   });
@@ -43,7 +45,7 @@ describe("update.sh and the bundle renderer", () => {
     expect(
       commands.some((l) => l.startsWith("systemctl restart pixelslash-stub pixelslash-web")),
     ).toBe(true);
-    expect(commands.some((l) => l.startsWith("systemctl restart pixelslash-render"))).toBe(false);
+    expect(commands.some((l) => /^systemctl restart .*pixelslash-render /.test(l))).toBe(false);
   });
 
   test("a rollback brings the web app back before it reinstalls the renderer", () => {
@@ -56,7 +58,7 @@ describe("update.sh and the bundle renderer", () => {
     const web = at(/^systemctl restart pixelslash-stub pixelslash-web /);
     expect(web).toBeGreaterThan(-1);
     expect(at(/^bunx playwright install /)).toBeGreaterThan(web);
-    expect(at(/^systemctl restart pixelslash-render /)).toBeGreaterThan(web);
+    expect(at(/^systemctl restart --no-block pixelslash-render /)).toBeGreaterThan(web);
     expect(existsSync(join(s.unitDir, RENDER_UNIT))).toBe(true);
   });
 
@@ -69,7 +71,7 @@ describe("update.sh and the bundle renderer", () => {
     );
     const { status, stderr } = deploy(s, pack("aaaaaaa", { render: true }));
     expect({ status, stderr }).toMatchObject({ status: 0 });
-    expect(stderr).toContain("pixelslash-render did not start");
+    expect(stderr).toContain("pixelslash-render could not be restarted");
     expect(stderr).toContain("release aaaaaaa is serving");
   });
 
@@ -87,38 +89,5 @@ describe("update.sh and the bundle renderer", () => {
       "systemctl disable --now --quiet pixelslash-render",
     ]);
     expect(existsSync(join(s.unitDir, RENDER_UNIT))).toBe(false);
-  });
-
-  test("a renderer in the middle of a build is restarted once it is done, without the deploy waiting", () => {
-    const s = setup();
-    writeFileSync(join(s.legacyWeb, ".dev.vars.e2e"), "RENDER_URL=http://127.0.0.1:3100/jobs\n");
-    const { status, stderr, commands } = deploy(s, pack("aaaaaaa", { render: true }), {
-      STUB_RENDER_HEALTH: '{"queued":4,"rendering":"b_1-x"}',
-    });
-    expect({ status, stderr }).toMatchObject({ status: 0 });
-    expect(commands.some((l) => /^curl .*127\.0\.0\.1:3100\/health /.test(l))).toBe(true);
-    expect(
-      renderLines(commands)
-        .filter((l) => l.startsWith("systemctl"))
-        .map((l) => l.replace(/ @ .*/, "")),
-    ).toEqual([
-      "systemctl enable --quiet pixelslash-render",
-      "systemctl restart --no-block pixelslash-render",
-    ]);
-    expect(stderr).toContain(
-      "pixelslash-render is rendering build b_1-x: it restarts on this release once that build is rendered; its queue is kept",
-    );
-    expect(stderr).toContain("release aaaaaaa is serving");
-  });
-
-  test("an idle renderer is restarted and waited for, as before", () => {
-    const s = setup();
-    writeFileSync(join(s.legacyWeb, ".dev.vars.e2e"), "RENDER_URL=http://127.0.0.1:3100/jobs\n");
-    const { status, stderr, commands } = deploy(s, pack("aaaaaaa", { render: true }), {
-      STUB_RENDER_HEALTH: '{"queued":0,"rendering":null}',
-    });
-    expect({ status, stderr }).toMatchObject({ status: 0 });
-    expect(commands.some((l) => l.startsWith("systemctl restart pixelslash-render "))).toBe(true);
-    expect(stderr).not.toContain("is rendering build");
   });
 });

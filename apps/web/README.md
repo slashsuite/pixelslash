@@ -716,8 +716,8 @@ A restart drops no build. The renderer keeps its queue, and the build it is rend
 `/var/lib/pixelslash-render/queue.json` (mode 600: it holds each build's render token), and a new
 renderer renders them again, in order. A stop (a deploy, `systemctl restart`) lets the build being
 rendered finish, starts no other, then exits; it has up to 20 minutes (`TimeoutStopSec`). A deploy
-asks `/health` first: an idle renderer is restarted at once, one in the middle of a build gets a
-queued restart (`systemctl restart --no-block`), so the deploy ends while that build finishes.
+queues the renderer's restart (`systemctl restart --no-block`) rather than waiting on it, so it ends
+while that build finishes.
 A build the renderer dies under (a crash, its memory limit, a stop that ran out of time) is started
 again on the next start; one it has died under three times ends `errored`,
 `render failed: the renderer stopped 3 times while rendering this build ...`, so a CLI waiting on
