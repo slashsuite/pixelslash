@@ -335,7 +335,9 @@ export async function runUpload(
       deps,
     );
   const bundle = argv.indexOf("--bundle");
-  if (bundle !== -1) return uploadBundleRun(argv.toSpliced(bundle, 1), io, deps);
+  // `--bundle DIR` is a flag with its value, so it may stand anywhere among the others.
+  if (bundle !== -1)
+    return uploadBundleRun([argv[bundle + 1] ?? "", ...argv.toSpliced(bundle, 2)], io, deps);
   const [dir, ...rest] = argv;
   if (!dir || dir.startsWith("--")) throw new UsageError("need a snapshot DIR");
   const {

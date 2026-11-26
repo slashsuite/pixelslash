@@ -1,7 +1,13 @@
 import { afterAll, describe, expect, test } from "vitest";
 import { mkdir, readdir, symlink } from "node:fs/promises";
 import { join } from "node:path";
-import { bundleSecrets, packBundle, readBundleIndex, unpackBundle } from "../src/bundle-archive.ts";
+import {
+  bundleSecrets,
+  inflateCapped,
+  packBundle,
+  readBundleIndex,
+  unpackBundle,
+} from "../src/bundle-archive.ts";
 import { planConfig, renderPlan } from "../src/bundle-plan.ts";
 import { serveBundle } from "../src/bundle-serve.ts";
 import {
@@ -105,6 +111,14 @@ describe("the bundle archive", () => {
     ).rejects.toThrow(/first entry must be index\.json/);
     await expect(checkBundleStart(archive([["index.json", "{"]]))).rejects.toThrow(/not JSON/);
     await expect(checkBundleStart(Bun.gzipSync(new Uint8Array(100)))).rejects.toThrow(BundleError);
+  });
+
+  test("an archive that inflates past the cap is refused while it inflates, not after", async () => {
+    // 4 MiB of zeros gzips to a few KB; a cap of 1 MiB stops it a chunk past the cap.
+    const bomb = Bun.gzipSync(new Uint8Array(4 * 1024 * 1024));
+    await expect(inflateCapped(bomb, 1024 * 1024)).rejects.toThrow(/unpacks to more than/);
+    await expect(inflateCapped(new Uint8Array([1, 2, 3]))).rejects.toThrow(/not a gzip/);
+    expect((await inflateCapped(bomb)).length).toBe(4 * 1024 * 1024);
   });
 
   test("an entry path that would leave the directory is refused, on pack and on unpack", async () => {

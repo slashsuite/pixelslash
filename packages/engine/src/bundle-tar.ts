@@ -11,6 +11,8 @@ export const INDEX_ENTRY = "index.json";
 export const MAX_ENTRIES = 20_000;
 /** The most bytes a bundle may unpack to, all files together. */
 export const MAX_UNPACKED_BYTES = 1024 * 1024 * 1024;
+/** The most bytes a render plan may be as JSON: a config is a few KB. The server holds it to this too. */
+export const MAX_PLAN_BYTES = 64 * 1024;
 /** The most bytes the index may be: a 2400-story index is about 1 MB. */
 export const MAX_INDEX_BYTES = 32 * 1024 * 1024;
 /** The longest path ustar holds (a 155-byte prefix, `/`, a 100-byte name). */

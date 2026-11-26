@@ -103,36 +103,19 @@ export {
 } from "./check.ts";
 export {
   uploadSnapshots,
-  uploadIntoBuild,
-  type IntoBuild,
   type UploadDeps,
   newUploadProgress,
   type UploadProgress,
   type UploadResult,
 } from "./upload.ts";
 export { uploadSkipped, type SkippedOptions } from "./upload-skipped.ts";
-export {
-  uploadBundle,
-  type BundleUploadOptions,
-  type BundleUploadResult,
-} from "./upload-bundle.ts";
+export { uploadBundle } from "./upload-bundle.ts";
 export {
   renderBundle,
-  type RenderDeps,
   type RenderJob,
   type RenderOptions,
   type RenderOutcome,
 } from "./render-bundle.ts";
-export {
-  bundleSecrets,
-  packBundle,
-  readBundleIndex,
-  unpackBundle,
-  type PackedBundle,
-} from "./bundle-archive.ts";
-export { serveBundle, type ServedBundle } from "./bundle-serve.ts";
-export { MAX_PLAN_BYTES, planConfig, renderPlan, type RenderPlan } from "./bundle-plan.ts";
-export { BundleError, checkBundleStart } from "./bundle-tar.ts";
 export type { FlakyShot, SkippedShot } from "./flake-upload.ts";
 export type { FlakeRecord } from "./flake.ts";
 export {

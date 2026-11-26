@@ -29,7 +29,8 @@ describe("pixelslash upload --bundle", () => {
       start: { command: "bun run storybook" },
     });
     const [api, cap] = [fakeUploadApi(), capture()];
-    const argv = ["upload", "--bundle", "sb", "--server", SERVER];
+    // `--bundle DIR` need not come first.
+    const argv = ["upload", "--server", SERVER, "--bundle", "sb"];
     expect(await run(argv, cap.io, { fetch: api.fetch, cwd, env: CI })).toBe(0);
     expect(api.calls.map((c) => `${c.method} ${c.path}`)).toEqual([
       "POST /api/v1/builds",

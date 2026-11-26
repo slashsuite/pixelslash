@@ -5,7 +5,8 @@
  * runs. It holds no secret: each job carries the build-scoped token the server minted for it, and
  * every request it makes goes to its own `RENDER_API`, never to an address a job names.
  *
- *   POST /jobs  { buildId, token }  -> 202, queued; 400 a malformed job; 503 the queue is full
+ *   POST /jobs  { buildId, token }  -> 202, queued; 400 a malformed job; 415 not sent as JSON;
+ *                                      503 the queue is full
  *   GET /health                     -> 200 { queued, rendering }
  *
  * `RENDER_HOST` (default 127.0.0.1) and `RENDER_PORT` (default 3100) are where it listens,
@@ -63,9 +64,16 @@ export function renderWorker(render: Render, log: Log) {
   }
 
   async function take(request: Request): Promise<Response> {
+    // The bundle's own script runs on this loopback too. A page cannot send this content type to
+    // another origin without a preflight, which this listener never answers, so it cannot queue jobs.
+    if (request.headers.get("content-type")?.split(";")[0]?.trim() !== "application/json")
+      return Response.json({ error: "a job is sent as application/json" }, { status: 415 });
     const job: unknown = await request.json().catch(() => null);
     if (!isJob(job))
       return Response.json({ error: "a job is { buildId, token }" }, { status: 400 });
+    // A finalise the CLI retried after a lost reply hands the same build again: it is taken once.
+    if (rendering === job.buildId || queue.some((q) => q.buildId === job.buildId))
+      return Response.json({ queued: queue.length }, { status: 202 });
     if (queue.length >= MAX_QUEUED)
       return Response.json({ error: "the render queue is full" }, { status: 503 });
     queue.push(job);

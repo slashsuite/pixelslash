@@ -270,10 +270,19 @@ install_render() {
   chmod o+x "$APP_HOME" "$RELEASES"
   # The engine's pinned Playwright, so its Chromium is the one bun.lock names; --with-deps installs
   # the system libraries it needs (apt, as root), which is why this is not run as the render user.
+  # Called in an `||` list, so errexit is off in here: each step returns its own failure.
   (cd "$1/apps/web" && PLAYWRIGHT_BROWSERS_PATH=$RENDER_HOME/browsers PATH=$APP_PATH \
-    bunx playwright install --with-deps chromium-headless-shell)
-  chown -R "$RENDER_USER:$RENDER_USER" "$RENDER_HOME"
+    bunx playwright install --with-deps chromium-headless-shell) || return 1
+  chown -R "$RENDER_USER:$RENDER_USER" "$RENDER_HOME" || return 1
   install -m 644 "$d"/pixelslash-render.service "$UNIT_DIR"/
+}
+
+# A renderer that cannot be installed (apt down, a failed browser download) is reported and left
+# out, never a rollback: the release serves, and a bundle build is refused until a deploy installs it.
+install_render_or_skip() {
+  install_render "$1" && return 0
+  echo "pixelslash-render was not installed: a bundle build's finalise answers 502 until a deploy installs it" >&2
+  retire_render
 }
 
 # (Re)starts the renderer, when it is installed, after the web app serves. A renderer that fails is
@@ -332,7 +341,7 @@ rollback() {
   pause_watchdog
   set_current "$prev"
   install_units "$prev"
-  install_render "$prev" || retire_render
+  install_render_or_skip "$prev"
   systemctl daemon-reload
   systemctl restart pixelslash-stub pixelslash-web
   [[ -z $failed || $failed == "$prev" ]] || rm -rf "$failed"
@@ -379,7 +388,7 @@ main() {
   trap 'rollback "$prev" "$unpacked"' ERR HUP INT TERM
   pause_watchdog
   install_units "$rel"
-  install_render "$rel"
+  install_render_or_skip "$rel"
   retire_diff
   retire_helper
   systemctl daemon-reload

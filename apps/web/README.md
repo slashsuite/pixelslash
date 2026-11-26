@@ -672,7 +672,8 @@ RENDER_URL=http://127.0.0.1:3100/jobs
 and deploy the current sha again (`release.sh`, above). `update.sh` then creates the system user
 `pixelslash-render`, installs the release's Playwright Chromium headless shell (with its system
 packages) into `/var/lib/pixelslash-render/browsers`, installs `pixelslash-render.service` and
-restarts it after the web unit. Without `RENDER_URL` a deploy installs none of it, retires a unit a
+restarts it after the web unit. If that install fails, the deploy still serves the release, says so,
+and leaves the renderer out until the next deploy. Without `RENDER_URL` a deploy installs none of it, retires a unit a
 previous deploy left, and the API answers a bundle build `409`, so the CLI says to capture on the
 client. A renderer that does not take a job (down, or 50 builds queued) makes the CLI's finalise a
 `502`; a build the renderer dies under is left `uploading` and ends as an abandoned build does.

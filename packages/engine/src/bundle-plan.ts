@@ -1,4 +1,5 @@
 import { type CaptureConfig, parseConfig } from "./config.ts";
+import { MAX_PLAN_BYTES } from "./bundle-tar.ts";
 import { UsageError } from "./errors.ts";
 
 /**
@@ -34,9 +35,6 @@ const REFUSED: Record<string, string> = {
 
 /** Keys a bundle render has no use for: the renderer serves the bundle, and the upload is the CLI's. */
 const DROPPED = ["start", "baseUrl", "upload"];
-
-/** The most bytes a plan may be as JSON: a config is a few KB. */
-export const MAX_PLAN_BYTES = 64 * 1024;
 
 /** An address the plan is checked at before it is sent; the renderer puts its own in. */
 const CHECK_URL = "http://127.0.0.1:1";

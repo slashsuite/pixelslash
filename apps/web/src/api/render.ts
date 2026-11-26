@@ -1,13 +1,17 @@
-import { and, eq } from "drizzle-orm";
-import { BundleError, checkBundleStart } from "@slashsuite/pixelslash-engine/bundle-tar";
+import {
+  BundleError,
+  MAX_PLAN_BYTES,
+  checkBundleStart,
+} from "@slashsuite/pixelslash-engine/bundle-tar";
 import { ABANDONED_AFTER_MS } from "#/db/abandoned";
 import type { Actor } from "#/db/actor";
 import type { Build } from "#/db/builds";
 import type { Db } from "#/db/db";
-import { builds } from "#/db/schema";
+import { errorRenderBuild, renderBuildRow } from "#/db/render-builds";
 import { type CheckRunDeps, syncCheckRuns } from "#/github/check-run";
 import { type BlobStore, orgBlobs } from "#/storage/blobs";
 import { BadRequest, Unprocessable, bad } from "./errors";
+import { json } from "./endpoint";
 import { jsonBody } from "./json-body";
 import { authorize, bearer } from "./authorize";
 import { isRenderToken, renderToken, renderTokenBuild } from "./render-token";
@@ -29,8 +33,6 @@ export type RenderDispatch = {
 
 /** The largest bundle archive taken, gzipped. */
 export const MAX_BUNDLE_BYTES = 64 * 1024 * 1024;
-/** The largest render plan taken, as JSON: the engine refuses a bigger one before it sends it. */
-export const MAX_PLAN_BYTES = 64 * 1024;
 /** The longest render error kept. */
 const MAX_RENDER_ERROR = 4000;
 
@@ -44,7 +46,6 @@ type RenderCtx = {
 };
 type Owner = { orgId: string };
 
-const json = (body: unknown, status = 200) => Response.json(body, { status });
 const bundleKey = (buildId: string) => `builds/${buildId}/bundle.tar.gz`;
 
 /**
@@ -148,10 +149,9 @@ export async function renderError(ctx: RenderCtx, build: Build, { orgId }: Owner
   const { error } = object(await jsonBody(ctx.request), "body");
   if (typeof error !== "string" || error.trim() === "") bad("error", "must be a message");
   const message = `render failed: ${error.trim()}`.slice(0, MAX_RENDER_ERROR);
-  await ctx.db
-    .update(builds)
-    .set({ status: "errored", error: message })
-    .where(and(eq(builds.id, build.id), eq(builds.status, "uploading")));
+  // A render-error after the build moved on (its finalise landed, the reply was lost) changes nothing.
+  if (!(await errorRenderBuild(ctx.db, build.id, message)))
+    return json({ id: build.id, status: (await renderBuildRow(ctx.db, build.id))?.status });
   await orgBlobs(ctx.store, orgId).delete(bundleKey(build.id));
   if (ctx.checkRuns) await syncCheckRuns({ db: ctx.db, ...ctx.checkRuns }, [build.id]);
   return json({ id: build.id, status: "errored" });
@@ -219,15 +219,7 @@ export async function renderActor(
 ): Promise<{ actor: Actor; buildId: string } | null> {
   const buildId = await renderTokenBuild(deps.imageSecret(), token);
   if (!buildId) return null;
-  const [row] = await deps.db
-    .select({
-      projectId: builds.projectId,
-      status: builds.status,
-      plan: builds.renderPlan,
-      at: builds.createdAt,
-    })
-    .from(builds)
-    .where(eq(builds.id, buildId));
+  const row = await renderBuildRow(deps.db, buildId);
   if (!row || row.plan === null || now - row.at.getTime() > ABANDONED_AFTER_MS) return null;
   if (!["uploading", "processing", "errored"].includes(row.status)) return null;
   return { actor: { kind: "ci", projectId: row.projectId }, buildId };

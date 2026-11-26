@@ -2,8 +2,12 @@ import { describe, expect, test } from "vitest";
 import type { RenderJob } from "@slashsuite/pixelslash-engine";
 import { MAX_QUEUED, renderWorker } from "./render-worker";
 
-const post = (body: unknown) =>
-  new Request("http://127.0.0.1:3100/jobs", { method: "POST", body: JSON.stringify(body) });
+const post = (body: unknown, type = "application/json") =>
+  new Request("http://127.0.0.1:3100/jobs", {
+    method: "POST",
+    body: JSON.stringify(body),
+    headers: { "content-type": type },
+  });
 
 /** A render that waits for `release` before it ends, recording when each job starts and ends. */
 function gatedRender() {
@@ -25,6 +29,9 @@ describe("the render worker", () => {
     const worker = renderWorker(gated.render, (l) => lines.push(l));
     expect((await worker.handle(post({ buildId: "a", token: "psr_a.x" }))).status).toBe(202);
     expect((await worker.handle(post({ buildId: "b", token: "psr_b.x" }))).status).toBe(202);
+    // The same build handed again (a retried finalise), rendering or queued, is not queued twice.
+    for (const id of ["a", "b"])
+      expect((await worker.handle(post({ buildId: id, token: `psr_${id}.x` }))).status).toBe(202);
     const health = await worker.handle(new Request("http://127.0.0.1:3100/health"));
     expect(await health.json()).toEqual({ queued: 1, rendering: "a" });
     expect(gated.events).toEqual(["start a"]);
@@ -44,6 +51,9 @@ describe("the render worker", () => {
     const lines: string[] = [];
     const worker = renderWorker(gated.render, (l) => lines.push(l));
     expect((await worker.handle(post({ buildId: "a" }))).status).toBe(400);
+    // What a page's script can send without a preflight (a no-cors fetch, a form) is not a job.
+    const plain = post({ buildId: "a", token: "t" }, "text/plain");
+    expect((await worker.handle(plain)).status).toBe(415);
     expect((await worker.handle(post({ buildId: "", token: "t" }))).status).toBe(400);
     for (let i = 0; i <= MAX_QUEUED; i++)
       expect((await worker.handle(post({ buildId: `b${i}`, token: "t" }))).status).toBe(202);

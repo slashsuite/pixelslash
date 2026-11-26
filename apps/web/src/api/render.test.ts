@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { eq } from "drizzle-orm";
 import { TAR_END, tarHeader, tarPadding } from "@slashsuite/pixelslash-engine/bundle-tar";
 import { createProject } from "#/db/orgs";
+import { errorRenderBuild } from "#/db/render-builds";
 import { builds } from "#/db/schema";
 import { issueCiToken } from "#/db/tokens";
 import type { ApiDeps } from "./handler";
@@ -227,6 +228,14 @@ describe("the render token", () => {
     expect(row?.status).toBe("errored");
     expect(row?.error).toBe("render failed: story ui-card--default never settled");
     expect(blobs.data.size).toBe(0);
+  });
+
+  test("a render error that loses the race to the finalise changes nothing", async () => {
+    const { db, id } = await dispatched();
+    await db.update(builds).set({ status: "passed" }).where(eq(builds.id, id));
+    expect(await errorRenderBuild(db, id, "render failed: late")).toBe(false);
+    const [row] = await db.select().from(builds).where(eq(builds.id, id));
+    expect(row).toMatchObject({ status: "passed", error: null });
   });
 });
 

@@ -75,6 +75,41 @@ export async function packBundle(dir: string): Promise<PackedBundle> {
   return { gz: Bun.gzipSync(tar), files: ordered.length, bytes, stories };
 }
 
+/** The most a bundle's tar may inflate to: its file bytes plus a header and padding per entry. */
+const MAX_TAR_BYTES = MAX_UNPACKED_BYTES + (MAX_ENTRIES + 1) * 1024;
+
+/**
+ * Inflate a gzipped bundle as a stream and stop at `MAX_TAR_BYTES`, so an archive of a few MB that
+ * inflates to gigabytes is refused before it is held, not after.
+ */
+export async function inflateCapped(
+  gz: Uint8Array<ArrayBuffer>,
+  cap = MAX_TAR_BYTES,
+): Promise<Uint8Array> {
+  const reader = new Blob([gz]).stream().pipeThrough(new DecompressionStream("gzip")).getReader();
+  const parts: Uint8Array[] = [];
+  let total = 0;
+  try {
+    for (let read = await reader.read(); !read.done; read = await reader.read()) {
+      total += read.value.length;
+      if (total > cap)
+        throw new BundleError(`bundle: unpacks to more than ${MAX_UNPACKED_BYTES} bytes`);
+      parts.push(read.value);
+    }
+  } catch (e) {
+    await reader.cancel().catch(() => {});
+    if (e instanceof BundleError) throw e;
+    throw new BundleError("bundle: not a gzip archive");
+  }
+  const tar = new Uint8Array(total);
+  let at = 0;
+  for (const part of parts) {
+    tar.set(part, at);
+    at += part.length;
+  }
+  return tar;
+}
+
 /**
  * Unpack a bundle archive into `dest`, which must be empty or not exist. Every path is checked
  * first (`checkEntryPath`), so nothing is written outside `dest`; a link or a device is refused.
@@ -84,12 +119,7 @@ export async function unpackBundle(
   gz: Uint8Array<ArrayBuffer>,
   dest: string,
 ): Promise<{ stories: number }> {
-  let tar: Uint8Array;
-  try {
-    tar = Bun.gunzipSync(gz);
-  } catch {
-    throw new BundleError("bundle: not a gzip archive");
-  }
+  const tar = await inflateCapped(gz);
   await mkdir(dest, { recursive: true });
   let stories: number | undefined;
   for (const entry of tarEntries(tar)) {
