@@ -23,8 +23,9 @@ Read this before you put it on the internet.
   sign in and use your storage and compute for theirs.
 - To keep it to your team, set `PIXELSLASH_ALLOWED_GITHUB_LOGINS` to their GitHub logins, comma-separated. Any
   other login is refused at the callback with a page that names it, and no user is saved for it; a session
-  whose login is later taken off the list counts as signed out. With a list set, Google sign-in is off, since a
-  Google account proves no GitHub login. You can also put it behind
+  whose login is later taken off the list counts as signed out. The API tokens that login made still
+  work until a member of their org revokes them in its settings. With a list set, Google sign-in is off,
+  since a Google account proves no GitHub login. You can also put it behind
   [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/) or run it on your own
   box on a network you trust.
 - `SECURITY.md` lists the hardening that is on by default (model host guard, stub refusal, rate limits).

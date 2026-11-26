@@ -165,7 +165,7 @@ jobs:
           # The Docker self-host: the web list, plus the image's own files and the workspace list its
           # install reads.
           if git diff --name-only "origin/$BASE_REF...HEAD" \
-            | grep -qE '^(apps/web/|packages/|fixtures/|docker/self-host/|\.dockerignore$|package\.json$|bun\.lock$|bunfig\.toml$|\.tool-versions$|\.github/workflows/ci\.yml$|\.github/actions/)'; then
+            | grep -qE '^(apps/web/|packages/|fixtures/|docker/self-host/|\.dockerignore$|scripts/test-tmp-scope\.ts$|package\.json$|\.moon/|tsconfig\.base\.json$|bun\.lock$|bunfig\.toml$|\.tool-versions$|\.github/workflows/ci\.yml$|\.github/actions/)'; then
             echo "self_host=true" >> "$GITHUB_OUTPUT"
           else
             echo "self_host=false" >> "$GITHUB_OUTPUT"

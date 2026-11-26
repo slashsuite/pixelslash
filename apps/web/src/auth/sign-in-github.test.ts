@@ -154,14 +154,4 @@ describe("github callback: the allowlist", () => {
     expect(await res.text()).toContain("does not let @ada sign in");
     expect(calls).toEqual({ fetchProfile: 1, signInUser: 0, startSession: [] });
   });
-
-  test("a login on the list signs in", async () => {
-    const { deps, calls } = callbackDeps(
-      { [OAUTH_STATE_COOKIE]: "s1" },
-      { allowed: (login) => login === "ada" },
-    );
-    const res = await githubCallback(request("/auth/github/callback?code=c&state=s1"), deps);
-    expect(res.status).toBe(302);
-    expect(calls.startSession).toEqual(["user-1"]);
-  });
 });

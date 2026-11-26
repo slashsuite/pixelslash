@@ -71,7 +71,7 @@ export async function githubCallback(
 }
 
 /** The page a GitHub login off the deployment's allowlist gets: plain text, so the login is never markup. */
-export const notAllowed = (login: string): Response =>
+const notAllowed = (login: string): Response =>
   new Response(
     `This server does not let @${login} sign in. Ask its operator to add your GitHub login ` +
       "to PIXELSLASH_ALLOWED_GITHUB_LOGINS.",
