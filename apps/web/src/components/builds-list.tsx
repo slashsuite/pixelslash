@@ -1,4 +1,5 @@
 import {
+  Button,
   Caption,
   Card,
   Cluster,
@@ -13,13 +14,84 @@ import {
   Text,
   TextLink,
 } from "@slashsuite/ui-react";
+import { type ReactNode, useState } from "react";
 import { MixBar, ToReview, stripeToneOf } from "#/components/build-mix";
 import { StatusBadge } from "#/components/ui";
 import type { BuildSummary } from "#/db/build-list";
+import { type ListItem, foldQuiet } from "#/lib/build-folds";
 import { formatRelative } from "#/lib/format";
 import { hrefTo } from "#/lib/href";
 
-/** The builds: a stacked card each on a phone, the table from the kit's `sm` up. */
+type Fold = Extract<ListItem<BuildSummary>, { kind: "fold" }>;
+
+/**
+ * The open folds, by key, and `each`, which draws the list: a closed fold hides its builds, an open
+ * one shows them after its own line, so the control stays where it was clicked.
+ */
+function useFolds(builds: BuildSummary[], defaultBranch: string) {
+  const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
+  const toggle = (key: string) =>
+    setOpen((was) => {
+      const next = new Set(was);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
+  const items = foldQuiet(builds, defaultBranch);
+  return (
+    build: (b: BuildSummary) => ReactNode,
+    fold: (f: Fold, line: ReactNode) => ReactNode,
+  ): ReactNode[] =>
+    items.flatMap((item) => {
+      if (item.kind === "build") return [build(item.build)];
+      const isOpen = open.has(item.key);
+      const line = (
+        <FoldLine
+          fold={item}
+          defaultBranch={defaultBranch}
+          open={isOpen}
+          onToggle={() => toggle(item.key)}
+        />
+      );
+      return [fold(item, line), ...(isOpen ? item.builds.map(build) : [])];
+    });
+}
+
+/** A fold's own line: how many auto-accepted builds it holds, and the control that shows them. */
+function FoldLine({
+  fold,
+  defaultBranch,
+  open,
+  onToggle,
+}: {
+  fold: Fold;
+  defaultBranch: string;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const count = fold.builds.length;
+  return (
+    <Cluster gap="sm" data-testid="build-fold">
+      <Text as="span" tone="muted">
+        {count} more {defaultBranch} build{count === 1 ? "" : "s"}, auto-accepted
+      </Text>
+      <Button
+        variant="link"
+        size="sm"
+        aria-expanded={open}
+        data-testid="build-fold-toggle"
+        onClick={onToggle}
+      >
+        {open ? "Hide" : "Show"}
+      </Button>
+    </Cluster>
+  );
+}
+
+/**
+ * The builds: a stacked card each on a phone, the table from the kit's `sm` up. A run of main
+ * builds that passed with nothing to review is the noise of a busy project, so each run keeps its
+ * newest and folds the rest behind a line that says how many (`foldQuiet`).
+ */
 export function BuildsList({
   projectId,
   defaultBranch,
@@ -31,21 +103,27 @@ export function BuildsList({
   builds: BuildSummary[];
   now: Date;
 }) {
+  const each = useFolds(builds, defaultBranch);
   return (
     <>
       {/* A phone gets one stacked row per build; the table, which the kit scrolls sideways, would hide three of its five columns. */}
       <div className="sm:hidden">
         <Card flush>
           <Stack divided>
-            {builds.map((build) => (
-              <BuildCard
-                key={build.id}
-                projectId={projectId}
-                defaultBranch={defaultBranch}
-                build={build}
-                now={now}
-              />
-            ))}
+            {each(
+              (build) => (
+                <BuildCard
+                  key={build.id}
+                  projectId={projectId}
+                  defaultBranch={defaultBranch}
+                  build={build}
+                  now={now}
+                />
+              ),
+              (fold, line) => (
+                <ListRow key={`fold-${fold.key}`}>{line}</ListRow>
+              ),
+            )}
           </Stack>
         </Card>
       </div>
@@ -61,15 +139,22 @@ export function BuildsList({
             </TableRow>
           </TableHead>
           <TableBody>
-            {builds.map((build) => (
-              <BuildRow
-                key={build.id}
-                projectId={projectId}
-                defaultBranch={defaultBranch}
-                build={build}
-                now={now}
-              />
-            ))}
+            {each(
+              (build) => (
+                <BuildRow
+                  key={build.id}
+                  projectId={projectId}
+                  defaultBranch={defaultBranch}
+                  build={build}
+                  now={now}
+                />
+              ),
+              (fold, line) => (
+                <TableRow key={`fold-${fold.key}`}>
+                  <TableCell span="full">{line}</TableCell>
+                </TableRow>
+              ),
+            )}
           </TableBody>
         </Table>
       </div>

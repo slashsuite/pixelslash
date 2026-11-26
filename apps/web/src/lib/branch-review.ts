@@ -3,6 +3,7 @@ import type { DiffResult, DiffStatus } from "#/db/schema";
 import { formatNumber } from "./format";
 import { movedSuffix, regionCounts } from "./region-counts";
 import { groupOf } from "./snapshot-groups";
+import { viewportLabel } from "./viewport-label";
 
 /**
  * The branch page (ob 1723): the newest build of a branch read against main, from what the diff
@@ -121,7 +122,7 @@ export type ChangeLine = {
 };
 
 const variantOf = (shot: SnapshotView) =>
-  `${shot.platform} · ${shot.browser} · ${shot.viewport} · ${shot.theme}`;
+  `${shot.platform} · ${shot.browser} · ${viewportLabel(shot.viewport)} · ${shot.theme}`;
 
 const byWhom = (by: string | null) => (by ? ` by ${by}` : "");
 

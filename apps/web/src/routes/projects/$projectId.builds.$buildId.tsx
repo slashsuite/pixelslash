@@ -15,6 +15,7 @@ import { BUILD_TABS, type BuildTab, defaultTab, setsBaseline, tabCounts } from "
 import { awaitsDecision } from "#/lib/snapshot-groups";
 import { useRefreshWhile } from "#/lib/use-refresh-while";
 import { acceptBuild, getBuildPage } from "#/server/fns";
+import { titled } from "#/lib/page-title";
 
 export const Route = createFileRoute("/projects/$projectId/builds/$buildId")({
   validateSearch: (search: Record<string, unknown>): { tab?: BuildTab } => {
@@ -23,6 +24,8 @@ export const Route = createFileRoute("/projects/$projectId/builds/$buildId")({
   },
   loader: ({ params }) =>
     getBuildPage({ data: { projectId: params.projectId, buildId: params.buildId } }),
+  head: ({ loaderData }) =>
+    titled(loaderData && `Build ${loaderData.build.branch}`, loaderData?.project.name),
   component: BuildPage,
 });
 

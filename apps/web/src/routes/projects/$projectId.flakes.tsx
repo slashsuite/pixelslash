@@ -23,9 +23,11 @@ import { Page, useHydrated } from "#/components/ui";
 import { formatRelative } from "#/lib/format";
 import { type FlakeView, getFlakesPage, saveFlakeStatus } from "#/server/flakes";
 import { hrefTo } from "#/lib/href";
+import { titled } from "#/lib/page-title";
 
 export const Route = createFileRoute("/projects/$projectId/flakes")({
   loader: ({ params }) => getFlakesPage({ data: { projectId: params.projectId } }),
+  head: ({ loaderData }) => titled("Flakes", loaderData?.project.name),
   component: FlakesPage,
 });
 

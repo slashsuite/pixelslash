@@ -19,6 +19,7 @@ import { BUILD_TABS, type BuildTab } from "#/lib/build-tabs";
 import { type ShotLabel, shotLabeller } from "#/lib/shot-label";
 import { GROUP_LABEL, type SnapshotGroup, reviewGroupOf } from "#/lib/snapshot-groups";
 import { hrefTo } from "#/lib/href";
+import { viewportLabel } from "#/lib/viewport-label";
 
 export function BuildTabs({
   projectId,
@@ -87,7 +88,7 @@ function ShotRows({
                 <MetaList>
                   {shot.platform}
                   {shot.browser}
-                  {shot.viewport}
+                  {viewportLabel(shot.viewport)}
                   {shot.theme}
                 </MetaList>
                 <Text as="span" tone="muted">

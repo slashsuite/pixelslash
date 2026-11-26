@@ -94,7 +94,7 @@ function IssueForm({ orgId, onIssued }: { orgId: string; onIssued: (token: strin
       <Cluster gap="sm">
         <Input
           aria-label="Org token name, e.g. monorepo CI"
-          placeholder="Token name, e.g. monorepo CI"
+          placeholder="e.g. monorepo CI"
           value={name}
           onChange={(e) => setName(e.target.value)}
           width="lg"

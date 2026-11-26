@@ -20,6 +20,7 @@ import { Page, useHydrated } from "#/components/ui";
 import { getProjectPage } from "#/server/fns";
 import { getSubprojects } from "#/server/subprojects";
 import { hrefTo } from "#/lib/href";
+import { titled } from "#/lib/page-title";
 
 export const Route = createFileRoute("/projects/$projectId/")({
   loader: async ({ params }) => {
@@ -30,6 +31,7 @@ export const Route = createFileRoute("/projects/$projectId/")({
     ]);
     return { ...page, subprojects };
   },
+  head: ({ loaderData }) => titled(loaderData?.project.name, loaderData?.org.name),
   component: ProjectPage,
 });
 

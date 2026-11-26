@@ -13,6 +13,9 @@ const RELATIVE_TIMES = ['[data-testid="rel-time"]'];
 export default {
   ...orgs,
   routes: [
+    // The org header, its tabs and rail, and the empty org's one call to action.
+    { path: "/orgs?org=org-hackcove", name: "orgs-projects", ignore: RELATIVE_TIMES },
+    { path: "/orgs?org=org-fresh", name: "orgs-empty" },
     { path: "/projects/proj-web", name: "project", ignore: RELATIVE_TIMES },
     { path: "/projects/proj-web/builds/b-web-2", name: "build" },
     { path: "/projects/proj-web/builds/b-web-2/snapshots/b-web-2-s0", name: "snapshot" },

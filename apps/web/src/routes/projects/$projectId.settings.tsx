@@ -33,6 +33,7 @@ import { formatDateTime } from "#/lib/format";
 import type { DiffLocation } from "#/db/schema";
 import { getProjectSettings, issueToken, revokeToken, saveDiffLocation } from "#/server/fns";
 import { getTwinOptions } from "#/server/twin-fns";
+import { titled } from "#/lib/page-title";
 
 export const Route = createFileRoute("/projects/$projectId/settings")({
   loader: async ({ params }) => {
@@ -43,6 +44,7 @@ export const Route = createFileRoute("/projects/$projectId/settings")({
     ]);
     return { ...settings, twinOptions };
   },
+  head: ({ loaderData }) => titled("Settings", loaderData?.project.name),
   component: ProjectSettings,
 });
 

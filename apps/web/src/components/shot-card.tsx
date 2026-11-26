@@ -17,7 +17,7 @@ import {
   holdsChange,
   skippedFlaky,
 } from "#/lib/snapshot-groups";
-import { type ShotLabel, shotChips } from "#/lib/shot-label";
+import { type ShotLabel, shownChips } from "#/lib/shot-label";
 import { THUMB_RATIO, coversMostOfShot, thumbWindow } from "#/lib/thumb-crop";
 import { hrefTo } from "#/lib/href";
 
@@ -265,7 +265,7 @@ export function ShotCard({
             )}
           </Cluster>
           <Cluster gap="xs">
-            {shotChips(shot, label).map((chip) => (
+            {shownChips(shot, label).map((chip) => (
               <Pill key={chip}>{chip}</Pill>
             ))}
           </Cluster>

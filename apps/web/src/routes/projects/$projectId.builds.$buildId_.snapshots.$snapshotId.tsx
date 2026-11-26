@@ -28,6 +28,7 @@ import { useWalk } from "#/lib/use-walk";
 import { usePanelFold } from "#/lib/use-panel-fold";
 import { basesOf } from "#/lib/viewer-bases";
 import { getSnapshotPage, reviewShot } from "#/server/fns";
+import { titled } from "#/lib/page-title";
 
 export const Route = createFileRoute("/projects/$projectId/builds/$buildId_/snapshots/$snapshotId")(
   {
@@ -39,6 +40,7 @@ export const Route = createFileRoute("/projects/$projectId/builds/$buildId_/snap
           snapshotId: params.snapshotId,
         },
       }),
+    head: ({ loaderData }) => titled(loaderData?.snapshot.name, loaderData?.project.name),
     component: SnapshotPage,
   },
 );

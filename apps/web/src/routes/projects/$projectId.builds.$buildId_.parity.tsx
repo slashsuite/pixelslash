@@ -4,6 +4,7 @@ import { buildCrumb, orgCrumb, projectCrumbs } from "#/components/crumbs";
 import { ParityBody } from "#/components/parity-view";
 import { Page } from "#/components/ui";
 import { getParityPage } from "#/server/parity-page";
+import { titled } from "#/lib/page-title";
 
 type Search = { name: string; theme: string };
 
@@ -17,6 +18,8 @@ export const Route = createFileRoute("/projects/$projectId/builds/$buildId_/pari
     getParityPage({
       data: { projectId: params.projectId, buildId: params.buildId, ...deps },
     }),
+  head: ({ loaderData }) =>
+    titled(loaderData && `Parity ${loaderData.parity.name}`, loaderData?.project.name),
   component: ParityPage,
 });
 

@@ -35,12 +35,15 @@ import { formatDateTime } from "#/lib/format";
 import { getBranchPage } from "#/server/branch";
 import { reviewShot } from "#/server/fns";
 import { hrefTo } from "#/lib/href";
+import { titled } from "#/lib/page-title";
 
 export const Route = createFileRoute("/projects/$projectId/branches/$branch")({
   validateSearch: (search: Record<string, unknown>): { mode?: "since" } =>
     search.mode === "since" ? { mode: "since" } : {},
   loader: ({ params }) =>
     getBranchPage({ data: { projectId: params.projectId, branch: params.branch } }),
+  head: ({ loaderData }) =>
+    titled(loaderData && `Branch ${loaderData.build.branch}`, loaderData?.project.name),
   component: BranchPage,
 });
 

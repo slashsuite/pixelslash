@@ -26,9 +26,11 @@ import { Page, useHydrated } from "#/components/ui";
 import { formatDateTime } from "#/lib/format";
 import { TOKEN_EXPIRY_DAYS } from "#/lib/token-expiry";
 import { getAccountSettings, issuePersonalToken, revokePersonalToken } from "#/server/account";
+import { titled } from "#/lib/page-title";
 
 export const Route = createFileRoute("/settings")({
   loader: () => getAccountSettings(),
+  head: () => titled("Settings"),
   component: AccountSettings,
 });
 
@@ -40,34 +42,38 @@ function AccountSettings() {
   return (
     <Page>
       <ListLayout breadcrumbs={<Breadcrumbs items={["Settings"]} />} title="Settings">
-        <Card>
-          <Stack gap="md">
-            <Stack gap="xs">
-              <SectionHeading>API tokens</SectionHeading>
-              <Text>
-                The CLI and MCP server act as you with a personal token: they see the organizations
-                and projects you see here. It is shown once, when issued. For CI, issue a project's
-                CI token in its settings instead.
-              </Text>
+        {/* The card is as wide as a reading measure, so its paragraph fills it rather than stopping
+            two thirds of the way across. */}
+        <Stack width="narrow">
+          <Card>
+            <Stack gap="md">
+              <Stack gap="xs">
+                <SectionHeading>API tokens</SectionHeading>
+                <Text>
+                  The CLI and MCP server act as you with a personal token: they see the
+                  organizations and projects you see here. It is shown once, when issued. For CI,
+                  issue a project's CI token in its settings instead.
+                </Text>
+              </Stack>
+              {issued && (
+                <Callout tone="warn" title="Copy this token now. It will not be shown again.">
+                  <CopyLine text={issued} label="token" data-testid="issued-token" />
+                </Callout>
+              )}
+              <IssueForm onIssued={setIssued} />
+              <TokenTable tokens={tokens} now={now} hydrated={hydrated} />
+              <Stack gap="sm">
+                <Text>Check a token from your machine with:</Text>
+                <CopyLine
+                  label="token check command"
+                  text={`curl -H "Authorization: Bearer $PIXELSLASH_TOKEN" ${serverUrl}/api/v1/me`}
+                  disabled={!hydrated}
+                  data-testid="token-usage"
+                />
+              </Stack>
             </Stack>
-            {issued && (
-              <Callout tone="warn" title="Copy this token now. It will not be shown again.">
-                <CopyLine text={issued} label="token" data-testid="issued-token" />
-              </Callout>
-            )}
-            <IssueForm onIssued={setIssued} />
-            <TokenTable tokens={tokens} now={now} hydrated={hydrated} />
-            <Stack gap="sm">
-              <Text>Check a token from your machine with:</Text>
-              <CopyLine
-                label="token check command"
-                text={`curl -H "Authorization: Bearer $PIXELSLASH_TOKEN" ${serverUrl}/api/v1/me`}
-                disabled={!hydrated}
-                data-testid="token-usage"
-              />
-            </Stack>
-          </Stack>
-        </Card>
+          </Card>
+        </Stack>
       </ListLayout>
     </Page>
   );

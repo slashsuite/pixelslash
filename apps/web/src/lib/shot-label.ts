@@ -1,3 +1,5 @@
+import { viewportLabel } from "./viewport-label";
+
 /**
  * A shot's name is a key, not a title: the Storybook capture slugs `<title> <story>` into one
  * hyphenated run and appends `@<global>=<value>` per global (`ui-callout-tones@theme=default`).
@@ -49,6 +51,16 @@ export function shotChips(shot: { theme: string; viewport: string }, label: Shot
       chips.push(`${titleWords(variant.key)}: ${titleWords(variant.value)}`);
   }
   return chips.filter((chip) => chip.length > 0);
+}
+
+/**
+ * The chips as a page shows them: `shotChips` with the viewport named ("Phone 390x844"), so a
+ * story shot at two widths reads as two shots. The model's prompt keeps the bare size.
+ */
+export function shownChips(shot: { theme: string; viewport: string }, label: ShotLabel): string[] {
+  return shotChips(shot, label).map((chip) =>
+    chip === shot.viewport ? viewportLabel(chip) : chip,
+  );
 }
 
 /**

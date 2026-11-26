@@ -15,6 +15,7 @@ import type { OrgOverview } from "#/db/orgs";
 import type { ProjectTimings } from "#/db/timings-stats";
 import { getOrgs, invite, newOrg, newProject, withdrawOrgInvite } from "#/server/fns";
 import { getOrgTimings } from "#/server/timings";
+import { titled } from "#/lib/page-title";
 
 type OrgsSearch = { org?: string; tab?: "members" | "tokens" | "model" | "timings" };
 
@@ -45,6 +46,13 @@ export const Route = createFileRoute("/orgs")({
     const timings: ProjectTimings[] | null =
       deps.timings && timingsOf ? await getOrgTimings({ data: { orgId: timingsOf.id } }) : null;
     return { ...data, timings };
+  },
+  head: ({ loaderData, match }) => {
+    const orgs = loaderData?.orgs ?? [];
+    const org = orgs.find((o) => o.id === match.search.org) ?? orgs[0];
+    if (!org) return titled("Organizations");
+    const tab = match.search.tab ?? "projects";
+    return titled(tab[0]?.toUpperCase() + tab.slice(1), org.name);
   },
   component: Orgs,
 });
@@ -199,23 +207,13 @@ function ProjectsPanel({
   now,
   serverUrl,
   hydrated,
-  onDialog,
 }: {
   org: OrgOverview;
   now: Date;
   serverUrl: string;
   hydrated: boolean;
-  onDialog: (kind: DialogKind) => void;
 }) {
-  if (org.projects.length === 0) {
-    return (
-      <EmptyOrg
-        serverUrl={serverUrl}
-        onNewProject={() => onDialog("project")}
-        hydrated={hydrated}
-      />
-    );
-  }
+  if (org.projects.length === 0) return <EmptyOrg serverUrl={serverUrl} hydrated={hydrated} />;
   return (
     <Stack>
       <WaitingStrip org={org} />
@@ -276,13 +274,7 @@ function OrgPanel({
         />
       )}
       {tab === "projects" && (
-        <ProjectsPanel
-          org={org}
-          now={now}
-          serverUrl={serverUrl}
-          hydrated={hydrated}
-          onDialog={onDialog}
-        />
+        <ProjectsPanel org={org} now={now} serverUrl={serverUrl} hydrated={hydrated} />
       )}
     </>
   );

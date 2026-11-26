@@ -98,7 +98,8 @@ test("create an org, a project and a CI token by clicking; an empty org says wha
 
   await pending.getByRole("button", { name: /Withdraw/ }).click();
   await expect(page.getByTestId("invite-row")).toHaveCount(0);
-  await expect(page.getByTestId("org-people")).toContainText("0 invites pending");
+  // No invite left: the header says nothing of invites.
+  await expect(page.getByTestId("org-people")).toHaveText("1 member");
 
   // The Timings tab: the link, the ?tab=timings URL and the loader that reads the builds. With no
   // build yet it says so (the rows and the numbers are render and query tests).

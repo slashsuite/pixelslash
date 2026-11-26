@@ -17,6 +17,7 @@ import type { ChangeTotals, CommitReviewGroup } from "#/db/commit-review";
 import type { SnapshotView } from "#/db/review";
 import { awaitsDecision } from "#/lib/snapshot-groups";
 import { hrefTo } from "#/lib/href";
+import { viewportLabel } from "#/lib/viewport-label";
 
 /*
  * The parts of the commit's combined review (`/projects/$projectId/commits/$sha`): a section per
@@ -124,7 +125,7 @@ function ChangeRow({
           <MetaList>
             {shot.platform}
             {shot.browser}
-            {shot.viewport}
+            {viewportLabel(shot.viewport)}
             {shot.theme}
           </MetaList>
         </Cluster>

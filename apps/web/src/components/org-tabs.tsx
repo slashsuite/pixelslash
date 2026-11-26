@@ -1,4 +1,4 @@
-import { AvatarStack, Button, Cluster, PageHeader, Tabs } from "@slashsuite/ui-react";
+import { AvatarStack, Button, Cluster, PageHeader, Tabs, Text } from "@slashsuite/ui-react";
 import { hrefTo } from "#/lib/href";
 import type { OrgOverview } from "#/db/orgs";
 import { plural } from "./org-projects";
@@ -30,11 +30,11 @@ export function OrgHeader({
             size="md"
             aria-hidden="true"
           />
-          <span data-testid="org-people">
+          {/* Secondary text, not the title's subtitle; no invites says nothing. */}
+          <Text as="span" data-testid="org-people">
             {plural(org.members.length, "member")}
-            {" · "}
-            {pending} {pending === 1 ? "invite" : "invites"} pending
-          </span>
+            {pending > 0 && ` · ${pending} ${pending === 1 ? "invite" : "invites"} pending`}
+          </Text>
         </Cluster>
       }
       actions={
