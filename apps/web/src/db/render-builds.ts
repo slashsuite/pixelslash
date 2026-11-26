@@ -31,7 +31,7 @@ export async function errorRenderBuild(db: Db, buildId: string, message: string)
 
 /** What a superseded build's `error` says: the newer head, so the reader knows where to look. */
 export const supersededReason = (commitSha: string, prNumber: number) =>
-  `superseded: commit ${commitSha.slice(0, 7)} of pull request #${prNumber} was uploaded after this build, so it was not rendered`;
+  `superseded: commit ${commitSha.slice(0, 7)} of pull request #${prNumber} is a newer head, so this build was not rendered`;
 
 /**
  * A new head of a pull request makes the bundle builds of its older heads moot: they would render,
@@ -40,17 +40,25 @@ export const supersededReason = (commitSha: string, prNumber: number) =>
  * and the root's subprojects) on that pull request that is still `uploading` at an older head, and
  * return the ended ids.
  *
- * Older is by arrival: a head is older when its first build on the pull request, in the group, came
- * before `commitSha`'s first. Git cannot say it (`ancestorShas` are the merge-base's, not the
- * head's), and arrival keeps a late build of an old run (one CI did not cancel in time) from ending
- * the new head's builds: its commit was seen first. A client capture is never ended: its own run
- * sends its shots, and that run is CI's to cancel. Each update holds `uploading`, so a build that
- * finalised meanwhile stays as it is.
+ * Older is by push, as CI saw it: a waiting build is older when its CI run (`ciRunId`, GitHub's run
+ * id, which counts up in the order a repository's pushes come in and survives a re-run) is lower
+ * than the new build's. So push A then B stays A older even when B's run uploads first, a late
+ * build of A's run (one CI did not cancel in time) ends nothing of B's, and a force-push back to A
+ * is a new run that ends B's. When either build has no run id (another CI, a local upload), it
+ * falls back to arrival: a head is older when its first build on the pull request, in the group,
+ * came before `commitSha`'s first. Git cannot say it (`ancestorShas` are the merge-base's, not
+ * the head's). A client capture is never ended: its own
+ * run sends its shots, and that run is CI's to cancel. Each update holds `uploading`, so a build
+ * that finalised meanwhile stays as it is.
  */
 export async function supersedeBundleBuilds(
   db: Db,
   projectId: string,
-  { commitSha, prNumber }: { commitSha: string; prNumber: number | null },
+  {
+    commitSha,
+    prNumber,
+    ciRunId = null,
+  }: { commitSha: string; prNumber: number | null; ciRunId?: number | null },
 ): Promise<string[]> {
   if (prNumber === null) return [];
   const [project] = await db
@@ -65,7 +73,7 @@ export async function supersedeBundleBuilds(
     .where(or(eq(projects.id, root), eq(projects.parentProjectId, root)));
   const onPr = and(inArray(builds.projectId, group), eq(builds.prNumber, prNumber));
   const waiting = await db
-    .select({ id: builds.id, commitSha: builds.commitSha })
+    .select({ id: builds.id, commitSha: builds.commitSha, ciRunId: builds.ciRunId })
     .from(builds)
     .where(
       and(
@@ -84,10 +92,14 @@ export async function supersedeBundleBuilds(
     .groupBy(builds.commitSha);
   const first = new Map(firsts.map((f) => [f.commitSha, f.at?.getTime() ?? Infinity]));
   const head = first.get(commitSha) ?? Infinity;
+  const older = (b: { commitSha: string; ciRunId: number | null }) =>
+    b.ciRunId !== null && ciRunId !== null
+      ? b.ciRunId < ciRunId
+      : (first.get(b.commitSha) ?? Infinity) < head;
   const error = supersededReason(commitSha, prNumber);
   const ended: string[] = [];
   for (const b of waiting) {
-    if ((first.get(b.commitSha) ?? Infinity) >= head) continue;
+    if (!older(b)) continue;
     if (await errorRenderBuild(db, b.id, error)) ended.push(b.id);
   }
   return ended;

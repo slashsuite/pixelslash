@@ -92,6 +92,45 @@ describe("a newer head of a pull request", () => {
     expect(deletes.toSorted()).toEqual(dropped(late, same));
   });
 
+  test("orders heads by their CI run, so an older push that uploads late ends nothing of the newer head's", async () => {
+    const { deletes, open, statusOf } = await renderingServer();
+    // Push OLD (run 100), then NEW (run 101); NEW's run reaches the server first.
+    const fresh = await open(head(NEW, { ciRunId: 101 }));
+    const late = await open(head(OLD, { ciRunId: 100 }));
+    expect((await statusOf(fresh))?.status).toBe("uploading");
+    expect(deletes).toEqual([]);
+    // NEW's next build (a re-run keeps the run id) ends the late OLD one.
+    await open(head(NEW, { ciRunId: 101 }));
+    expect((await statusOf(late))?.status).toBe("errored");
+    expect((await statusOf(fresh))?.status).toBe("uploading");
+    expect(deletes).toEqual(dropped(late));
+  });
+
+  test("a force-push back to an older commit is a new run, so it ends the head it replaced", async () => {
+    const { open, statusOf } = await renderingServer();
+    await open(head(OLD, { ciRunId: 100 }));
+    const fresh = await open(head(NEW, { ciRunId: 101 }));
+    // OLD again, pushed after NEW: its new run outranks NEW's though OLD's first build came first.
+    await open(head(OLD, { ciRunId: 102 }));
+    expect((await statusOf(fresh))?.status).toBe("errored");
+  });
+
+  test("a head with no CI run is ordered by arrival", async () => {
+    const { open, statusOf } = await renderingServer();
+    const fresh = await open(head(NEW, { ciRunId: 101 }));
+    // OLD has no run id, so it counts as newer by arrival and ends NEW's build.
+    await open(head(OLD));
+    expect((await statusOf(fresh))?.status).toBe("errored");
+  });
+
+  test("a run id that is not a positive integer is a 400", async () => {
+    const { deps, acme } = await renderingServer();
+    for (const ciRunId of [0, -1, 1.5, "12"])
+      expect(
+        (await call(deps, "POST /api/v1/builds", acme.token, head(NEW, { ciRunId }))).status,
+      ).toBe(400);
+  });
+
   test("a renderer that cannot be reached does not fail the new build", async () => {
     const { deps, acme, open, statusOf } = await renderingServer(false);
     const old = await open(head(OLD));

@@ -30,6 +30,7 @@ describe("gitContext", () => {
       branch: "feat",
       mergeBaseSha: fork,
       prNumber: null,
+      ciRunId: null,
     });
     // The merge-base's own history, not the branch's: main's, nearest first.
     expect(ctx.ancestorShas).toEqual(
@@ -62,11 +63,21 @@ describe("gitContext", () => {
   test("CI's env names the branch and the PR; flags win", async () => {
     const { dir } = await repo(1, 1);
     await git(dir, "checkout", "-q", "--detach");
-    const env = { GITHUB_HEAD_REF: "feature/x", GITHUB_REF: "refs/pull/42/merge" };
+    const env = {
+      GITHUB_HEAD_REF: "feature/x",
+      GITHUB_REF: "refs/pull/42/merge",
+      GITHUB_RUN_ID: "19876543210",
+    };
     expect(await gitContext(gitOpts(dir, { env }))).toMatchObject({
       branch: "feature/x",
       prNumber: 42,
+      ciRunId: 19876543210,
     });
+    // A run id that is not a whole positive number is no run id, never a guess.
+    for (const GITHUB_RUN_ID of ["", "0", "12a", "-3", "1.5"])
+      expect((await gitContext(gitOpts(dir, { env: { ...env, GITHUB_RUN_ID } }))).ciRunId).toBe(
+        null,
+      );
     expect(await gitContext(gitOpts(dir, { env, branch: "b", pr: 7 }))).toMatchObject({
       branch: "b",
       prNumber: 7,

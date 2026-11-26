@@ -198,6 +198,12 @@ export const builds = sqliteTable(
     ancestorShas: text("ancestor_shas", { mode: "json" }).$type<string[]>().notNull().default([]),
     prNumber: integer("pr_number"),
     /**
+     * The CI run that opened the build (`GITHUB_RUN_ID`), null when the client sent none. GitHub
+     * numbers a repository's runs in push order, so it orders a pull request's heads when two
+     * runs upload out of order (`supersedeBundleBuilds`).
+     */
+    ciRunId: integer("ci_run_id"),
+    /**
      * The uploader's brief (PS-232): their own words on what the build meant to change, trimmed, at
      * most `BRIEF_LIMIT` characters; null when none was sent. Read by the summary, decides nothing.
      */
