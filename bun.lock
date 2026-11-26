@@ -100,7 +100,7 @@
     },
     "packages/cli": {
       "name": "@slashsuite/pixelslash",
-      "version": "0.8.0",
+      "version": "0.9.0",
       "bin": {
         "pixelslash": "dist/index.js",
       },
