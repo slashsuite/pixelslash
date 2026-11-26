@@ -39,10 +39,11 @@ ENV NODE_ENV=production \
     PORT=3000
 # The Worker in dist is bundled, diff.wasm included, and start.ts needs only Miniflare to run it: so
 # the runtime installs this directory's package.json alone (Miniflare, pinned as apps/web pins it),
-# not the app's build and browser dependencies.
+# not the app's build and browser dependencies. Hoisted, so Miniflare sits in the root node_modules,
+# where start.ts finds it: bun.lock's config would otherwise pick the isolated linker.
 COPY package.json bun.lock ./
 COPY docker/self-host/package.json docker/self-host/
-RUN bun install --frozen-lockfile --production
+RUN bun install --frozen-lockfile --production --linker hoisted
 COPY apps/web/deploy apps/web/deploy
 COPY apps/web/drizzle apps/web/drizzle
 COPY --from=build /opt/pixelslash/apps/web/dist apps/web/dist

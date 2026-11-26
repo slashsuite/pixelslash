@@ -72,5 +72,3 @@ tasks:
     command: "bun run playwright test -c deploy/docker/playwright.config.ts"
     inputs:
       - "$CI"
-      - "/docker/self-host/**/*"
-      - "/.dockerignore"
