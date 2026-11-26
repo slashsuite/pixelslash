@@ -252,7 +252,7 @@ async function compareIn(
   await mkdir(out, { recursive: true });
   const paths = { main: opts.mainDir, branch: opts.branchDir, out, varied };
   // Each matched pair's dir is named in Branch's order before any diff starts, as one at a time did.
-  // A new shot gets a dir too: its PNG is copied there, so the report shows it (PS-618).
+  // A new shot gets a dir too: its PNG is copied there, so the report shows it.
   const pairs = branch.snapshots.map((e) => {
     const before = mainBy.get(identity(e));
     return { e, before, dir: dirFor(e, taken) };

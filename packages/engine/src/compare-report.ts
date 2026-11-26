@@ -10,7 +10,7 @@ export type CompareRow = {
   shot: string;
   /** A changed snapshot's `report.html`, relative to the index; else none. */
   report: string | undefined;
-  /** A new snapshot's PNG as copied under `--out`, relative to the index, for the report to show (PS-618). */
+  /** A new snapshot's PNG as copied under `--out`, relative to the index, for the report to show. */
   shotHref?: string | undefined;
   /** The same PNG, absolute, for the summary to name. */
   shotFile?: string | undefined;
@@ -211,7 +211,7 @@ function compareList(
   return `<section><h2>${esc(title)} (${rows.length})</h2>\n    <ul>\n      ${items}\n    </ul></section>`;
 }
 
-/** A new shot, shown in full under its name: it has no baseline, so this is its check (PS-618). */
+/** A new shot, shown in full under its name: it has no baseline, so this is its check. */
 function newShot(r: CompareRow): string {
   if (!r.shotHref) return "";
   return `<br><a href="${esc(r.shotHref)}"><img class="new" src="${esc(r.shotHref)}" alt="${esc(rowLabel(r))}" loading="lazy"></a>`;
