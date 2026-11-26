@@ -1,0 +1,11 @@
+{
+  "name": "@slashsuite/pixelslash-self-host",
+  "version": "0.0.0",
+  "private": true,
+  "description": "What the self-host image installs at runtime: start.ts runs the built Worker on Miniflare and needs nothing else.",
+  "license": "Elastic-2.0",
+  "type": "module",
+  "dependencies": {
+    "miniflare": "5.20261019.0-beta"
+  }
+}

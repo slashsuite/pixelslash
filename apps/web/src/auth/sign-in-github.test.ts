@@ -30,6 +30,7 @@ function callbackDeps(cookies: Record<string, string>, over: Partial<GithubCallb
       calls.fetchProfile += 1;
       return { githubId: 1, login: "ada", name: null, avatarUrl: null };
     },
+    allowed: () => true,
     signInUser: async () => {
       calls.signInUser += 1;
       return "user-1";
@@ -138,5 +139,29 @@ describe("github sign-in: the rate limit", () => {
     expect(await go("1.1.1.1")).toBe(429);
     expect(await go("2.2.2.2")).toBe(400);
     expect(limiter.keys).toEqual(["ip:1.1.1.1", "ip:1.1.1.1", "ip:2.2.2.2"]);
+  });
+});
+
+describe("github callback: the allowlist", () => {
+  test("a login off the list is refused with a page that names it, and is never saved", async () => {
+    const { deps, calls } = callbackDeps(
+      { [OAUTH_STATE_COOKIE]: "s1" },
+      { allowed: (login) => login === "grace" },
+    );
+    const res = await githubCallback(request("/auth/github/callback?code=c&state=s1"), deps);
+    expect(res.status).toBe(403);
+    expect(res.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+    expect(await res.text()).toContain("does not let @ada sign in");
+    expect(calls).toEqual({ fetchProfile: 1, signInUser: 0, startSession: [] });
+  });
+
+  test("a login on the list signs in", async () => {
+    const { deps, calls } = callbackDeps(
+      { [OAUTH_STATE_COOKIE]: "s1" },
+      { allowed: (login) => login === "ada" },
+    );
+    const res = await githubCallback(request("/auth/github/callback?code=c&state=s1"), deps);
+    expect(res.status).toBe(302);
+    expect(calls.startSession).toEqual(["user-1"]);
   });
 });

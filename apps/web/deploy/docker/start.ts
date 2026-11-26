@@ -13,6 +13,9 @@
  *   environment says otherwise): a pair over it ends the build `errored`, naming the size.
  * - Nothing is fetched from Cloudflare: `cf: false` gives requests Miniflare's placeholder
  *   `request.cf` instead of downloading one from workers.cloudflare.com at start.
+ * - Behind a proxy or tunnel that terminates TLS, `PIXELSLASH_PUBLIC_URL` names the URL people open:
+ *   every request is seen at that origin, so the GitHub callback is built from it and the cookies are
+ *   Secure when it is https. A forwarded-protocol header is never what decides that.
  * - Config comes from the container's environment: any name the build's `vars` has, and the
  *   secrets. `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` are required. `IMAGE_SIGNING_SECRET` and
  *   `MODEL_KEY_SECRET` are generated once into `$PIXELSLASH_DATA_DIR/secrets` (mode 600) when the
@@ -87,11 +90,22 @@ export function bindingsFrom(
 /** Why the container cannot start with these bindings, or null. */
 export function missingConfig(bindings: Record<string, string>): string | null {
   const missing = ["GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET"].filter((n) => !bindings[n]);
-  if (missing.length === 0) return null;
-  return (
-    `${missing.join(" and ")} must be set: create a GitHub OAuth app with the callback ` +
-    "<your URL>/auth/github/callback and put its id and secret in docker/self-host/.env"
-  );
+  if (missing.length > 0)
+    return (
+      `${missing.join(" and ")} must be set: create a GitHub OAuth app with the callback ` +
+      "<your URL>/auth/github/callback and put its id and secret in docker/self-host/.env"
+    );
+  const publicUrl = bindings["PIXELSLASH_PUBLIC_URL"];
+  if (publicUrl !== undefined && publicOrigin(publicUrl) === null)
+    return `PIXELSLASH_PUBLIC_URL must be an http or https URL, like https://review.example.com (got ${publicUrl})`;
+  return null;
+}
+
+/** The origin of `PIXELSLASH_PUBLIC_URL` that every request is seen at, or null when it is not a web URL. */
+export function publicOrigin(publicUrl: string): string | null {
+  if (!URL.canParse(publicUrl)) return null;
+  const url = new URL(publicUrl);
+  return url.protocol === "https:" || url.protocol === "http:" ? url.origin : null;
 }
 
 async function migrate(config: ReturnType<typeof readConfig>): Promise<void> {
@@ -132,8 +146,10 @@ if (import.meta.main) {
   }
   mkdirSync(TMP_PATH, { recursive: true });
   await migrate(config);
+  const publicUrl = bindings["PIXELSLASH_PUBLIC_URL"];
+  const upstream = publicUrl ? (publicOrigin(publicUrl) ?? undefined) : undefined;
   const mf = new Miniflare({
-    ...miniflareOptions({ persistRoot: PERSIST_ROOT, tmpPath: TMP_PATH, bindings }),
+    ...miniflareOptions({ persistRoot: PERSIST_ROOT, tmpPath: TMP_PATH, bindings, upstream }),
     cf: false,
   });
   const stop = () => {
@@ -142,5 +158,6 @@ if (import.meta.main) {
   process.on("SIGTERM", stop);
   process.on("SIGINT", stop);
   const url = await mf.ready;
-  log(`pixelslash self-host serving on ${url.href} (data in ${DATA_DIR})`);
+  const seenAt = upstream ? `, seen at ${upstream}` : "";
+  log(`pixelslash self-host serving on ${url.href}${seenAt} (data in ${DATA_DIR})`);
 }

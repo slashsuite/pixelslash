@@ -107,6 +107,7 @@ jobs:
       web: ${{ steps.diff.outputs.web }}
       site: ${{ steps.diff.outputs.site }}
       site_e2e: ${{ steps.diff.outputs.site_e2e }}
+      self_host: ${{ steps.diff.outputs.self_host }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -126,10 +127,12 @@ jobs:
               refs/tags/*)
                 echo "site=false" >> "$GITHUB_OUTPUT"
                 echo "site_e2e=false" >> "$GITHUB_OUTPUT"
+                echo "self_host=false" >> "$GITHUB_OUTPUT"
                 ;;
               *)
                 echo "site=true" >> "$GITHUB_OUTPUT"
                 echo "site_e2e=true" >> "$GITHUB_OUTPUT"
+                echo "self_host=true" >> "$GITHUB_OUTPUT"
                 ;;
             esac
             exit 0
@@ -158,6 +161,14 @@ jobs:
             echo "site_e2e=true" >> "$GITHUB_OUTPUT"
           else
             echo "site_e2e=false" >> "$GITHUB_OUTPUT"
+          fi
+          # The Docker self-host: the web list, plus the image's own files and the workspace list its
+          # install reads.
+          if git diff --name-only "origin/$BASE_REF...HEAD" \
+            | grep -qE '^(apps/web/|packages/|fixtures/|docker/self-host/|\.dockerignore$|package\.json$|bun\.lock$|bunfig\.toml$|\.tool-versions$|\.github/workflows/ci\.yml$|\.github/actions/)'; then
+            echo "self_host=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "self_host=false" >> "$GITHUB_OUTPUT"
           fi
 
   web:
@@ -237,6 +248,52 @@ jobs:
         run: |
           CLOUDFLARE_ENV=production bun run build
           bunx wrangler deploy --dry-run --outdir "$RUNNER_TEMP/ps-web-dry-production"
+
+  # The Docker self-host (apps/web/deploy/docker/self-host.spec.ts): builds the image, runs it on a fresh
+  # volume, signs in through the GitHub stand-in (behind an HTTPS proxy too), uploads, diffs, restarts. Not
+  # run on a tag: a release publishes the CLI, which does not ship the image.
+  self-host:
+    needs: changes
+    if: needs.changes.outputs.self_host == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # The moon remote cache as in `web`.
+    environment: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'moon-cache-write' || '' }}
+    env:
+      MOON_BASE: origin/main
+      MOON_REMOTE_TOKEN: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.MOON_CACHE_WRITE_TOKEN || secrets.MOON_CACHE_READ_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The spec's uploads run the CLI in this checkout, which wants a merge-base with main.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: .tool-versions
+      - run: bun install --frozen-lockfile
+      - name: Install the Playwright browser
+        uses: ./.github/actions/playwright
+        timeout-minutes: 5
+        with:
+          working-directory: apps/web
+      - name: Docker self-host e2e
+        id: e2e
+        run: bunx moon run web:test-e2e-docker
+      # What the image weighs, for a change that moves it: the image, and the runtime's node_modules.
+      - name: Image size
+        if: always() && steps.e2e.outcome != 'skipped'
+        run: |
+          docker image ls --format '{{.Repository}}:{{.Tag}} {{.Size}}' | grep pixelslash-self-host || true
+          docker run --rm --entrypoint du pixelslash-self-host:local -sh /opt/pixelslash/node_modules || true
+      - name: Keep the e2e traces of a failure
+        if: failure() && steps.e2e.outcome == 'failure'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: self-host-e2e-test-results
+          path: apps/web/test-results
+          retention-days: 7
+          if-no-files-found: warn
 
   # apps/site's build always (it fails on a dead internal link), and its Playwright suite (the desktop
   # project) only when the site itself changed. Not a required check and not run on a tag: a release

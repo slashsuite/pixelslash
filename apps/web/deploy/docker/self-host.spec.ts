@@ -1,5 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { request as httpRequest } from "node:http";
+import { createServer as createHttpsServer } from "node:https";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test } from "@playwright/test";
@@ -13,6 +15,13 @@ import { SERVER, SERVER_PORT, STUB } from "../../e2e/ports";
  * GitHub stand-in, a CLI upload that the container diffs, a restart, and the same rows and blobs
  * after it. The stand-in needs the `CLOUDFLARE_ENV=e2e` build (a production build refuses it,
  * PS-250), so the production image is checked separately: it sends sign-in to github.com.
+ *
+ * Sign-in behind TLS: a proxy in front of the container ends HTTPS, as a tunnel or a reverse proxy
+ * does, and sends nothing that says so. `PIXELSLASH_PUBLIC_URL` is what tells the app its address,
+ * and `PIXELSLASH_ALLOWED_GITHUB_LOGINS` who may sign in.
+ *
+ * Each test builds the image it needs (once per run) and removes its own containers, so any one of
+ * them passes alone.
  */
 
 const ROOT = resolve(import.meta.dirname, "../../../..");
@@ -28,7 +37,12 @@ function docker(...args: string[]): string {
   return res.stdout.trim();
 }
 
-function build(tag: string, cloudflareEnv: string) {
+const built = new Set<string>();
+
+/** The image for a build env (`e2e`, or empty for production), built the first time a test asks. */
+function image(cloudflareEnv: "e2e" | ""): string {
+  const tag = cloudflareEnv ? "pixelslash-self-host:e2e" : "pixelslash-self-host:local";
+  if (built.has(tag)) return tag;
   docker(
     "build",
     "-f",
@@ -39,14 +53,37 @@ function build(tag: string, cloudflareEnv: string) {
     tag,
     ".",
   );
+  built.add(tag);
+  return tag;
 }
 
-/** Start a container on the host's network; returns its name. */
-function start(name: string, image: string, env: Record<string, string>, volume?: string) {
+const containers: string[] = [];
+
+/** Start a container on the host's network, removed after the test; returns its name. */
+function start(name: string, tag: string, env: Record<string, string>, volume?: string) {
   const flags = Object.entries(env).flatMap(([k, v]) => ["-e", `${k}=${v}`]);
   const mount = volume ? ["-v", `${volume}:/data`] : [];
-  docker("run", "-d", "--name", name, "--network", "host", ...flags, ...mount, image);
+  containers.push(name);
+  docker("run", "-d", "--name", name, "--network", "host", ...flags, ...mount, tag);
   return name;
+}
+
+/** The e2e image's container, signing in through the GitHub stand-in, with its state in the container. */
+function startWithStub(name: string, env: Record<string, string>, volume?: string) {
+  return start(
+    name,
+    image("e2e"),
+    {
+      PORT: String(SERVER_PORT),
+      ...(volume ? {} : { PIXELSLASH_DATA_DIR: "/tmp/data" }),
+      GITHUB_CLIENT_ID: "e2e-client",
+      GITHUB_CLIENT_SECRET: "e2e-secret",
+      GITHUB_OAUTH_BASE: STUB,
+      GITHUB_API_BASE: STUB,
+      ...env,
+    },
+    volume,
+  );
 }
 
 async function up(url: string) {
@@ -56,14 +93,69 @@ async function up(url: string) {
 }
 
 const temps: string[] = [];
-const containers: string[] = [];
+const closers: (() => Promise<void>)[] = [];
 const volume = `${RUN}-data`;
 
+// Every container holds the one port, so a test's own are gone before the next one starts.
+test.afterEach(async () => {
+  for (const name of containers.splice(0)) spawnSync("docker", ["rm", "-f", name]);
+  await Promise.all(closers.splice(0).map((close) => close()));
+});
+
 test.afterAll(async () => {
-  for (const name of containers) spawnSync("docker", ["rm", "-f", name]);
   spawnSync("docker", ["volume", "rm", "-f", volume]);
   await Promise.all(temps.map((d) => rm(d, { recursive: true, force: true })));
 });
+
+/**
+ * An HTTPS proxy on a free port in front of the app, on a self-signed certificate for localhost:
+ * the TLS end of a tunnel. It forwards each request as it came and adds no forwarded header.
+ */
+async function tlsProxy(): Promise<string> {
+  const dir = await mkdtemp(join(tmpdir(), "ps-self-host-tls-"));
+  temps.push(dir);
+  const [key, cert] = [join(dir, "key.pem"), join(dir, "cert.pem")];
+  const made = spawnSync(
+    "openssl",
+    [
+      "req",
+      "-x509",
+      "-newkey",
+      "rsa:2048",
+      "-nodes",
+      "-days",
+      "1",
+      "-subj",
+      "/CN=localhost",
+    ].concat(["-keyout", key, "-out", cert]),
+    { encoding: "utf8" },
+  );
+  if (made.status !== 0) throw new Error(`openssl: ${made.stderr}`);
+  const server = createHttpsServer(
+    { key: await readFile(key), cert: await readFile(cert) },
+    (req, res) => {
+      const upstream = httpRequest(
+        {
+          host: "127.0.0.1",
+          port: SERVER_PORT,
+          method: req.method,
+          path: req.url,
+          headers: req.headers,
+        },
+        (reply) => {
+          res.writeHead(reply.statusCode ?? 502, reply.headers);
+          reply.pipe(res);
+        },
+      );
+      upstream.on("error", () => res.writeHead(502).end());
+      req.pipe(upstream);
+    },
+  );
+  await new Promise<void>((listening) => server.listen(0, listening));
+  closers.push(() => new Promise((closed) => server.close(() => closed())));
+  const address = server.address();
+  return `https://localhost:${typeof address === "object" && address ? address.port : 0}`;
+}
 
 /** A snapshot dir as `capture` writes it, holding one 40×40 shot. */
 async function snapshotDir(shot: Buffer) {
@@ -115,23 +207,8 @@ async function shotOf(buildId: string, token: string): Promise<Shot | undefined>
   return reply.build.snapshots[0];
 }
 
-test.describe.configure({ mode: "serial" });
-
 test("signs in, takes an upload, diffs it, and keeps it all across a restart", async ({ page }) => {
-  build("pixelslash-self-host:e2e", "e2e");
-  const name = start(
-    `${RUN}-app`,
-    "pixelslash-self-host:e2e",
-    {
-      PORT: String(SERVER_PORT),
-      GITHUB_CLIENT_ID: "e2e-client",
-      GITHUB_CLIENT_SECRET: "e2e-secret",
-      GITHUB_OAUTH_BASE: STUB,
-      GITHUB_API_BASE: STUB,
-    },
-    volume,
-  );
-  containers.push(name);
+  const name = startWithStub(`${RUN}-app`, {}, volume);
   await up(SERVER);
 
   const { token } = await provisionByClicking(page, "Self Co", "home");
@@ -183,17 +260,49 @@ test("signs in, takes an upload, diffs it, and keeps it all across a restart", a
   expect(await shotOf(third, token)).toMatchObject({ diff_status: "changed", diff_error: null });
 });
 
+test("signs in behind an HTTPS proxy, with a Secure session cookie, when the login is allowed", async ({
+  browser,
+}) => {
+  const publicUrl = await tlsProxy();
+  startWithStub(`${RUN}-https`, {
+    PIXELSLASH_PUBLIC_URL: publicUrl,
+    // Case and spaces do not matter; the stand-in signs everyone in as e2e-octocat.
+    PIXELSLASH_ALLOWED_GITHUB_LOGINS: "someone-else, E2E-Octocat",
+  });
+  await up(SERVER);
+  const context = await browser.newContext({ baseURL: publicUrl, ignoreHTTPSErrors: true });
+  const page = await context.newPage();
+  await open(page, "/");
+  const sent = page.waitForRequest((r) => r.url().startsWith(`${STUB}/login/oauth/authorize`));
+  await page.getByRole("link", { name: "Sign in with GitHub" }).click();
+  // The callback GitHub is sent back to is the public URL, not the container's own address.
+  const authorize = new URL((await sent).url());
+  expect(authorize.searchParams.get("redirect_uri")).toBe(`${publicUrl}/auth/github/callback`);
+  await expect(page).toHaveURL(`${publicUrl}/orgs`);
+  const session = (await context.cookies(publicUrl)).find((c) => c.name === "ps_session");
+  expect(session).toMatchObject({ secure: true, httpOnly: true });
+  await context.close();
+});
+
+test("refuses a GitHub login that is not on the allowlist", async ({ page }) => {
+  startWithStub(`${RUN}-refused`, { PIXELSLASH_ALLOWED_GITHUB_LOGINS: "someone-else" });
+  await up(SERVER);
+  await open(page, "/");
+  const callback = page.waitForResponse((r) => r.url().includes("/auth/github/callback"));
+  await page.getByRole("link", { name: "Sign in with GitHub" }).click();
+  expect((await callback).status()).toBe(403);
+  await expect(page.getByText("This server does not let @e2e-octocat sign in.")).toBeVisible();
+  expect((await page.context().cookies()).map((c) => c.name)).not.toContain("ps_session");
+});
+
+// No browser: the production image is checked by its redirect alone.
 test("the production image signs in through github.com", async () => {
-  build("pixelslash-self-host:local", "");
-  // The first container holds the port until it is gone.
-  spawnSync("docker", ["rm", "-f", `${RUN}-app`]);
-  const name = start(`${RUN}-prod`, "pixelslash-self-host:local", {
+  start(`${RUN}-prod`, image(""), {
     PORT: String(SERVER_PORT),
     PIXELSLASH_DATA_DIR: "/tmp/data",
     GITHUB_CLIENT_ID: "self-host-client",
     GITHUB_CLIENT_SECRET: "unused",
   });
-  containers.push(name);
   await up(SERVER);
   const res = await fetch(`${SERVER}/auth/github`, { redirect: "manual" });
   expect(res.status).toBe(302);

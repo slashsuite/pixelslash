@@ -37,13 +37,12 @@ ENV NODE_ENV=production \
     PIXELSLASH_DATA_DIR=/data \
     HOST=0.0.0.0 \
     PORT=3000
+# The Worker in dist is bundled, diff.wasm included, and start.ts needs only Miniflare to run it: so
+# the runtime installs this directory's package.json alone (Miniflare, pinned as apps/web pins it),
+# not the app's build and browser dependencies.
 COPY package.json bun.lock ./
-COPY packages/engine/package.json packages/engine/
-COPY apps/web/package.json apps/web/
+COPY docker/self-host/package.json docker/self-host/
 RUN bun install --frozen-lockfile --production
-COPY packages/engine/src packages/engine/src
-COPY packages/engine/wasm/diff.wasm packages/engine/wasm/
-COPY apps/web/src apps/web/src
 COPY apps/web/deploy apps/web/deploy
 COPY apps/web/drizzle apps/web/drizzle
 COPY --from=build /opt/pixelslash/apps/web/dist apps/web/dist

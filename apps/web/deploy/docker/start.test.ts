@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { bindingsFrom, missingConfig } from "./start";
+import { bindingsFrom, missingConfig, publicOrigin } from "./start";
 
 const kept = (name: string) => `kept-${name}`;
 
@@ -44,4 +44,28 @@ test("refuses to start without the GitHub OAuth app", () => {
   expect(missingConfig({ GITHUB_CLIENT_ID: "id", GITHUB_CLIENT_SECRET: "s" })).toBeNull();
   expect(missingConfig({ GITHUB_CLIENT_ID: "id" })).toMatch(/^GITHUB_CLIENT_SECRET must be set/);
   expect(missingConfig({})).toMatch(/^GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET must be set/);
+});
+
+test("the public URL is seen as its origin, and a URL that is not one stops the start", () => {
+  expect(publicOrigin("https://review.example.com/")).toBe("https://review.example.com");
+  expect(publicOrigin("https://Review.example.com:8443/x?y")).toBe(
+    "https://review.example.com:8443",
+  );
+  expect(publicOrigin("http://localhost:3000")).toBe("http://localhost:3000");
+  expect(publicOrigin("review.example.com")).toBeNull();
+  expect(publicOrigin("ftp://review.example.com")).toBeNull();
+  const app = { GITHUB_CLIENT_ID: "id", GITHUB_CLIENT_SECRET: "s" };
+  expect(missingConfig({ ...app, PIXELSLASH_PUBLIC_URL: "https://review.example.com" })).toBeNull();
+  expect(missingConfig({ ...app, PIXELSLASH_PUBLIC_URL: "review.example.com" })).toMatch(
+    /^PIXELSLASH_PUBLIC_URL must be an http or https URL/,
+  );
+});
+
+const miniflarePin = async (path: string): Promise<string | undefined> =>
+  (await Bun.file(new URL(path, import.meta.url)).json()).dependencies.miniflare;
+
+test("the image installs the Miniflare the app builds and tests against", async () => {
+  expect(await miniflarePin("../../../../docker/self-host/package.json")).toBe(
+    await miniflarePin("../../package.json"),
+  );
 });

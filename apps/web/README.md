@@ -26,6 +26,11 @@ registry: the image is built from this checkout.
    `BUILD_COMMIT=$(git rev-parse HEAD) docker compose up -d --build` puts the commit in the page's
    `build-commit` meta; without it the meta says `unknown`, since the image has no `.git`.
 
+   Behind a proxy that ends TLS (Caddy, nginx, a tunnel), set `PIXELSLASH_PUBLIC_URL` in `.env` to the
+   `https://` URL people open: the GitHub callback and the session cookie's `Secure` flag follow it. To
+   keep sign-in to your team, set `PIXELSLASH_ALLOWED_GITHUB_LOGINS` to their GitHub logins,
+   comma-separated; anyone else is refused.
+
 3. Open the URL, sign in with GitHub, and create an org, a project and a token. Then upload from CI
    or a shell with `PIXELSLASH_TOKEN=<token> pixelslash upload --server <URL> --branch main`.
 
@@ -50,14 +55,19 @@ What it does (`deploy/docker/start.ts`, `docker/self-host/`):
 `docker compose down` keeps the volume. `docker compose down -v` deletes every org, build and shot.
 To update, `git pull` and then `docker compose up -d --build`.
 
-The same image is proven by `bun run test:e2e:docker` (in `apps/web`; it needs Docker, so it is not
-part of `test:e2e`):
+The same image is proven by `bunx moon run web:test-e2e-docker` (or `bun run test:e2e:docker` in
+`apps/web`). It needs Docker, so it is not part of `test:e2e`; CI's `self-host` job runs it when the app,
+the engine or the Dockerfile changes. Each test passes on its own:
 
 - The e2e build signs in against the GitHub stand-in, makes an org, a project and a token, and takes
   two CLI uploads, which the server diffs.
 - It then restarts the container and checks that the builds, the session, the stored PNG and a new
   diff against the stored baseline all survived.
+- Behind an HTTPS proxy, with `PIXELSLASH_PUBLIC_URL` set to it, sign-in uses the public callback and
+  the session cookie is `Secure`; a login not on `PIXELSLASH_ALLOWED_GITHUB_LOGINS` is refused.
 - The production build is checked to send `/auth/github` to github.com with the configured client id.
+- The runtime image installs only Miniflare (`docker/self-host/package.json`): the Worker in `dist` is
+  bundled.
 
 ## Secrets
 

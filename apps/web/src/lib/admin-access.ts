@@ -5,16 +5,10 @@
  * switched off.
  */
 
-/** The logins of the list, lowercased (GitHub logins are case-insensitive); blanks are dropped. */
-function adminLoginsOf(raw: string | undefined): string[] {
-  return (raw ?? "")
-    .split(",")
-    .map((login) => login.trim().toLowerCase())
-    .filter((login) => login.length > 0);
-}
+import { loginsOf } from "./logins";
 
 /** Whether the signed-in viewer (null when signed out) is on the list. */
 export function isAdmin(viewer: { login: string } | null, raw: string | undefined): boolean {
   if (!viewer) return false;
-  return adminLoginsOf(raw).includes(viewer.login.toLowerCase());
+  return loginsOf(raw).includes(viewer.login.toLowerCase());
 }

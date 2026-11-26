@@ -5,7 +5,8 @@
   "workspaces": [
     "packages/*",
     "apps/*",
-    "bench"
+    "bench",
+    "docker/self-host"
   ],
   "type": "module",
   "scripts": {
