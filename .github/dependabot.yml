@@ -8,6 +8,14 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+  # The npm sample sits outside the Bun workspace, so the catalog's bumps do not reach it.
+  - package-ecosystem: npm
+    directory: /examples/playwright-node
+    schedule:
+      interval: weekly
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
   - package-ecosystem: github-actions
     directory: /
     schedule:

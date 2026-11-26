@@ -34,9 +34,12 @@ const workspaceDirs = (rootManifest.workspaces ?? []).flatMap((pattern) =>
 const PUBLISHED = new Set(["packages/cli", "packages/playwright"]);
 // The UISlash kit packages are upgraded on their own; they stay out of the catalog for now.
 const OWN_VERSION = new Set(["@slashsuite/themes", "@slashsuite/ui-react"]);
-// The sample is installed with npm, outside the workspace, so it cannot read the catalog; what it
-// shares with the workspace is at the catalog's version, except @types/node: it runs on Node 24.
+// The sample is installed with npm, outside the workspace, so it cannot read the catalog. Dependabot
+// bumps it in its own npm pull request, which can land a week apart from the catalog's, so what it
+// shares with the workspace need only be on the catalog's major; @types/node is its own: it runs on
+// Node 24.
 const EXAMPLE = "examples/playwright-node";
+const major = (spec: string | undefined): string | undefined => /\d+/.exec(spec ?? "")?.[0];
 const EXAMPLE_OWN = new Set(["@types/node"]);
 
 function resolve(name: string, spec: string): string {
@@ -96,11 +99,14 @@ describe("the dependency catalog", () => {
     expect(names.filter((name) => !uses.has(name))).toEqual([]);
   });
 
-  test("the npm sample matches the catalog where it shares a dependency", () => {
+  test("the npm sample is on the catalog's major where it shares a dependency", () => {
     const sample = read(EXAMPLE);
     const drift = Object.entries({ ...sample.dependencies, ...sample.devDependencies })
       .filter(([name]) => !EXAMPLE_OWN.has(name))
-      .filter(([name, spec]) => catalogVersion(name) !== undefined && catalogVersion(name) !== spec)
+      .filter(
+        ([name, spec]) =>
+          catalogVersion(name) !== undefined && major(catalogVersion(name)) !== major(spec),
+      )
       .map(([name, spec]) => `${name}@${spec}, catalog ${catalogVersion(name)}`);
     expect(drift).toEqual([]);
   });

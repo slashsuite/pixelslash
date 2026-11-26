@@ -61,7 +61,8 @@ the root `package.json`: `catalog` for most, `catalogs.<name>` for a group that 
 `dependencies` of the two npm packages (`packages/cli`, `packages/playwright`), because `npm pack`
 ships them as written, and the UISlash kit (`@slashsuite/themes`, `@slashsuite/ui-react`), upgraded
 on its own. `scripts/test/catalog.test.ts` fails when a dependency resolves to two versions, when a
-shared one skips the catalog, or when the npm sample drifts from it.
+shared one skips the catalog, or when the npm sample falls off the catalog's major (Dependabot bumps
+the sample in its own npm pull request).
 
 **Workflows stay safe for a public repo.** CI's `gate` job runs `bun scripts/check-workflows.ts
 .github/workflows/*.yml` first: no job on a runner of our own (`runs-on` naming `self-hosted` or
