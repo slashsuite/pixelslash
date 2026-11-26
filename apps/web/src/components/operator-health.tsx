@@ -13,6 +13,8 @@ import {
 } from "@slashsuite/ui-react";
 import type { OperatorHealth, WindowHealth } from "#/db/admin-health";
 import { formatBytes, formatDateTime, formatNumber } from "#/lib/format";
+import type { Reading } from "#/lib/reading";
+import { overAlertLine, shareLabel } from "#/lib/size-alert";
 import { P95_MIN_BUILDS, P99_MIN_BUILDS } from "#/lib/timings";
 import { BuildComparesTable, WindowFiguresLine } from "./operator-compares";
 import { NowSection } from "./operator-health-now";
@@ -21,6 +23,8 @@ import { Figure, HealthSection, StepCell, plural } from "./operator-health-parts
 /**
  * The operator's health page body (PS-330). Read-only: no control, no badge, no verdict. Every group
  * names its window and the `n` behind it, and a figure that could not be read says why in place of a number.
+ * The one mark is the database size past the alert line (70% of D1's 10 GB cap), the same line the
+ * scheduled check logs and pushes.
  */
 
 function WindowSection({
@@ -130,6 +134,16 @@ function DeploymentSection({ health }: { health: OperatorHealth }) {
   );
 }
 
+/** The mark beside the database size once it is past the alert line; nothing under it, or unread. */
+export function DbSizeMark({ reading }: { reading: Reading<number> }) {
+  if (!reading.ok || !overAlertLine(reading.value)) return null;
+  return (
+    <Text data-testid="admin-db-alert">
+      Over the alert line: {shareLabel(reading.value)}. Writes fail at the cap.
+    </Text>
+  );
+}
+
 function StorageSection({ health }: { health: OperatorHealth }) {
   const s = health.storage;
   return (
@@ -159,6 +173,7 @@ function StorageSection({ health }: { health: OperatorHealth }) {
           <Figure reading={s.dbBytes} testId="admin-db-bytes">
             {formatBytes}
           </Figure>
+          <DbSizeMark reading={s.dbBytes} />
         </KeyValue>
         <KeyValue label="Blob store (R2)">
           <Figure reading={s.r2} testId="admin-r2">

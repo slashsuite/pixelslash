@@ -1,6 +1,6 @@
 # PixelSlash facts
 
-Checked against main at cdfe42e on 2026-11-26.
+Checked against main at eac541e0 on 2026-11-27.
 
 ## What it is
 PixelSlash shows what changed on a web page between two versions of it, Main and Branch, as a report you open in a browser, and can send those shots to a review app where a person accepts or rejects each change. It is in alpha, and the command line tool is at version 0.8.
@@ -36,6 +36,8 @@ PixelSlash shows what changed on a web page between two versions of it, Main and
 - `subprojects`: one project can hold subprojects (end-to-end shots, stories) with their own builds and review, and one GitHub status for them all.
 - `combined-subproject-review`: one page reviews every change on a commit across a project and all its subprojects, and the pull request gets one comment for the group; accepting change after change walks on through every subproject of the commit, and the counter counts them all.
 - `server-ai-explanations`: a project can name its own OpenAI-compatible model; the review app then sends it crops of the changed regions only, never a whole shot, to explain each change.
+- `retention-windows`: the review app can delete pull request builds, and default-branch builds, past a window of days you set for each, and images no shot names any more; both windows are off unless set, it never deletes a project's newest default-branch build or a test's current accepted shot, and it deletes nothing until told to.
+- `database-size-alert`: past 70% of the 10 GB database cap the review app logs a warning every hour, marks the size on its admin page and, with a webhook URL set, posts once a day; it deletes nothing.
 - `api-v1`: the review app has an HTTP API under `/api/v1`, which may still change while PixelSlash is in alpha.
 
 ## Planned

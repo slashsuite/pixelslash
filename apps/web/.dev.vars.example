@@ -5,3 +5,5 @@ GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 IMAGE_SIGNING_SECRET=
 MODEL_KEY_SECRET=
+# Optional: where the database size alert posts (JSON, once a day past 70% of D1's 10 GB). Empty logs only.
+PIXELSLASH_ALERT_WEBHOOK_URL=

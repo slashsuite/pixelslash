@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "vitest";
+import { memoryStore } from "#/api/test-support";
 import { ABANDONED_AFTER_MS, ABANDONED_REASON } from "#/db/abandoned";
 import { createOrg, createProject } from "#/db/orgs";
 import { builds } from "#/db/schema";
@@ -10,15 +11,17 @@ import { signInGithubUser } from "#/db/users";
 const held = vi.hoisted(() => ({
   db: undefined as unknown,
   retention: undefined as number | undefined,
+  store: undefined as unknown,
 }));
 vi.mock("@tanstack/react-start/server-entry", () => ({ default: { fetch: () => new Response() } }));
 vi.mock("#/server/env", () => ({
   database: () => held.db,
   retentionDays: () => held.retention,
   retentionDelete: () => false,
-  sweepStore: () => {
-    throw new Error("retention is off: the store must not be opened");
-  },
+  retentionMainDays: () => undefined,
+  sweepStore: () => held.store,
+  alertWebhookUrl: () => undefined,
+  databaseBytes: async () => ({ ok: false, why: "no D1 in a unit test" }),
   checkRunDeps: (db: unknown) => ({ db, app: null, token: null, publicUrl: undefined }),
   blobStore: () => undefined,
   modelFetch: () => undefined,
@@ -31,7 +34,7 @@ const failNoScheduled = () => {
 };
 
 describe("the Worker's scheduled sweep", () => {
-  test("with retention off it still ends an abandoned build", async () => {
+  test("with retention off it still ends an abandoned build, and deletes nothing", async () => {
     const db = testDb();
     const ada = await signInGithubUser(db, {
       githubId: 1,
@@ -51,6 +54,13 @@ describe("the Worker's scheduled sweep", () => {
     });
     held.db = db;
     held.retention = undefined;
+    // An image no shot names: the orphan sweep lists it, and with deleting off leaves it.
+    const blobs = memoryStore();
+    blobs.data.set(`orgs/${org.id}/images/ab.png`, new ArrayBuffer(4));
+    held.store = {
+      ...blobs.store,
+      deleteMany: () => Promise.reject(new Error("deleting is off: nothing may be deleted")),
+    };
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
     const { default: worker } = await import("./server");
@@ -58,5 +68,6 @@ describe("the Worker's scheduled sweep", () => {
 
     const [row] = await db.select().from(builds).where(eq(builds.id, "gone"));
     expect(row).toMatchObject({ status: "errored", error: ABANDONED_REASON });
+    expect([...blobs.data.keys()]).toEqual([`orgs/${org.id}/images/ab.png`]);
   });
 });

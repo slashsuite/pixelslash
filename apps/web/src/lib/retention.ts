@@ -41,13 +41,29 @@ export function buildExpiry(
 
 /** The counts of a sweep in one line, for a log and for the CLI's footer. */
 export function sweepSummary(
-  plan: { expired: { blobs: { size: number }[] }[]; keptReferenced: string[] },
+  plan: {
+    expired: { window: "branch" | "main"; blobs: { size: number }[] }[];
+    keptReferenced: string[];
+    keptCurrent: string[];
+  },
   deleted: { buildsDeleted: number; blobsDeleted: number; bytesFreed: number } | null,
 ): string {
-  const kept = `${plan.keptReferenced.length} kept as baselines`;
+  const kept = `${plan.keptReferenced.length} kept as baselines, ${plan.keptCurrent.length} kept as current`;
   if (deleted)
     return `retention: deleted ${deleted.buildsDeleted} builds, ${deleted.blobsDeleted} blobs, ${formatBytes(deleted.bytesFreed)}; ${kept}`;
   const blobs = plan.expired.flatMap((b) => b.blobs);
   const bytes = blobs.reduce((sum, b) => sum + b.size, 0);
-  return `retention dry run: would delete ${plan.expired.length} builds, ${blobs.length} blobs, ${formatBytes(bytes)}; ${kept}`;
+  const main = plan.expired.filter((b) => b.window === "main").length;
+  return `retention dry run: would delete ${plan.expired.length} builds (${main} main, ${plan.expired.length - main} branch), ${blobs.length} blobs, ${formatBytes(bytes)}; ${kept}`;
+}
+
+/** The orphan sweep's counts in one line. */
+export function orphanSummary(
+  plan: { orphans: { size: number }[] },
+  deleted: { blobsDeleted: number; bytesFreed: number } | null,
+): string {
+  if (deleted)
+    return `orphaned images: deleted ${deleted.blobsDeleted}, ${formatBytes(deleted.bytesFreed)}`;
+  const bytes = plan.orphans.reduce((sum, b) => sum + b.size, 0);
+  return `orphaned images dry run: would delete ${plan.orphans.length}, ${formatBytes(bytes)}`;
 }

@@ -88,7 +88,12 @@ describe("the R2 sweep store", () => {
     await bucket.put("orgs/a/builds/b1/one.png", png(5));
     await bucket.put("orgs/b/builds/b1/one.png", png(7));
     const a = orgSweepBlobs(store, "a");
-    expect(await a.list("builds/b1")).toEqual([{ key: "builds/b1/one.png", size: 5 }]);
+    const listed = await a.list("builds/b1");
+    expect(listed.map(({ key, size }) => ({ key, size }))).toEqual([
+      { key: "builds/b1/one.png", size: 5 },
+    ]);
+    // R2 says when each object was put; the orphan sweep's grace period reads it.
+    expect(listed[0]?.uploaded).toBeInstanceOf(Date);
     await a.deleteMany(["builds/b1/one.png"]);
     expect(await store.list("orgs/a/builds/b1")).toEqual([]);
     expect(await store.list("orgs/b/builds/b1")).toHaveLength(1);

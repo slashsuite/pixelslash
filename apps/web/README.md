@@ -181,36 +181,77 @@ measured count.
 
 ## Retention (PS-239)
 
-Off unless you set it. `PIXELSLASH_RETENTION_DAYS=30` (a whole number above 0; anything else is off)
-makes the review app expire PR builds: a build older than that window, on a branch that is not the
-project's default branch, is deleted with its blobs (R2, or the self-host's bucket) and its rows. Its blobs are those in its own
-folder (`builds/<id>/`): overlays, CI masks, metrics, and the PNGs of shots stored before images went by hash. An image
-stored by hash (`images/<sha256>.png`) is the org's, shared by every build that sent those bytes, and the sweep leaves it.
-Default-branch builds are never deleted. Neither is a build a surviving build still points at as its
-baseline (`baselineKey`, `mainBaselineKey`, `baselineSnapshotId`, `carriedFrom`, and a removed marker's
-`image_key` / `baseline_key`), followed through the builds that are kept, so a chain only goes once
-nothing live reaches it. Flaky shot evidence of a deleted build goes too; the flaky shot itself stays. Usage
-counts drop with the builds. With retention on, a PR build's page says "expires in N days".
+Off unless you set it. There are two windows, each a whole number of days above 0 (anything else is off),
+and each off when unset:
 
-- **Dry run first.** The Worker's hourly cron (`triggers.crons` in `wrangler.jsonc`) does nothing
-  without the window, and with it only logs `retention dry run: would delete ...` until
-  `PIXELSLASH_RETENTION_DELETE=true` is also set. Each sweep takes the oldest 100 builds, so a backlog
-  clears over several runs.
-- **From the command line, for a self-host** (reads the Miniflare state on disk, a dry run unless
+- `PIXELSLASH_RETENTION_DAYS=30` expires PR builds: a build older than that window, on a branch that is
+  not the project's default branch.
+- `PIXELSLASH_RETENTION_MAIN_DAYS=365` expires default-branch builds older than that window, with two
+  that always stay: **each project's newest default-branch build**, and **any build that holds the current
+  accepted shot of a test** (for each test, the newest accepted shot on the default branch: what a new
+  build's baseline would be). Unset, no default-branch build is ever deleted.
+
+An expired build is deleted with its blobs (R2, or the self-host's bucket) and its rows. Its blobs are those in its own
+folder (`builds/<id>/`): overlays, CI masks, metrics, and the PNGs of shots stored before images went by hash. An image
+stored by hash (`images/<sha256>.png`) is the org's, shared by every build that sent those bytes, and the build sweep leaves it
+(the orphan sweep below takes it once nothing names it).
+A build a surviving build still points at as its
+baseline (`baselineKey`, `mainBaselineKey`, `baselineSnapshotId`, `carriedFrom`, and a removed marker's
+`image_key` / `baseline_key`) is kept, followed through the builds that are kept, so a chain only goes once
+nothing live reaches it. A default-branch build kept that way keeps the PR builds it points at, but not the
+default-branch build before it: each one diffed against the one before, so following that chain would keep the
+whole history. Flaky shot evidence of a deleted build goes too; the flaky shot itself stays. Usage
+counts drop with the builds. With the PR window on, a PR build's page says "expires in N days"; a
+default-branch build shows no date, since it may be one that stays.
+
+**Orphaned images** are swept on the same schedule, whatever the windows: an `images/<sha256>.png` that no
+shot names any more (as its image, baseline or main baseline) can never be read again, and it is what fills a
+self-host's disk once builds are deleted. One put less than a day ago is left alone, since an upload puts the
+image before it writes the shot, and the names are read again just before each delete.
+
+- **Dry run first.** The Worker's hourly cron (`triggers.crons` in `wrangler.jsonc`) runs the build sweep only
+  with a window set, and both sweeps only log `retention dry run: would delete ...` and `orphaned images dry
+  run: would delete ...` until `PIXELSLASH_RETENTION_DELETE=true` is also set. Each sweep takes the oldest 100
+  builds and the first 1000 orphaned images, so a backlog clears over several runs.
+- **From the command line, for a self-host**, which fires no cron (reads the Miniflare state on disk, a dry run unless
   `--apply`):
 
   ```bash
-  bun deploy/retention.ts --days 30                  # list the builds and bytes; deletes nothing
-  bun deploy/retention.ts --days 30 --limit 100      # the oldest 100 only
-  bun deploy/retention.ts --days 30 --apply          # delete them
+  bun deploy/retention.ts                              # list the orphaned images only; deletes nothing
+  bun deploy/retention.ts --days 30                    # and the PR builds past 30 days, with their bytes
+  bun deploy/retention.ts --days 30 --main-days 365    # and the default-branch builds past a year
+  bun deploy/retention.ts --days 30 --limit 100        # the oldest 100 builds only
+  bun deploy/retention.ts --days 30 --apply            # delete what it lists
   ```
 
-  `--days` defaults to `PIXELSLASH_RETENTION_DAYS`, and with neither it refuses. `--persist-to` is the
+  The listing has three parts, each on its own: main builds, branch builds and orphaned images, each with
+  its count and bytes and what was kept. `--days` defaults to `PIXELSLASH_RETENTION_DAYS` and `--main-days`
+  to `PIXELSLASH_RETENTION_MAIN_DAYS`; a window with neither stays off. `--persist-to` is the
   state directory (`.../state/v3`), by default `$PIXELSLASH_DATA_DIR/state/v3` or
   `.wrangler/state/v3`. Stop the server before `--apply`: a build uploaded while the sweep runs can
-  point at a baseline the sweep has just chosen to delete, which no lock prevents.
+  point at a baseline the sweep has just chosen to delete, or skip the put of an image the sweep is about to
+  delete, which no lock prevents.
 - Deletion is permanent; read a dry-run listing before turning it on. Enabling it on a server with real
   data is the operator's decision.
+
+### The database size alert
+
+D1 stops taking writes at 10 GB. The hourly cron reads the database's size and, past 70% of that
+(over 7 GB), logs `database size alert: 7.1 GB, 71% of the 10 GB cap; ...` on every run, and /_admin
+marks the size. With `PIXELSLASH_ALERT_WEBHOOK_URL` set (a secret: `wrangler secret put`, or
+`.dev.vars`), it also POSTs `{text, bytes, capBytes, share}` as JSON to that URL at most once a UTC day
+per database; a day is marked as sent (`ops/size-alert/<day>` in the bucket) only after the POST succeeds, so a
+failed one is tried again next hour. It only tells: nothing is deleted or moved when it fires. Clear space with
+the sweeps above, or plan a move.
+
+### Disk on the LAN self-host
+
+`release.sh` asks the CT how much is free under `/home/pixelslash` before it builds anything, and refuses
+under 1 GiB with the free space it found; nothing is built or sent. A release unpacks and installs beside the
+serving one, and a full disk fails the app's own writes too. `update.sh` then removes what the CT holds for
+nothing: the old checkout's `node_modules` (each release installs its own) and Miniflare's local trace store
+(`.wrangler/state/v3/observability`). `serve.ts`, `deploy/retention.ts` and the deploy's D1 calls run with
+that trace store off, so it does not grow back.
 
 ### Recomputing stored verdicts
 

@@ -29,10 +29,40 @@
 # PIXELSLASH_GITHUB_APP_ID is set, release.sh also carries GITHUB_APP_API_BASE=https://api.github.com
 # (PS-281), so the App's check runs reach GitHub while sign-in stays on the stand-in.
 #
+# Before it builds or ships anything, it asks the CT how much disk is free where the app lives, and
+# refuses under 1 GiB: a release unpacks and installs beside the serving one, and a CT that fills up
+# mid-deploy fails its D1 writes too. Free the space first (apps/web/README.md, "Retention").
+#
 # After the switch, with PIXELSLASH_PUBLIC_URL set, scripts/check-commit.ts fetches that URL until its
 # build-commit meta names the sha, and the release fails if it never does. Unset, it prints the
 # command to run against the CT's own address.
 set -Eeuo pipefail
+
+# The least free space, in KiB, the CT must have where the app lives before a release goes to it.
+MIN_FREE_KB=$((1024 * 1024))
+APP_HOME=/home/pixelslash
+
+# Asks CT $3, through ssh destination $2 with the ssh options in the array named $1, how much space
+# is free under the app's home, and refuses under MIN_FREE_KB. An answer it cannot read refuses too:
+# not knowing is not a go-ahead.
+check_space() {
+  local -n opts=$1
+  local dest=$2 ct=$3 out free
+  if ! out=$(ssh "${opts[@]}" "$dest" "pct exec $(printf %q "$ct") -- df -Pk $APP_HOME" </dev/null); then
+    echo "refusing to deploy: could not read the free space on CT $ct (nothing was built or sent)" >&2
+    exit 1
+  fi
+  free=$(awk 'NR == 2 { print $4 }' <<<"$out")
+  if [[ ! $free =~ ^[0-9]+$ ]]; then
+    echo "refusing to deploy: could not read the free space on CT $ct from df: $out (nothing was built or sent)" >&2
+    exit 1
+  fi
+  if ((free < MIN_FREE_KB)); then
+    echo "refusing to deploy: CT $ct has $((free / 1024)) MiB free under $APP_HOME, under the $((MIN_FREE_KB / 1024)) MiB a release needs." >&2
+    echo "Nothing was built or sent. Free space on the CT first: see apps/web/README.md, \"Retention\"." >&2
+    exit 1
+  fi
+}
 
 # Writes value $2 to the private file $1 in the release, for update.sh to save with the CT's
 # secrets; an empty value writes nothing, so the CT keeps what it has.
@@ -56,6 +86,8 @@ main() {
   [[ $sha == "$(git rev-parse HEAD)" ]] || { echo "HEAD is not $sha: check it out first" >&2; exit 1; }
   [[ -z $(git status --porcelain) ]] || { echo "the checkout is not clean" >&2; exit 1; }
   local short=${sha:0:12}
+
+  check_space ssh_args "$ssh_dest" "$ct"
 
   bun install --frozen-lockfile
   (cd apps/web && rm -rf dist && CLOUDFLARE_ENV=e2e bun run build)

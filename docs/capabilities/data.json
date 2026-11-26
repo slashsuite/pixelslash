@@ -692,7 +692,7 @@
       "label": "Documented retention",
       "ps": {
         "v": "p",
-        "note": "PIXELSLASH_RETENTION_DAYS sets a window past which non-default-branch builds go with their blobs and rows, never a baseline a surviving build points at. On Cloudflare an hourly cron sweeps, logging counts and bytes only until PIXELSLASH_RETENTION_DELETE=true; on a self-host `bun deploy/retention.ts` lists the builds and deletes with `--apply`, by hand. With the window set the build page shows 'expires in N days', even when nothing would delete. Off unless set, and no config in the tree sets it",
+        "note": "PIXELSLASH_RETENTION_DAYS sets a window past which non-default-branch builds go with their blobs and rows, never a baseline a surviving build points at; PIXELSLASH_RETENTION_MAIN_DAYS sets one for default-branch builds, which always keeps each project's newest and any build holding a test's current accepted shot. Images no shot names any more are swept on the same schedule. On Cloudflare an hourly cron sweeps, logging counts and bytes only until PIXELSLASH_RETENTION_DELETE=true; on a self-host `bun deploy/retention.ts` lists main builds, branch builds and orphaned images and deletes with `--apply`, by hand. With the PR window set the build page shows 'expires in N days', even when nothing would delete. Both windows are off unless set, and no config in the tree sets either",
         "commit": "cad8b76"
       },
       "t": {
