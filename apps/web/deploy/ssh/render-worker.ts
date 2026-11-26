@@ -49,8 +49,8 @@ export type QueueStore = { load(): Kept[]; save(jobs: Kept[]): void };
 
 type WorkerOptions = {
   store?: QueueStore;
-  /** End a build `errored` with this render error, without rendering it. */
-  giveUp?: (job: RenderJob, error: string) => Promise<void>;
+  /** End a build `errored` with this render error, without rendering it; false: try at the next start. */
+  giveUp?: (job: RenderJob, error: string) => Promise<boolean>;
 };
 
 const isJob = (v: unknown): v is RenderJob =>
@@ -114,15 +114,34 @@ function rendered(job: RenderJob, outcome: RenderOutcome, started: number): stri
     : `render ${job.buildId}: failed in ${took}: ${outcome.error.split("\n")[0] ?? ""}`;
 }
 
+/** Report each spent build's error, keeping it in `spent` (and so in the store) until the server has it. */
+async function giveUpOn(
+  spent: Kept[],
+  giveUp: WorkerOptions["giveUp"],
+  log: Log,
+  save: () => void,
+): Promise<void> {
+  for (const job of spent.slice()) {
+    const error = `the renderer stopped ${job.starts} times while rendering this build (a crash or its memory limit); send the build again`;
+    log(`render ${job.buildId}: given up: ${error}`);
+    if (!((await giveUp?.(job, error)) ?? true)) continue;
+    spent.splice(spent.indexOf(job), 1);
+    save();
+  }
+}
+
 /** The queue and its listener's handler; `render` is the engine's, or a test's. */
 export function renderWorker(render: Render, log: Log, { store, giveUp }: WorkerOptions = {}) {
   const queue: Kept[] = [];
+  /** Builds given up on whose render error has not reached the server yet. */
+  const spent: Kept[] = [];
   let current: Kept | null = null;
   let draining = false;
   let stopping = false;
   let idle: Promise<void> = Promise.resolve();
+  let reported: Promise<void> = Promise.resolve();
 
-  const save = () => store?.save([...(current ? [current] : []), ...queue].map(kept));
+  const save = () => store?.save([...(current ? [current] : []), ...queue, ...spent].map(kept));
 
   async function drain(): Promise<void> {
     for (
@@ -182,11 +201,12 @@ export function renderWorker(render: Render, log: Log, { store, giveUp }: Worker
 
   /**
    * Take up what the last worker left in the store: each build again, in order, except one already
-   * started `MAX_STARTS` times, which is ended `errored` instead. Resolves once those are reported.
+   * started `MAX_STARTS` times, which is ended `errored` instead and kept in the store until the
+   * server has that. Resolves once those are reported.
    */
   async function resume(): Promise<void> {
     const left = store?.load() ?? [];
-    const spent = left.filter((job) => job.starts >= MAX_STARTS);
+    spent.push(...left.filter((job) => job.starts >= MAX_STARTS).map(kept));
     queue.push(...left.filter((job) => job.starts < MAX_STARTS).map(kept));
     if (left.length > 0)
       log(
@@ -194,17 +214,14 @@ export function renderWorker(render: Render, log: Log, { store, giveUp }: Worker
       );
     save();
     kick();
-    for (const job of spent) {
-      const error = `the renderer stopped ${job.starts} times while rendering this build (a crash or its memory limit); send the build again`;
-      log(`render ${job.buildId}: given up: ${error}`);
-      await giveUp?.(job, error);
-    }
+    reported = giveUpOn(spent, giveUp, log, save);
+    await reported;
   }
 
-  /** Start no other build; resolves once the one being rendered, if any, has finished. */
+  /** Start no other build; resolves once the one being rendered, and any give-up report, are done. */
   function stop(): Promise<void> {
     stopping = true;
-    return idle;
+    return Promise.all([idle, reported]).then(() => {});
   }
 
   /** Resolves once every job taken so far has rendered. */

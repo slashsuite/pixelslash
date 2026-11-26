@@ -68,16 +68,18 @@ export async function renderBundle(
 
 /**
  * End a build `errored` with `error` as its render error, without rendering it: the renderer gives
- * up on a build it was stopped under too often. A report that does not get through is warned of.
+ * up on a build it was stopped under too often. Resolves false only when the server could not be
+ * reached, so the report is worth sending again; a report that does not get through is warned of.
  */
 export async function reportRenderError(
   job: RenderJob,
   opts: RenderOptions,
   error: string,
   deps: RenderDeps = {},
-): Promise<void> {
-  if (!BUILD_ID.test(job.buildId)) return;
-  await reportTo(clientFor(job, opts, deps), job, error.slice(0, MAX_ERROR));
+): Promise<boolean> {
+  // No server takes a malformed id: there is nothing to send again.
+  if (!BUILD_ID.test(job.buildId)) return true;
+  return reportTo(clientFor(job, opts, deps), job, error.slice(0, MAX_ERROR));
 }
 
 function clientFor(job: RenderJob, opts: RenderOptions, deps: RenderDeps): Client {
@@ -90,14 +92,19 @@ function clientFor(job: RenderJob, opts: RenderOptions, deps: RenderDeps): Clien
   };
 }
 
-async function reportTo(client: Client, job: RenderJob, error: string): Promise<void> {
-  await send(client, {
+/** Whether the server answered: a refusal (a 4xx) is an answer too, and sending it again changes nothing. */
+async function reportTo(client: Client, job: RenderJob, error: string): Promise<boolean> {
+  return send(client, {
     step: "render error",
     method: "POST",
     path: `/api/v1/builds/${job.buildId}/render-error`,
     body: JSON.stringify({ error }),
-  }).catch((sent: unknown) =>
-    client.warn(`render: ${job.buildId}: the error was not reported: ${String(sent)}`),
+  }).then(
+    () => true,
+    (sent: unknown) => {
+      client.warn(`render: ${job.buildId}: the error was not reported: ${String(sent)}`);
+      return sent instanceof UploadError && sent.status !== undefined && sent.status < 500;
+    },
   );
 }
 

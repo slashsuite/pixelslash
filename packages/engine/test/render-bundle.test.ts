@@ -8,6 +8,13 @@ import { isObj } from "../src/upload-client.ts";
 import { type Call, fakeServer, metaOf } from "./fake-server.ts";
 import { cleanup, tmp } from "./upload-fixtures.ts";
 
+/** A render error sent to a server that answers with `fetch`, with no wait between tries. */
+const report = (fetch: () => Promise<Response>) =>
+  reportRenderError({ buildId: "b1", token: "psr_b1.sig" }, { server: "https://ps.example" }, "e", {
+    fetch,
+    sleep: async () => {},
+  });
+
 afterAll(cleanup);
 
 const story = (id: string, title: string, name: string, tags: string[] = []) => [
@@ -119,12 +126,13 @@ describe("renderBundle", () => {
 
   test("a build given up on is reported as a render error with its own token, and nothing else is sent", async () => {
     const fake = await api([]);
-    await reportRenderError(
+    const reached = await reportRenderError(
       { buildId: "b1", token: "psr_b1.sig" },
       { server: "https://ps.example/" },
       "the renderer stopped 3 times",
       { fetch: fake.fetch },
     );
+    expect(reached).toBe(true);
     expect(fake.calls).toHaveLength(1);
     expect(fake.calls[0]).toMatchObject({
       method: "POST",
@@ -141,5 +149,13 @@ describe("renderBundle", () => {
       },
     );
     expect(fake.calls).toHaveLength(1);
+  });
+
+  test("a render error the server never answered is worth sending again; one it refused is not", async () => {
+    expect(await report(() => Promise.reject(new Error("connection refused")))).toBe(false);
+    expect(await report(async () => new Response("bad gateway", { status: 502 }))).toBe(false);
+    expect(await report(async () => Response.json({ error: "not found" }, { status: 404 }))).toBe(
+      true,
+    );
   });
 });

@@ -131,7 +131,13 @@ describe("the render worker", () => {
         return { ok: true, snapshots: 1 };
       },
       (l) => lines.push(l),
-      { store, giveUp: async (job, error) => void given.push(`${job.buildId}: ${error}`) },
+      {
+        store,
+        giveUp: async (job, error) => {
+          given.push(`${job.buildId}: ${error}`);
+          return true;
+        },
+      },
     );
     await worker.resume();
     await worker.settled();
@@ -140,6 +146,29 @@ describe("the render worker", () => {
       `killer: the renderer stopped ${MAX_STARTS} times while rendering this build (a crash or its memory limit); send the build again`,
     ]);
     expect(lines).toContain(`render killer: given up: ${given[0]?.slice("killer: ".length)}`);
+    expect(store.saved).toEqual([]);
+  });
+
+  test("keeps a build given up on in the store until the server has its error, and a stop waits for that", async () => {
+    const store = memoryStore([{ buildId: "killer", token: "psr_killer.x", starts: MAX_STARTS }]);
+    const answers: ((reached: boolean) => void)[] = [];
+    const giveUp = () => new Promise<boolean>((answer) => answers.push(answer));
+    const first = renderWorker(gatedRender().render, () => {}, { store, giveUp });
+    void first.resume();
+    let stopped = false;
+    const stopping = first.stop().then(() => (stopped = true));
+    await tick();
+    expect(stopped).toBe(false);
+    expect(store.saved.map((j) => j.buildId)).toEqual(["killer"]);
+    answers.shift()?.(false);
+    await stopping;
+    expect(store.saved).toEqual([{ buildId: "killer", token: "psr_killer.x", starts: MAX_STARTS }]);
+
+    const second = renderWorker(gatedRender().render, () => {}, { store, giveUp });
+    const resumed = second.resume();
+    await tick();
+    answers.shift()?.(true);
+    await resumed;
     expect(store.saved).toEqual([]);
   });
 
