@@ -296,8 +296,8 @@ async function diffOrRecord(
 async function measureFromCi(deps: RunDeps, rows: SnapshotRow[], baselines: Baselines) {
   const refused: string[] = [];
   for (const shot of rows) {
-    // The pick `POST /baselines` told the CLI, which knows no fingerprint: not `baselineFor`.
-    const baseline = baselines.byKey.get(snapshotKeyOf(shot));
+    // The pick `POST /baselines` told the CLI, which sent each shot's fingerprint (PS-283).
+    const baseline = baselineFor(baselines, shot);
     if (stands(shot, baseline)) continue;
     try {
       await diffOne(deps, ciComparer(deps.blobs), shot, baseline);

@@ -24,7 +24,12 @@ export type Shot = {
   metrics?: object;
   /** What the CLI records as the shot's viewport; the 40 px fixtures' by default. */
   viewport?: string;
+  /** The environment that captured it; `FINGERPRINT` by default. */
+  fingerprint?: typeof FINGERPRINT;
 };
+
+/** The environment every fixture shot is captured in unless it names another. */
+export const FINGERPRINT = { image: "version:e2e", browser: "chromium 1", fonts: "sha256:f" };
 
 /** The CLI's form for one shot; a flaky one carries its record and runs 2 and 3, run 2 differing. */
 function shotForm(shot: Shot): FormData {
@@ -36,7 +41,7 @@ function shotForm(shot: Shot): FormData {
     viewport: shot.viewport ?? "40x40",
     theme: "light",
     tags: ["web"],
-    fingerprint: { image: "version:e2e", browser: "chromium 1", fonts: "sha256:f" },
+    fingerprint: shot.fingerprint ?? FINGERPRINT,
   };
   if (shot.flaky) {
     meta["flaky"] = shot.flaky;

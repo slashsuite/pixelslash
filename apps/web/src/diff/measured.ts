@@ -48,14 +48,13 @@ function fieldsOf(fingerprint: string): Record<string, string> {
   }
 }
 
-/** What moved between a baseline's environment and the shot's, e.g. `fonts sha256:f → sha256:g`. */
-function envChange(baseline: string, shot: string): string {
-  const was = fieldsOf(baseline);
-  const now = fieldsOf(shot);
-  const moved = FIELDS.filter((field) => was[field] !== now[field]).map(
-    (field) => `${field} ${was[field] ?? "none"} → ${now[field] ?? "none"}`,
+/** An environment in full, e.g. `image sha256:a, browser chromium 148, fonts sha256:f`. */
+function environment(fingerprint: string): string {
+  const fields = fieldsOf(fingerprint);
+  const named = FIELDS.filter((field) => fields[field] !== undefined).map(
+    (field) => `${field} ${fields[field]}`,
   );
-  return moved.length > 0 ? moved.join(", ") : "the environment fingerprint differs";
+  return named.length > 0 ? named.join(", ") : "no fingerprint";
 }
 
 async function fingerprintOf(db: Db, id: string | null): Promise<string | null> {
@@ -67,14 +66,22 @@ async function fingerprintOf(db: Db, id: string | null): Promise<string | null> 
   return row?.envFingerprint ?? null;
 }
 
+/**
+ * Why a branch build was refused (PS-590): both environments in full, so the two can be told apart
+ * without the fields that moved being guessed at, and the way to keep them equal.
+ */
 async function uncomparedReason(db: Db, held: number, rebaselined: Unmeasured[]) {
   const [first] = rebaselined;
   const baseline = await fingerprintOf(db, first?.baselineSnapshotId ?? null);
-  const moved = first && baseline ? ` (${envChange(baseline, first.envFingerprint)})` : "";
+  const both =
+    first && baseline
+      ? ` This build: ${environment(first.envFingerprint)}. Its baseline: ${environment(baseline)}.`
+      : "";
   return (
     `${rebaselined.length} of ${held} shots were captured in another environment than their ` +
-    `baselines${moved}, so they were not compared; upload the default branch from this ` +
-    `environment, then rebase this branch onto that commit and upload it again`
+    `baselines, so they were not compared.${both} Upload from CI or the pinned capture image, so ` +
+    `every build is captured in the same environment; to move the project to this environment, ` +
+    `upload the default branch from it, then rebase this branch onto that commit and upload it again`
   );
 }
 

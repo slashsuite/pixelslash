@@ -98,20 +98,27 @@ export function wrangler(...args: string[]) {
 }
 
 /** The real CLI from source. A non-zero exit is a result, not a throw. */
-export function cli(args: string[], env: Record<string, string> = {}) {
+export function cli(args: string[], env: Record<string, string> = {}, cwd = ROOT) {
   const res = spawnSync("bun", [join(ROOT, "packages/cli/src/index.ts"), ...args], {
-    cwd: ROOT,
+    cwd,
     env: { ...process.env, ...env },
     encoding: "utf8",
   });
   return { code: res.status, stdout: res.stdout, stderr: res.stderr };
 }
 
-/** `pixelslash upload` to the server with a project's CI token. */
-export function cliUpload(dir: string, token: string, branch = "local-build") {
-  return cli(["upload", dir, "--server", serverUrl(), "--branch", branch], {
-    PIXELSLASH_TOKEN: token,
-  });
+/**
+ * `pixelslash upload` to the server with a project's CI token. `cwd` is the checkout whose git
+ * history the build is placed in; this repo's own by default.
+ */
+export function cliUpload(dir: string, token: string, branch = "local-build", cwd = ROOT) {
+  return cli(
+    ["upload", dir, "--server", serverUrl(), "--branch", branch],
+    {
+      PIXELSLASH_TOKEN: token,
+    },
+    cwd,
+  );
 }
 
 /** The CLI's stderr less its one `timing:` line (ob 1791): anything else on it is a warning. */

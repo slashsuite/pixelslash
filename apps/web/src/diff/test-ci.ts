@@ -43,6 +43,8 @@ export type Run = {
   commit: string;
   mergeBase?: string;
   png: Uint8Array<ArrayBuffer>;
+  /** What captured the shot, when not `META`'s environment. */
+  fingerprint?: typeof META.fingerprint;
   /** Replace what the CLI measured before it is sent; `undefined` sends no `ci` at all. */
   tamper?: ((results: CiSent[]) => CiSent[] | undefined) | undefined;
 };
@@ -73,12 +75,12 @@ async function start(deps: ApiDeps, token: string, spec: Run): Promise<string> {
   return idOf(started);
 }
 
-async function pickOf(deps: ApiDeps, token: string, buildId: string): Promise<BaselinePick> {
+async function pickOf(deps: ApiDeps, token: string, buildId: string, meta: typeof META) {
   const res = await call(
     deps,
     `POST /api/v1/builds/${buildId}/baselines`,
     token,
-    JSON.stringify({ keys: [{ ...KEY, theme: "light" }] }),
+    JSON.stringify({ keys: [{ ...KEY, theme: "light", fingerprint: meta.fingerprint }] }),
   );
   expect(res.status).toBe(200);
   const body: { baselines: BaselinePick[] } = await res.json();
@@ -88,7 +90,7 @@ async function pickOf(deps: ApiDeps, token: string, buildId: string): Promise<Ba
 }
 
 /** The upload's form: the shot, and what the CLI measured (after `tamper`) with each mask. */
-function formOf(spec: Run, measured: CiResult[]): FormData {
+function formOf(spec: Run, meta: typeof META, measured: CiResult[]): FormData {
   const sent: CiSent[] = measured.map(({ baselineId, status, diffResult }) => ({
     baselineId,
     status,
@@ -97,7 +99,7 @@ function formOf(spec: Run, measured: CiResult[]): FormData {
   const results = spec.tamper ? spec.tamper(sent) : sent;
   const form = new FormData();
   const ci = results?.length ? { engineVersion: ENGINE_VERSION, results } : undefined;
-  form.set("meta", JSON.stringify({ ...META, ...(ci && { ci }) }));
+  form.set("meta", JSON.stringify({ ...meta, ...(ci && { ci }) }));
   form.set("file", new File([spec.png.slice()], "shot.png", { type: "image/png" }));
   // Each result sent carries the mask the CLI made for the one it replaced.
   for (const [i, r] of (results ?? []).entries()) {
@@ -110,9 +112,11 @@ function formOf(spec: Run, measured: CiResult[]): FormData {
 /** One build of one shot, as `pixelslash upload` makes it: start, pick, measure, send, finalise. */
 export async function run(held: Held, token: string, spec: Run, deps: ApiDeps = held.deps) {
   const id = await start(deps, token, spec);
-  const pick = await pickOf(deps, token, id);
-  const measured = await measureShot(META, Buffer.from(spec.png), pick, fetcher(held));
-  const put = await call(deps, `PUT /api/v1/builds/${id}/snapshots`, token, formOf(spec, measured));
+  const meta = { ...META, fingerprint: spec.fingerprint ?? META.fingerprint };
+  const pick: BaselinePick = await pickOf(deps, token, id, meta);
+  const measured = await measureShot(meta, Buffer.from(spec.png), pick, fetcher(held));
+  const form = formOf(spec, meta, measured);
+  const put = await call(deps, `PUT /api/v1/builds/${id}/snapshots`, token, form);
   expect(put.status).toBe(200);
   const done = await call(
     deps,

@@ -57,7 +57,7 @@ function readFlags(argv: string[]) {
 }
 
 /** The Miniflare state directory: the flag, else the Docker self-host's data dir, else the LAN one's. */
-function stateDir(flag: string | undefined, dataDir: string | undefined): string {
+export function stateDir(flag: string | undefined, dataDir: string | undefined): string {
   if (flag) return resolve(flag);
   return dataDir ? join(dataDir, "state/v3") : join(WEB_ROOT, ".wrangler/state/v3");
 }
@@ -99,7 +99,7 @@ export function listing(plan: RetentionPlan): string[] {
 }
 
 /** Miniflare over the self-host's persisted state, with its D1 as `DB` and its R2 as `BLOBS`. */
-function openState(persistTo: string): Miniflare {
+export function openState(persistTo: string): Miniflare {
   const config = readConfig();
   return new Miniflare(
     convertV4MiniflareOptions({

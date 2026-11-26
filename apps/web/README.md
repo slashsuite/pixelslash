@@ -196,6 +196,24 @@ counts drop with the builds. With retention on, a PR build's page says "expires 
 - Deletion is permanent; read a dry-run listing before turning it on. Enabling it on a server with real
   data is the operator's decision.
 
+### Recomputing stored verdicts
+
+A build's status is written when its run ends and again on each review decision, by the verdict rule
+of that day (`src/db/verdict.ts`). A build finished under an older rule keeps the status it was given:
+one from before a new shot waited for review can read `passed` with a new shot still undecided. For a
+self-host, `deploy/recompute-verdicts.ts` lists every finished build (`passed`, `changes` or `failed`)
+whose stored status differs from what its shots add up to now, and writes the new one only with
+`--apply`:
+
+```bash
+bun deploy/recompute-verdicts.ts             # list build id, old status -> new; writes nothing
+bun deploy/recompute-verdicts.ts --apply     # write them
+```
+
+It only changes `builds.status`; it adds and deletes nothing. A `processing` or `errored` build is
+left alone, and each write is fenced on the status it read, so a decision made meanwhile wins. A
+second run lists nothing. `--persist-to` is as for `retention.ts`.
+
 ### Abandoned builds (PS-324)
 
 Always on, with no setting. A build still `uploading` or `processing` whose last activity is older than
@@ -687,6 +705,6 @@ per build (`render <id>: <n> shots in <s>` or `failed in <s>: <reason>`), never 
 The renderer's Chromium is the release's Playwright build, not the pinned capture image, so its
 shots carry another environment fingerprint than client-captured baselines. A project that switches
 from client capture switches its default branch first: that build's shots are accepted and become
-the baselines. A branch's bundle build before then ends `errored`, naming the browser and fonts that
-moved, since its shots were compared with nothing (`src/diff/measured.ts`). Docker and Cloudflare
+the baselines. A branch's bundle build before then ends `errored`, naming both environments in
+full, since its shots were compared with nothing (`src/diff/measured.ts`). Docker and Cloudflare
 have no renderer: `RENDER_URL` stays empty there.

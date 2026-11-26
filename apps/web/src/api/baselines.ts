@@ -3,12 +3,14 @@ import {
   type BaselineSnapshot,
   type PickFor,
   type SnapshotKey,
+  baselineFor,
   selectBaselines,
   snapshotKeyOf,
 } from "#/db/baselines";
 import type { Db } from "#/db/db";
 import type { DiffLocation } from "#/db/schema";
 import { BASELINE_URL_TTL_MS } from "#/storage/signed";
+import { fingerprint } from "./validate-native";
 import { API_VERSION, imageUrl } from "./read";
 import { BadRequest, object, parseNewBuild, parseSnapshotKey } from "./validate";
 
@@ -29,11 +31,23 @@ export type BaselinesCtx = {
 /** A build holds at most this many shots worth asking about in one request. */
 const MAX_KEYS = 2000;
 
-function keysOf(body: unknown): SnapshotKey[] {
+/** A key, and the environment its shot was captured in when the CLI says (any since PS-283). */
+type AskedKey = SnapshotKey & { envFingerprint: string | null };
+
+function keysOf(body: unknown): AskedKey[] {
   const keys = object(body, "body").keys;
   if (!Array.isArray(keys) || keys.length > MAX_KEYS)
     throw new BadRequest(`keys must be an array of at most ${MAX_KEYS} snapshot keys`);
-  return keys.map((k, i) => parseSnapshotKey(k, `keys[${i}].`));
+  return keys.map((k: unknown, i) => {
+    const at = `keys[${i}].`;
+    const sent = object(k, at).fingerprint;
+    return {
+      ...parseSnapshotKey(k, at),
+      // Stored as finalise stores it, so the two compare as strings.
+      envFingerprint:
+        sent === undefined ? null : JSON.stringify(fingerprint(object(sent, `${at}fingerprint`))),
+    };
+  });
 }
 
 async function shotOf(ctx: BaselinesCtx, orgId: string, shot: BaselineSnapshot | undefined) {
@@ -54,12 +68,16 @@ async function reply(
   ctx: BaselinesCtx,
   owner: { orgId: string; diffLocation: DiffLocation },
   build: PickFor,
-  keys: SnapshotKey[],
+  keys: AskedKey[],
 ): Promise<Response> {
   const picked = await selectBaselines(ctx.db, build, new Set(keys.map(snapshotKeyOf)));
   const baselines = await Promise.all(
-    keys.map(async (key) => {
-      const b = picked.byKey.get(snapshotKeyOf(key));
+    keys.map(async ({ envFingerprint, ...key }) => {
+      // The pick finalise makes for a shot from this environment (`measureFromCi`); a CLI that
+      // does not say gets the plain pick.
+      const b = envFingerprint
+        ? baselineFor(picked, { ...key, envFingerprint })
+        : picked.byKey.get(snapshotKeyOf(key));
       return {
         key,
         baseline: await shotOf(ctx, owner.orgId, b?.shot),

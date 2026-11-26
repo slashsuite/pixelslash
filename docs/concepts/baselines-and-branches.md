@@ -18,7 +18,7 @@ A server you run stores every build, so it has to choose the baseline. It choose
 
 The server tries two things, in this order:
 
-1. **This branch's previous shot.** It takes the newest earlier build of this branch that holds the shot and was not rejected, whether or not anyone has reviewed it yet. A second run of one commit therefore reports nothing new, and the history carries across a rebase or an amend.
+1. **This branch's previous shot.** It takes the newest earlier build of this branch that holds the shot and was not rejected, whether or not anyone has reviewed it yet. A second run of one commit therefore reports nothing new, and the history carries across a rebase or an amend. If the base has a different shot since that build was measured, because the branch was rebased onto a newer base, step 2 is taken instead, so the branch is compared with what its merge-base holds now, not with an image the base has since replaced.
 2. **The accepted shot at the merge-base or its ancestors.** The CLI sends the merge-base with your base branch and up to 200 of its ancestors. The server takes the nearest of those commits with an accepted shot, and the newest build if a commit has several. A commit newer than your merge-base is not considered, so work that landed after you branched does not appear in your diff.
 
 An accepted shot is one in a build that passed, or a shot someone accepted by hand. On the default branch, every shot is accepted as it arrives.
