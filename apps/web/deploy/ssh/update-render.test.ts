@@ -23,10 +23,12 @@ describe("update.sh and the bundle renderer", () => {
     expect(lines.slice(1).map((l) => l.replace(/ @ .*/, ""))).toEqual([
       `chown -R pixelslash-render:pixelslash-render ${join(s.home, "..", "render-home")}`,
       "systemctl enable --quiet pixelslash-render",
-      "systemctl restart pixelslash-render",
+      "systemctl restart --no-block pixelslash-render",
     ]);
     const web = commands.findIndex((l) => l.startsWith("systemctl restart pixelslash-stub"));
-    const render = commands.findIndex((l) => l.startsWith("systemctl restart pixelslash-render"));
+    const render = commands.findIndex((l) =>
+      l.startsWith("systemctl restart --no-block pixelslash-render"),
+    );
     expect(web).toBeGreaterThan(-1);
     expect(render).toBeGreaterThan(web);
   });
@@ -43,7 +45,7 @@ describe("update.sh and the bundle renderer", () => {
     expect(
       commands.some((l) => l.startsWith("systemctl restart pixelslash-stub pixelslash-web")),
     ).toBe(true);
-    expect(commands.some((l) => l.startsWith("systemctl restart pixelslash-render"))).toBe(false);
+    expect(commands.some((l) => /^systemctl restart .*pixelslash-render /.test(l))).toBe(false);
   });
 
   test("a rollback brings the web app back before it reinstalls the renderer", () => {
@@ -56,7 +58,7 @@ describe("update.sh and the bundle renderer", () => {
     const web = at(/^systemctl restart pixelslash-stub pixelslash-web /);
     expect(web).toBeGreaterThan(-1);
     expect(at(/^bunx playwright install /)).toBeGreaterThan(web);
-    expect(at(/^systemctl restart pixelslash-render /)).toBeGreaterThan(web);
+    expect(at(/^systemctl restart --no-block pixelslash-render /)).toBeGreaterThan(web);
     expect(existsSync(join(s.unitDir, RENDER_UNIT))).toBe(true);
   });
 
@@ -69,7 +71,7 @@ describe("update.sh and the bundle renderer", () => {
     );
     const { status, stderr } = deploy(s, pack("aaaaaaa", { render: true }));
     expect({ status, stderr }).toMatchObject({ status: 0 });
-    expect(stderr).toContain("pixelslash-render did not start");
+    expect(stderr).toContain("pixelslash-render could not be restarted");
     expect(stderr).toContain("release aaaaaaa is serving");
   });
 

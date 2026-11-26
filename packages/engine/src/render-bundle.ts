@@ -52,33 +52,60 @@ export async function renderBundle(
   deps: RenderDeps = {},
 ): Promise<RenderOutcome> {
   if (!BUILD_ID.test(job.buildId)) return { ok: false, error: "render: not a build id" };
-  const warn = deps.warn ?? (() => {});
-  const client: Client = {
-    fetch: deps.fetch ?? globalThis.fetch.bind(globalThis),
-    base: opts.server.replace(/\/+$/, ""),
-    token: job.token,
-    warn,
-    sleep: deps.sleep ?? ((ms) => Bun.sleep(ms)),
-  };
-  const path = `/api/v1/builds/${job.buildId}`;
+  const client = clientFor(job, opts, deps);
   const work = await mkdtemp(join(opts.scratch ?? tmpdir(), "pixelslash-render-"));
   try {
     const snapshots = await renderInto(client, job, work, { opts, deps });
     return { ok: true, snapshots };
   } catch (e) {
     const error = (e instanceof Error ? e.message : String(e)).slice(0, MAX_ERROR);
-    await send(client, {
-      step: "render error",
-      method: "POST",
-      path: `${path}/render-error`,
-      body: JSON.stringify({ error }),
-    }).catch((sent: unknown) =>
-      warn(`render: ${job.buildId}: the error was not reported: ${String(sent)}`),
-    );
+    await reportTo(client, job, error);
     return { ok: false, error };
   } finally {
     await rm(work, { recursive: true, force: true });
   }
+}
+
+/**
+ * End a build `errored` with `error` as its render error, without rendering it: the renderer gives
+ * up on a build it was stopped under too often. Resolves false only when the server could not be
+ * reached, so the report is worth sending again; a report that does not get through is warned of.
+ */
+export async function reportRenderError(
+  job: RenderJob,
+  opts: RenderOptions,
+  error: string,
+  deps: RenderDeps = {},
+): Promise<boolean> {
+  // No server takes a malformed id: there is nothing to send again.
+  if (!BUILD_ID.test(job.buildId)) return true;
+  return reportTo(clientFor(job, opts, deps), job, error.slice(0, MAX_ERROR));
+}
+
+function clientFor(job: RenderJob, opts: RenderOptions, deps: RenderDeps): Client {
+  return {
+    fetch: deps.fetch ?? globalThis.fetch.bind(globalThis),
+    base: opts.server.replace(/\/+$/, ""),
+    token: job.token,
+    warn: deps.warn ?? (() => {}),
+    sleep: deps.sleep ?? ((ms) => Bun.sleep(ms)),
+  };
+}
+
+/** Whether the server answered: a refusal (a 4xx) is an answer too, and sending it again changes nothing. */
+async function reportTo(client: Client, job: RenderJob, error: string): Promise<boolean> {
+  return send(client, {
+    step: "render error",
+    method: "POST",
+    path: `/api/v1/builds/${job.buildId}/render-error`,
+    body: JSON.stringify({ error }),
+  }).then(
+    () => true,
+    (sent: unknown) => {
+      client.warn(`render: ${job.buildId}: the error was not reported: ${String(sent)}`);
+      return sent instanceof UploadError && sent.status !== undefined && sent.status < 500;
+    },
+  );
 }
 
 async function renderInto(

@@ -710,13 +710,25 @@ restarts it after the web unit. If that install fails, the deploy still serves t
 and leaves the renderer out until the next deploy. Without `RENDER_URL` a deploy installs none of it, retires a unit a
 previous deploy left, and the API answers a bundle build `409`, so the CLI says to capture on the
 client. A renderer that does not take a job (down, or 50 builds queued) makes the CLI's finalise a
-`502`; a build the renderer dies under is left `uploading` and ends as an abandoned build does.
+`502`.
+
+A restart drops no build. The renderer keeps its queue, and the build it is rendering, in
+`/var/lib/pixelslash-render/queue.json` (mode 600: it holds each build's render token), and a new
+renderer renders them again, in order. A stop (a deploy, `systemctl restart`) lets the build being
+rendered finish, starts no other, then exits; it has up to 20 minutes (`TimeoutStopSec`). A deploy
+queues the renderer's restart (`systemctl restart --no-block`) rather than waiting on it, so it ends
+while that build finishes.
+A build the renderer dies under (a crash, its memory limit, a stop that ran out of time) is started
+again on the next start; one it has died under three times ends `errored`,
+`render failed: the renderer stopped 3 times while rendering this build ...`, so a CLI waiting on
+it fails rather than waiting for the abandoned sweep.
 
 The bundle is a pull request's own code, so the unit is fenced: its own user with no login, no
 access to the app's state or `.dev.vars.e2e`, loopback only (`IPAddressAllow=localhost`), a read-only
 system, a private `/tmp` for each job's bundle and shots, Chromium's sandbox left on, and
 `MemoryMax=3000M` beside the web unit's 4000M. Logs: `journalctl -u pixelslash-render -f`, one line
-per build (`render <id>: <n> shots in <s>` or `failed in <s>: <reason>`), never the token.
+per build (`render <id>: <n> shots in <s>` or `failed in <s>: <reason>`), one at a start that took
+up builds left by the last renderer (`resumed <n> build(s) ...`), never the token.
 
 The renderer's Chromium is the release's Playwright build, not the pinned capture image, so its
 shots carry another environment fingerprint than client-captured baselines. A project that switches

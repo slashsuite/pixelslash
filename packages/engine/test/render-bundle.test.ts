@@ -3,10 +3,17 @@ import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { packBundle } from "../src/bundle-archive.ts";
 import { renderPlan } from "../src/bundle-plan.ts";
-import { renderBundle } from "../src/render-bundle.ts";
+import { renderBundle, reportRenderError } from "../src/render-bundle.ts";
 import { isObj } from "../src/upload-client.ts";
 import { type Call, fakeServer, metaOf } from "./fake-server.ts";
 import { cleanup, tmp } from "./upload-fixtures.ts";
+
+/** A render error sent to a server that answers with `fetch`, with no wait between tries. */
+const report = (fetch: () => Promise<Response>) =>
+  reportRenderError({ buildId: "b1", token: "psr_b1.sig" }, { server: "https://ps.example" }, "e", {
+    fetch,
+    sleep: async () => {},
+  });
 
 afterAll(cleanup);
 
@@ -115,5 +122,40 @@ describe("renderBundle", () => {
     );
     expect(outcome).toEqual({ ok: false, error: "render: not a build id" });
     expect(fake.calls).toEqual([]);
+  });
+
+  test("a build given up on is reported as a render error with its own token, and nothing else is sent", async () => {
+    const fake = await api([]);
+    const reached = await reportRenderError(
+      { buildId: "b1", token: "psr_b1.sig" },
+      { server: "https://ps.example/" },
+      "the renderer stopped 3 times",
+      { fetch: fake.fetch },
+    );
+    expect(reached).toBe(true);
+    expect(fake.calls).toHaveLength(1);
+    expect(fake.calls[0]).toMatchObject({
+      method: "POST",
+      url: "https://ps.example/api/v1/builds/b1/render-error",
+      auth: "Bearer psr_b1.sig",
+      body: { error: "the renderer stopped 3 times" },
+    });
+    await reportRenderError(
+      { buildId: "../x", token: "t" },
+      { server: "https://ps.example" },
+      "e",
+      {
+        fetch: fake.fetch,
+      },
+    );
+    expect(fake.calls).toHaveLength(1);
+  });
+
+  test("a render error the server never answered is worth sending again; one it refused is not", async () => {
+    expect(await report(() => Promise.reject(new Error("connection refused")))).toBe(false);
+    expect(await report(async () => new Response("bad gateway", { status: 502 }))).toBe(false);
+    expect(await report(async () => Response.json({ error: "not found" }, { status: 404 }))).toBe(
+      true,
+    );
   });
 });

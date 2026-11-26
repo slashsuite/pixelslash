@@ -52,7 +52,9 @@
 # RENDER_URL (the renderer's loopback address, http://127.0.0.1:3100/jobs), and retired on a deploy
 # where it does not. It is restarted after the web app serves; a renderer that does not come up is
 # reported and leaves the release serving, since the review app refuses bundle builds it cannot
-# hand on (a 502 to the CLI) and takes every other build as before.
+# hand on (a 502 to the CLI) and takes every other build as before. A renderer in the middle of a
+# build is restarted once that build is rendered, without the deploy waiting for it; the builds
+# queued behind it are kept in its state directory and rendered by the new release's renderer.
 set -Eeuo pipefail
 
 # The PIXELSLASH_* overrides are for the test, which runs this against temp directories.
@@ -288,10 +290,14 @@ install_render_or_skip() {
 
 # (Re)starts the renderer, when it is installed, after the web app serves. A renderer that fails is
 # reported, not rolled back: the release serves, and a bundle build it cannot take answers 502.
+# The restart is queued with systemd (--no-block), not waited for: a renderer in the middle of a
+# build lets it finish first (up to the unit's TimeoutStopSec). Its queue is in its state directory,
+# and the new release's renderer takes it up. The unit is Type=simple, so a blocking restart would
+# catch no more than this does: an enable or a unit that cannot be loaded.
 restart_render() {
   [[ -f $UNIT_DIR/pixelslash-render.service ]] || return 0
-  { systemctl enable --quiet pixelslash-render && systemctl restart pixelslash-render; } ||
-    echo "pixelslash-render did not start: a bundle build's finalise answers 502 until it does" >&2
+  { systemctl enable --quiet pixelslash-render && systemctl restart --no-block pixelslash-render; } ||
+    echo "pixelslash-render could not be restarted: a bundle build's finalise answers 502 until it runs" >&2
 }
 
 # The liveness check is off while units restart on purpose. Stopping one that is not there yet (the

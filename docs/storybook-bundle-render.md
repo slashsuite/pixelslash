@@ -66,6 +66,8 @@ Everything the renderer does goes through the existing upload API, so nothing ne
 
 If the render worker fails part-way, the build ends `errored`, naming the stories that did not render, through the same path a capture failure takes today.
 
+A restart of the render worker drops no build. Its queue and the build it is rendering are kept on disk; a stop lets the build being rendered finish, and a worker killed mid-build renders that build again when it starts. A build the worker has been killed under three times ends `errored`, naming why, since it may be what kills the worker.
+
 ## 5. Fingerprint and baselines
 
 A baseline is only comparable with a shot from the same setup. The fingerprint (`docs/concepts/fingerprints.md`) records the image, the browser build and the font hash.
