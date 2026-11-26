@@ -99,8 +99,9 @@ async function settled(id: string): Promise<{ status: string; error: string | nu
  */
 async function logged(id: string): Promise<string> {
   for (let tries = 0; tries < 300; tries++) {
-    const log = readFileSync(workerLog, "utf8");
-    const line = log.split("\n").find((l) => l.startsWith(`render ${id}: `));
+    // Only whole lines: the last piece may be a line still being written.
+    const lines = readFileSync(workerLog, "utf8").split("\n").slice(0, -1);
+    const line = lines.find((l) => l.startsWith(`render ${id}: `));
     if (line !== undefined) return line;
     await new Promise((r) => setTimeout(r, 100));
   }
