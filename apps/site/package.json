@@ -20,7 +20,7 @@
     "@tailwindcss/vite": "catalog:tailwind",
     "@tanstack/react-router": "catalog:tanstack",
     "@tanstack/react-start": "catalog:tanstack",
-    "marked": "^17.0.0",
+    "marked": "^18.2.1",
     "react": "catalog:react",
     "react-dom": "catalog:react",
     "tailwindcss": "catalog:tailwind",
