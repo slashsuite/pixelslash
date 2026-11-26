@@ -95,7 +95,7 @@ The `flaky` setting says what a flaky shot does to the build. Set it at the top 
 | --- | --- | --- |
 | In the build | badged flaky, and it waits for a decision | marked `skipped: flaky`, and not in the count to review |
 | Blocks the build | yes | no |
-| Accepted | only by a person | never automatically, but a reviewer may still accept or reject it by hand |
+| Accepted | by a person, or on the default branch once its image is settled: the next build there renders it again, or a person accepted the same image on a pull request | never automatically, but a reviewer may still accept or reject it by hand |
 | Becomes a baseline | when accepted | no, unless a reviewer accepts it, so the next build is measured against the old one |
 
 `"review"` is the default because a flaky shot can also hide a real change. `"skip"` keeps a shot you can't fix yet out of the way. `status --wait` lists a skipped shot on its own `skipped flaky:` line.

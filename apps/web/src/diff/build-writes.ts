@@ -3,6 +3,7 @@ import type { BaselineSnapshot } from "#/db/baselines";
 import type { Build } from "#/db/builds";
 import type { runFields } from "#/db/server-timings";
 import type { Db } from "#/db/db";
+import { acceptSettledFlakyShots } from "#/db/flaky-main";
 import { type DiffLocation, builds, projects, snapshots } from "#/db/schema";
 import type { ProcessDeps } from "./process";
 import { effectiveDefaultBranch, parentJoin, parentProjects } from "#/db/effective";
@@ -49,14 +50,18 @@ export async function projectOf(db: Db, build: Build): Promise<ProjectOfBuild> {
   return project;
 }
 
-/** A build on the project's default branch is auto-accepted: there is no reviewer to ask (ob 1559). */
+/**
+ * A build on the project's default branch is auto-accepted: there is no reviewer to ask (ob 1559).
+ * A flaky shot waits, unless main reproduced its image or a person accepted that image on a pull
+ * request (`acceptSettledFlakyShots`): then it is accepted too, so it becomes the baseline.
+ */
 export async function acceptDefaultBranchBuild(
   db: Db,
   build: Build,
   project: ProjectOfBuild,
 ): Promise<void> {
   if (build.branch !== project.defaultBranch) return;
-  // A flaky shot is never auto-accepted (ob 1724): under `review` it waits, under `skip` it is left.
+  // A flaky shot is not accepted with the rest (ob 1724): under `review` it waits, under `skip` it is left.
   // Nor is a native shot of a stale twin key (PS-297): only a person's accept makes it fresh.
   // A shot already accepted (a re-run of the build) is left as it is: no row written to change nothing.
   await db
@@ -70,6 +75,7 @@ export async function acceptDefaultBranchBuild(
         ne(snapshots.reviewState, "accepted"),
       ),
     );
+  await acceptSettledFlakyShots(db, build);
 }
 
 /**
