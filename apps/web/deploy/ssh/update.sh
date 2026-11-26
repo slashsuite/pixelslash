@@ -290,8 +290,7 @@ install_render_or_skip() {
 # reported, not rolled back: the release serves, and a bundle build it cannot take answers 502.
 restart_render() {
   [[ -f $UNIT_DIR/pixelslash-render.service ]] || return 0
-  systemctl enable --quiet pixelslash-render
-  systemctl restart pixelslash-render ||
+  { systemctl enable --quiet pixelslash-render && systemctl restart pixelslash-render; } ||
     echo "pixelslash-render did not start: a bundle build's finalise answers 502 until it does" >&2
 }
 

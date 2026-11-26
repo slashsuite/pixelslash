@@ -60,6 +60,19 @@ describe("update.sh and the bundle renderer", () => {
     expect(existsSync(join(s.unitDir, RENDER_UNIT))).toBe(true);
   });
 
+  test("a renderer whose unit will not start is reported; the deploy still ends serving", () => {
+    const s = setup();
+    writeFileSync(join(s.legacyWeb, ".dev.vars.e2e"), "RENDER_URL=http://127.0.0.1:3100/jobs\n");
+    writeFileSync(
+      join(s.stubs, "systemctl"),
+      '#!/usr/bin/env bash\necho "systemctl $* @ $PWD" >>"$STUB_LOG"\n[[ " $* " != *" pixelslash-render "* ]]\n',
+    );
+    const { status, stderr } = deploy(s, pack("aaaaaaa", { render: true }));
+    expect({ status, stderr }).toMatchObject({ status: 0 });
+    expect(stderr).toContain("pixelslash-render did not start");
+    expect(stderr).toContain("release aaaaaaa is serving");
+  });
+
   test("without a RENDER_URL nothing of it is installed, and a unit left from before is retired", () => {
     const s = setup();
     const clean = deploy(s, pack("aaaaaaa", { render: true }));
