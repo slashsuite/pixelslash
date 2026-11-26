@@ -92,6 +92,21 @@ async function settled(id: string): Promise<{ status: string; error: string | nu
   return undefined;
 }
 
+/**
+ * The renderer's line for one build, or the whole log when 30 s pass without it. The build is
+ * finalised inside the render and the line is written after it returns (the job's scratch is removed
+ * in between), so a settled build does not yet mean a logged one.
+ */
+async function logged(id: string): Promise<string> {
+  for (let tries = 0; tries < 300; tries++) {
+    const log = readFileSync(workerLog, "utf8");
+    const line = log.split("\n").find((l) => l.startsWith(`render ${id}: `));
+    if (line !== undefined) return line;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  return readFileSync(workerLog, "utf8");
+}
+
 beforeAll(async () => {
   worker = await renderer();
 });
@@ -133,8 +148,7 @@ describe("upload --bundle against the local build and its renderer", () => {
       .where(eq(snapshots.buildId, id))
       .orderBy(asc(snapshots.name));
     expect(shots.map((s) => s.name)).toEqual(["ui-card-default", "ui-card-wide"]);
-    const log = readFileSync(workerLog, "utf8");
-    expect(log).toMatch(new RegExp(`render ${id}: 2 shots in [\\d.]+ s`));
-    expect(log).not.toContain("psr_");
+    expect(await logged(id)).toMatch(new RegExp(`^render ${id}: 2 shots in [\\d.]+ s$`));
+    expect(readFileSync(workerLog, "utf8")).not.toContain("psr_");
   }, 120_000);
 });
