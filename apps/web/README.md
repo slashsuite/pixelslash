@@ -729,9 +729,18 @@ re-captures shoot on fresh pages. The CT figures are `memory.peak` of the unit, 
 | Local, pages closed | 2 × 2 | 2.69 GB | 142 s |
 | Local, a fresh page per shot | 2 × 4 | 1.32 GB | 75 s (no re-capture) |
 
-The CT runs 0.5 to 1 GB above the local figure (the renderer's own process, about 0.8 GB while it
-renders, and the upload), so two builds of two shots each come to about 3.5 GB under `MemoryMax=4000M`,
-and the web unit's 4000M (it peaks near 1.3 GB) makes 8000M, inside the CT's 8 GB.
+The CT ran 0.8 GB above the local figure for one build (2.85 against 2.06 GB: the renderer's own
+process, about 0.8 GB while it renders, and the upload). That offset was measured on one build, not
+two, so two builds of two shots each are estimated at 3.2 to 3.7 GB (3050 to 3520 MiB) under
+`MemoryMax=4000M` (MiB); read the unit's `MemoryPeak` after a burst to check it. With the web unit's
+4000M the two limits take 8000 of the CT's 8192 MiB: they are ceilings, not reservations, and the web
+unit peaks near 1.3 GB.
+
+Two shots per build costs nothing when two builds run. Eleven builds, one per uislash story group (one
+theme, desktop and phone, 1554 shots, capture only), on 4 reserved CPUs, two rounds each: one build of
+four shots at a time took 75 and 77 s, two builds of two shots 58 and 58 s, two builds of four 58 and
+57 s. A build that runs alone is slower at two shots (the Overview build above: about 35 s against 22
+to 26 s locally, capture only).
 
 The renderer is one process, so a kill (its memory limit) stops both builds. Each is then started
 again on its own, so after that first kill a kill counts only against the build that caused it.

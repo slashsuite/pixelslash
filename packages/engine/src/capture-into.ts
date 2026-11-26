@@ -150,11 +150,6 @@ function announceRetry(
 /** The note when a shot that timed out failed again on its own, at the end of the run. */
 export const RETRIED_ALONE = "; retried alone after the run and timed out again";
 
-/** Every pooled page is idle once the shots are taken, and nothing after the run switches stories on one. */
-async function releasePooled(session: CaptureSession): Promise<void> {
-  await session.releasePages?.();
-}
-
 /**
  * Every route × variant of the session's config into `out`, and `out/manifest.json`, in the
  * config's order. Up to `concurrency` shots run at once (the config's `concurrency`, else
@@ -222,7 +217,8 @@ export async function captureInto(
     announceRetry(warn),
   );
   const captureWallMs = elapsed(shooting);
-  if (reuse) await releasePooled(session);
+  // Every pooled page is idle now (the solo retries ran inside mapLimit); nothing after this shoots on one.
+  await session.releasePages?.();
   const snapshots = taken.map((t) => t.entry);
   const shots = taken.map((t) => t.shot);
   const media = Object.fromEntries(

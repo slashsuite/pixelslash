@@ -126,19 +126,21 @@ function fakeSession(
   };
 }
 
-describe("captureInto closes the pooled pages when its shots are taken", () => {
-  test.each([
-    [true, 1],
-    [false, 0],
-  ])("with reuse %s it releases them %i time(s)", async (reuse, times) => {
-    const fake = fakeSession(parseConfig({ ...base, routes: ["/", "/a"] }), ["chromium"]);
-    let released = 0;
-    fake.releasePages = async () => {
-      released++;
-    };
-    await captureInto(fake, await tmpDir(), 2, { reuse });
-    expect(released).toBe(times);
-  });
+test("captureInto closes the pooled pages once, after every shot is taken", async () => {
+  const fake = fakeSession(parseConfig({ ...base, routes: ["/", "/a", "/b"] }), ["chromium"]);
+  let released = 0;
+  const seen: number[] = [];
+  fake.shoot = async () => {
+    await Bun.sleep(5);
+    seen.push(released);
+    return { png: png(), ignore: [], media: [] };
+  };
+  fake.releasePages = async () => {
+    released++;
+  };
+  await captureInto(fake, await tmpDir(), 2, { reuse: true });
+  expect(seen).toEqual([0, 0, 0]);
+  expect(released).toBe(1);
 });
 
 describe("one page × three browsers", { timeout: 60_000 }, () => {

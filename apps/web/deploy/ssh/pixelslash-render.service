@@ -27,9 +27,9 @@ Environment=RENDER_PORT=3100
 Environment=RENDER_API=http://127.0.0.1:3000
 Environment=RENDER_QUEUE=/var/lib/pixelslash-render/queue.json
 # Two builds at once, each with its own browser: a pull request's builds overlap their fixed costs
-# (apps/web/README.md, "The bundle renderer"). Two shots each, so four pages on the CT's four cores:
-# each pooled page holds every story it has switched to, and two builds of four pages each reached
-# this unit's old 3000M and were killed.
+# (apps/web/README.md, "The bundle renderer"). Two shots each, so four pages on the CT's four cores,
+# as fast as four each over eleven builds: each pooled page holds every story it has switched to,
+# and two builds of four pages each reached this unit's old 3000M and were killed.
 Environment=RENDER_BUILDS=2
 Environment=RENDER_CONCURRENCY=2
 ExecStart=/home/pixelslash/.bun/bin/bun deploy/ssh/render-worker.ts
@@ -49,8 +49,8 @@ ProtectControlGroups=yes
 IPAddressDeny=any
 IPAddressAllow=localhost
 # One build of 238 shots peaked at 2.85 GB here at four shots at once; two builds at two shots each
-# measured 2.7 GB locally, about 3.5 GB with this unit's own process and the upload. 4000M beside the
-# web app's 4000M stays inside the CT's 8 GB. Over this the kernel kills the renderer; it starts
+# measured 2.7 GB locally, an estimated 3.2 to 3.7 GB here with this unit's own process and the
+# uploads. 4000M and the web app's 4000M are ceilings within the CT's 8192 MiB. Over this the kernel kills the renderer; it starts
 # again and renders those builds again, one at a time, and a build it is killed under three times
 # ends errored, naming why.
 MemoryMax=4000M
