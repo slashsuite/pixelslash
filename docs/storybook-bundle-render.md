@@ -68,6 +68,8 @@ If the render worker fails part-way, the build ends `errored`, naming the storie
 
 A restart of the render worker drops no build. Its queue and the builds it is rendering are kept on disk; a stop lets the builds being rendered finish, and a worker killed mid-build renders those builds again when it starts. A build the worker has been killed under three times ends `errored`, naming why, since it may be what kills the worker.
 
+A newer head of the pull request cancels the old head's renders. When a build arrives for a pull request, the server ends `errored` every bundle build of that pull request still waiting at an older head (one whose commit's first build on the pull request came earlier), across the project and its subprojects, drops their bundles, and sends the renderer `DELETE /jobs/<id>` for each. The renderer drops a queued job, and stops one being rendered by closing its browser, sending nothing more. A renderer that missed the `DELETE` (it was down) is refused the build's plan, so it renders nothing either. Client captures are left alone: their own CI run sends their shots, and cancelling it is CI's job.
+
 ## 5. Fingerprint and baselines
 
 A baseline is only comparable with a shot from the same setup. The fingerprint (`docs/concepts/fingerprints.md`) records the image, the browser build and the font hash.

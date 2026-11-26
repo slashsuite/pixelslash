@@ -760,6 +760,11 @@ previous deploy left, and the API answers a bundle build `409`, so the CLI says 
 client. A renderer that does not take a job (down, or 50 builds queued) makes the CLI's finalise a
 `502`.
 
+A newer head of a pull request cancels the old head's renders: the API ends the old head's bundle
+builds `errored` (superseded) and sends the renderer `DELETE /jobs/<id>` for each, which drops a
+queued job or stops one mid-render (`docs/storybook-bundle-render.md`, section 4). The renderer logs
+`dropped from the queue` or `stopping` for each, without the token.
+
 A restart drops no build. The renderer keeps its queue, and the builds it is rendering, in
 `/var/lib/pixelslash-render/queue.json` (mode 600: it holds each build's render token), and a new
 renderer renders them again, in order. A stop (a deploy, `systemctl restart`) lets the builds being

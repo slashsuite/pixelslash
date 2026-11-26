@@ -7,8 +7,9 @@ import { ABANDONED_AFTER_MS } from "#/db/abandoned";
 import type { Actor } from "#/db/actor";
 import type { Build } from "#/db/builds";
 import type { Db } from "#/db/db";
-import { errorRenderBuild, renderBuildRow } from "#/db/render-builds";
+import { errorRenderBuild, renderBuildRow, supersedeBundleBuilds } from "#/db/render-builds";
 import { type CheckRunDeps, syncCheckRuns } from "#/github/check-run";
+import { reportError } from "#/server/sentry";
 import { type BlobStore, orgBlobs } from "#/storage/blobs";
 import { BadRequest, Unprocessable, bad } from "./errors";
 import { json } from "./endpoint";
@@ -117,6 +118,9 @@ export async function getBundle(ctx: RenderCtx, build: Build, { orgId }: Owner) 
 
 /** `GET /builds/:id/render`: the plan the renderer captures by. */
 export function getRenderPlan(build: Build): Response {
+  // A build the server ended (superseded, errored) is not rendered: a renderer that missed the
+  // cancel stops here, before it fetches the bundle.
+  uploading(build);
   const plan: unknown = JSON.parse(bundleBuild(build));
   return json({ id: build.id, plan });
 }
@@ -155,6 +159,45 @@ export async function renderError(ctx: RenderCtx, build: Build, { orgId }: Owner
   await orgBlobs(ctx.store, orgId).delete(bundleKey(build.id));
   if (ctx.checkRuns) await syncCheckRuns({ db: ctx.db, ...ctx.checkRuns }, [build.id]);
   return json({ id: build.id, status: "errored" });
+}
+
+/** A supersede that went wrong, reported: it never fails the build that set it off. */
+const warn = (e: unknown) => reportError(e, { area: "render-supersede" });
+
+/**
+ * A new build at `commitSha` of pull request `prNumber` ends the bundle builds of the PR's older
+ * heads across the project's group (`supersedeBundleBuilds`): their bundles go, the renderer is told
+ * to drop each (`DELETE <RENDER_URL>/<id>`, best effort: a renderer that misses it is refused the
+ * plan), and their commit statuses say why. Nothing here fails the new build, and a server with no
+ * renderer has none to end.
+ */
+export async function supersedeOlderHeads(
+  ctx: RenderCtx,
+  { id: projectId, orgId }: { id: string; orgId: string },
+  head: { commitSha: string; prNumber: number | null },
+): Promise<string[]> {
+  // No renderer, no bundle builds to end: the hosted app pays no query for it.
+  const render = ctx.render;
+  if (!render) return [];
+  // Best effort: the new build is already made, so nothing here may fail its POST (a retry
+  // would open a second one). A miss is reported; the old head's builds then run out as before.
+  const ended = await supersedeBundleBuilds(ctx.db, projectId, head).catch((e: unknown) => {
+    warn(e);
+    return [];
+  });
+  if (ended.length === 0) return ended;
+  const blobs = orgBlobs(ctx.store, orgId);
+  const send = render.fetch ?? ((url: string, init: RequestInit) => fetch(url, init));
+  const base = render.url.replace(/\/+$/, "");
+  await Promise.all(
+    ended.map(async (id) => {
+      await blobs.delete(bundleKey(id)).catch(warn);
+      // An unreachable renderer is not an error: the plan is refused to it all the same.
+      await send(`${base}/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => undefined);
+    }),
+  );
+  if (ctx.checkRuns) await syncCheckRuns({ db: ctx.db, ...ctx.checkRuns }, ended).catch(warn);
+  return ended;
 }
 
 /** The bundle is the renderer's input only: once its shots are in, it goes. */
