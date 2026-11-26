@@ -205,7 +205,7 @@ describe("the render worker", () => {
       "c 0",
       "d 0",
     ]);
-    // Taken while both slots are busy, a build is queued, not rendered beside them.
+    // A build already rendering, handed again, is taken once.
     await worker.handle(post({ buildId: "b", token: "psr_b.x" }));
     expect(store.saved).toHaveLength(4);
     gated.release();

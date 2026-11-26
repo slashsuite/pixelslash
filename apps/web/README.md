@@ -712,7 +712,7 @@ stories, and the other one fills those gaps. The twelve builds of one such pull 
 at a time, 89 s three at a time, and 150 s one at a time with eight shots each, peaking at about
 1.1 GB. Two is the setting: a third adds little and its own browser's memory under the same limit.
 The renderer is one process, so a kill (its memory limit) stops both builds. Each is then started
-again on its own, so the kill counts only against the build that caused it.
+again on its own, so after that first kill a kill counts only against the build that caused it.
 
 It is off until the CT's `.dev.vars.e2e` names it. To turn it on, add
 
