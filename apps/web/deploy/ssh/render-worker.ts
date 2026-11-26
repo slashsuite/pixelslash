@@ -20,9 +20,10 @@
  * `RENDER_HOST` (default 127.0.0.1) and `RENDER_PORT` (default 3100) are where it listens,
  * `RENDER_API` (default http://127.0.0.1:3000) the review app it speaks to, `RENDER_SCRATCH` the
  * directory each job's bundle and shots go in (default the temp dir), `RENDER_CONCURRENCY` how many
- * shots a job takes at once (default the CPUs the renderer has; a plan may ask for fewer), and
- * `RENDER_QUEUE` the queue's file (unset: the queue is in memory only). `pixelslash-render.service`
- * runs it; `apps/web/README.md`, "Run it on the Proxmox server", says how it is turned on.
+ * shots a job takes at once (default the CPUs the renderer has, at most ten; a plan may ask for
+ * fewer), and `RENDER_QUEUE` the queue's file (unset: the queue is in memory only).
+ * `pixelslash-render.service` runs it; `apps/web/README.md`, "Run it on the Proxmox server", says
+ * how it is turned on.
  */
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import {

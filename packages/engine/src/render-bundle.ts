@@ -3,7 +3,7 @@ import { availableParallelism, tmpdir } from "node:os";
 import { join } from "node:path";
 import { unpackBundle } from "./bundle-archive.ts";
 import { planConfig } from "./bundle-plan.ts";
-import { captureInto } from "./capture-into.ts";
+import { DEFAULT_CONCURRENCY_CAP, captureInto } from "./capture-into.ts";
 import { UploadError } from "./errors.ts";
 import type { FetchLike } from "./figma.ts";
 import { recapture } from "./recapture.ts";
@@ -22,7 +22,8 @@ export type RenderOptions = {
   /** Where each job's bundle and shots go, one fresh directory per job, removed after. Default: the temp dir. */
   scratch?: string | undefined;
   /**
-   * How many shots a job takes at once (`renderConcurrency`). Default: the CPUs the renderer has.
+   * How many shots a job takes at once (`renderConcurrency`). Default: the CPUs the renderer has,
+   * at most `DEFAULT_CONCURRENCY_CAP`.
    */
   concurrency?: number | undefined;
 };
@@ -36,7 +37,8 @@ export type RenderDeps = Pick<SnapshotDeps, "env" | "listFonts"> & {
 export type RenderOutcome = { ok: true; snapshots: number } | { ok: false; error: string };
 
 /**
- * How many shots a render takes at once: the renderer's own count (`own`, default the CPUs it has),
+ * How many shots a render takes at once: the renderer's own count (`own`, default the CPUs it has,
+ * capped as the client's default is, since each page is a few hundred MB under a fixed memory limit),
  * or the plan's `concurrency` when that asks for fewer. Not the client's load-based default
  * (`defaultConcurrency`): a renderer in a container sees its host's load average, so on a busy
  * host that default is one shot at a time, whatever the container has to spare. A plan never takes
@@ -44,7 +46,7 @@ export type RenderOutcome = { ok: true; snapshots: number } | { ok: false; error
  */
 export function renderConcurrency(
   asked: number | undefined,
-  own: number = availableParallelism(),
+  own: number = Math.min(availableParallelism(), DEFAULT_CONCURRENCY_CAP),
 ): number {
   return Math.max(1, Math.min(asked ?? own, own));
 }

@@ -697,7 +697,7 @@ bundle build to, and a queue that renders one build at a time with the engine's 
 CLI's capture code, then uploads the shots and finalises with a token that reaches only that build's
 render paths. It holds no secret of its own and talks only to `127.0.0.1:3000`.
 
-A build's shots are taken in parallel: as many at once as the unit has CPUs, or `RENDER_CONCURRENCY` in
+A build's shots are taken in parallel: as many at once as the unit has CPUs (at most ten), or `RENDER_CONCURRENCY` in
 `pixelslash-render.service` for another count (a plan's own `concurrency` may only ask for fewer). The CT
 has 4 cores and 8 GB, which fits both units' `MemoryMax`. On it, 82 uislash shots (Forms/Input and the
 Overview gallery sections, one theme, desktop and phone) took 95 s one at a time on the old 2 cores,
