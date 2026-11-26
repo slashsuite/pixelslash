@@ -96,13 +96,16 @@ describe("the default branch's own window", () => {
     const ctx = await context();
     const feature = await alone(ctx, "feature", 9);
     await age(ctx, feature, 400);
+    // Past the window too: it stays only as the project's newest main build, and keeps what it names.
     const main = await onMain(ctx, 1);
+    await age(ctx, main, 400);
     await ctx.db
       .update(snapshots)
       .set({ baselineKey: (await onlyShot(ctx, feature)).imageKey })
       .where(eq(snapshots.buildId, main.id));
     const { plan } = await sweepMain(ctx);
     expect(plan.expired).toEqual([]);
+    expect(plan.keptCurrent).toContain(main.id);
     expect(plan.keptReferenced).toEqual([feature.id]);
   });
 });

@@ -6,8 +6,8 @@ import type { Reading } from "./reading";
  * log line every run, and posts to the operator's webhook (`PIXELSLASH_ALERT_WEBHOOK_URL`) at most
  * once a UTC day. It only tells: nothing is deleted or moved when it fires.
  */
-export const DB_CAP_BYTES = 10e9;
-export const ALERT_SHARE = 0.7;
+const DB_CAP_BYTES = 10e9;
+const ALERT_SHARE = 0.7;
 
 /** Whether `bytes` is past the alert line, `ALERT_SHARE` of the cap. */
 export const overAlertLine = (bytes: number): boolean => bytes > DB_CAP_BYTES * ALERT_SHARE;
@@ -33,7 +33,7 @@ export type SizeAlertDeps = {
   markSent: (day: string) => Promise<void>;
 };
 
-export type SizeAlertOutcome = "unknown" | "under" | "logged" | "already-sent" | "sent" | "failed";
+type SizeAlertOutcome = "unknown" | "under" | "logged" | "already-sent" | "sent" | "failed";
 
 /** Read the size and alert when it is past the line; see the module comment. */
 export async function checkDatabaseSize(deps: SizeAlertDeps): Promise<SizeAlertOutcome> {

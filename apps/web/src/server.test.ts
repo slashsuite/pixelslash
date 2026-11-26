@@ -61,7 +61,7 @@ describe("the Worker's scheduled sweep", () => {
       ...blobs.store,
       deleteMany: () => Promise.reject(new Error("deleting is off: nothing may be deleted")),
     };
-    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const logged = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
     const { default: worker } = await import("./server");
     await Reflect.apply(worker.scheduled ?? failNoScheduled, worker, [{}, {}, {}]);
@@ -69,5 +69,8 @@ describe("the Worker's scheduled sweep", () => {
     const [row] = await db.select().from(builds).where(eq(builds.id, "gone"));
     expect(row).toMatchObject({ status: "errored", error: ABANDONED_REASON });
     expect([...blobs.data.keys()]).toEqual([`orgs/${org.id}/images/ab.png`]);
+    expect(logged).toHaveBeenCalledWith(
+      expect.stringMatching(/^orphaned images dry run: would delete 1,/),
+    );
   });
 });

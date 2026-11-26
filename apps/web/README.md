@@ -250,8 +250,9 @@ the sweeps above, or plan a move.
 under 1 GiB with the free space it found; nothing is built or sent. A release unpacks and installs beside the
 serving one, and a full disk fails the app's own writes too. `update.sh` then removes what the CT holds for
 nothing: the old checkout's `node_modules` (each release installs its own) and Miniflare's local trace store
-(`.wrangler/state/v3/observability`). `serve.ts`, `deploy/retention.ts` and the deploy's D1 calls run with
-that trace store off, so it does not grow back.
+(`.wrangler/state/v3/observability`). The deploy's D1 calls (`wrangler d1 --local`) wrote it; they now run with
+`X_LOCAL_OBSERVABILITY=false`, so it does not grow back. `serve.ts` and `deploy/retention.ts` call Miniflare's
+API, which keeps no trace store unless asked.
 
 ### Recomputing stored verdicts
 

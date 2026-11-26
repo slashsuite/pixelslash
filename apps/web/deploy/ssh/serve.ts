@@ -165,9 +165,6 @@ export function miniflareOptions(
     log: new Log(LogLevel.INFO),
     logRequests: false,
     telemetry: { enabled: false },
-    // Off, explicitly: Miniflare's local trace store writes every request's spans to the state
-    // directory and nothing prunes it, so on a long-running self-host it only fills the disk.
-    unsafeObservability: false,
     resourcePersistencePath: options.persistRoot,
     resourceTmpPath: options.tmpPath,
     ...(options.upstream ? { upstream: options.upstream } : {}),

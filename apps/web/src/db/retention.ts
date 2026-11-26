@@ -60,7 +60,7 @@ export type PlannedBuild = {
   blobs: { key: string; size: number }[];
 };
 
-export type Window = "branch" | "main";
+type Window = "branch" | "main";
 
 /** A window that is on: its days and the date before which a build is past it. */
 export type WindowPlan = { days: number; cutoff: Date };

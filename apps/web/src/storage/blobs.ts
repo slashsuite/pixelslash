@@ -23,7 +23,7 @@ export interface SweepBlobStore extends BlobStore {
   deleteMany(keys: string[]): Promise<void>;
 }
 
-export type ListedBlob = { key: string; size: number; uploaded?: Date };
+type ListedBlob = { key: string; size: number; uploaded?: Date };
 
 /** R2 deletes at most this many keys in one call. */
 const R2_DELETE_BATCH = 1000;

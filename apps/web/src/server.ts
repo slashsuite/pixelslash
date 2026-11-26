@@ -43,9 +43,9 @@ const sizeAlertKey = (day: string) => `ops/size-alert/${day}`;
  * The Worker's entry: TanStack Start's `fetch`, after the 301s of addresses that moved (`movedTo`:
  * the old app host and the old docs site's paths), the explain queue's consumer (ob 1875), which
  * explains each finalised build's changed shots with the project's model off the request, and the
- * hourly sweep: abandoned builds end `errored` first (PS-324, always on), then the retention sweep (PS-239), which does nothing until `PIXELSLASH_RETENTION_DAYS` or
- * `PIXELSLASH_RETENTION_MAIN_DAYS` is set, then the orphaned images, and both only log what they would
- * delete until `PIXELSLASH_RETENTION_DELETE` is `true`. Last, the database size alert, which only tells. All report their errors to Sentry when `SENTRY_DSN` is set (PS-227) and run unwrapped when it is not.
+ * hourly sweep: abandoned builds end `errored` first (PS-324, always on), then the database size alert, which only tells, then the retention sweep (PS-239), which does nothing
+ * until `PIXELSLASH_RETENTION_DAYS` or `PIXELSLASH_RETENTION_MAIN_DAYS` is set, then the orphaned
+ * images, and both only log what they would delete until `PIXELSLASH_RETENTION_DELETE` is `true`. All report their errors to Sentry when `SENTRY_DSN` is set (PS-227) and run unwrapped when it is not.
  */
 export default withOptionalSentry({
   fetch: (request) => {
@@ -62,6 +62,16 @@ export default withOptionalSentry({
       await syncEnded(checkRunDeps(db), ended);
     }
     const store = sweepStore();
+    // Before the sweeps, so one that throws (or runs out of time on a big database) cannot silence it.
+    const url = alertWebhookUrl();
+    await checkDatabaseSize({
+      bytes: await databaseBytes(),
+      now: new Date(),
+      log: warn,
+      ...(url && { post: webhookPost(url) }),
+      alreadySent: (day) => store.has(sizeAlertKey(day)),
+      markSent: (day) => store.put(sizeAlertKey(day), new ArrayBuffer(0), "text/plain"),
+    });
     const storeFor = (orgId: string) => orgSweepBlobs(store, orgId);
     const days = retentionDays();
     const mainDays = retentionMainDays();
@@ -81,15 +91,6 @@ export default withOptionalSentry({
       dryRun: !retentionDelete(),
     });
     if (orphans.plan.orphans.length > 0) warn(orphanSummary(orphans.plan, orphans.result));
-    const url = alertWebhookUrl();
-    await checkDatabaseSize({
-      bytes: await databaseBytes(),
-      now: new Date(),
-      log: warn,
-      ...(url && { post: webhookPost(url) }),
-      alreadySent: (day) => store.has(sizeAlertKey(day)),
-      markSent: (day) => store.put(sizeAlertKey(day), new ArrayBuffer(0), "text/plain"),
-    });
   },
   async queue(batch: { messages: readonly ExplainDelivery[] }): Promise<void> {
     const store = blobStore();

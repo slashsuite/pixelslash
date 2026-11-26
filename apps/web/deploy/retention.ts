@@ -150,8 +150,6 @@ export function openState(persistTo: string): Miniflare {
       cf: false,
       resourcePersistencePath: persistTo,
       resourceTmpPath: join(persistTo, "../tmp"),
-      // No trace store: the sweep's own spans would only add to the disk it is clearing.
-      unsafeObservability: false,
       workers: [
         {
           name: "pixelslash-retention",

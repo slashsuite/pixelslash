@@ -314,8 +314,8 @@ resume_watchdog() {
 
 # Frees what the CT's disk holds for nothing, once a release serves: the old checkout's installed
 # packages (every release installs its own; the checkout is kept only for the state and the secrets
-# in apps/web) and Miniflare's local trace store in the shared state, which serve.ts and the d1 calls
-# no longer write. Never the rest of .wrangler: the D1 and R2 state live there. A failure is reported,
+# in apps/web) and Miniflare's local trace store in the shared state, which the d1 calls no longer
+# write. Never the rest of .wrangler: the D1 and R2 state live there. A failure is reported,
 # not rolled back: the release is fine, and the next deploy tries again.
 reclaim_space() {
   local dir

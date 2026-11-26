@@ -4,7 +4,7 @@ import { type Ctx, context, onlyShot, sha, upload } from "#/diff/test-builds";
 import { RED, shot } from "#/diff/test-shots";
 import { DAY_MS } from "#/lib/retention";
 import { type SweepBlobStore, orgSweepBlobs } from "#/storage/blobs";
-import { builds, snapshots } from "./schema";
+import { builds, flakes, snapshots } from "./schema";
 import { applyOrphans, planOrphans, sweepOrphans } from "./orphans";
 
 const NOW = new Date("2026-10-28T12:00:00Z");
@@ -61,6 +61,42 @@ describe("the orphan sweep", () => {
     expect(result).toBeNull();
     expect(plan.orphans).toHaveLength(1);
     expect(ctx.blobs.data).toEqual(before);
+  });
+
+  test("an image only a flake's evidence names stays, its re-captures too", async () => {
+    const ctx = await context();
+    const gone = await one(ctx, 2);
+    const goneKey = (await onlyShot(ctx, gone)).imageKey;
+    const capture = "images/re-capture.png";
+    ctx.blobs.data.set(`orgs/${ctx.orgId}/${capture}`, new ArrayBuffer(4));
+    await ctx.db.insert(flakes).values({
+      id: "flake",
+      projectId: gone.projectId,
+      name: "home",
+      platform: "web",
+      browser: "chromium",
+      viewport: "1280x800",
+      theme: "light",
+      updatedAt: NOW,
+      evidence: [
+        {
+          buildId: gone.id,
+          snapshotId: "gone-shot",
+          imageKey: goneKey,
+          captures: [{ run: 2, key: capture }],
+          runs: 2,
+          differed: [2],
+          regions: [],
+          engineVersion: "test",
+          policy: "review",
+          at: NOW.getTime(),
+        },
+      ],
+    });
+    await forget(ctx, gone.id);
+    const { plan } = await sweep(ctx);
+    expect(plan.orphans).toEqual([]);
+    expect(images(ctx)).toEqual([goneKey, capture].toSorted());
   });
 
   test.each([
