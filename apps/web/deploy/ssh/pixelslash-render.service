@@ -49,7 +49,7 @@ ProtectControlGroups=yes
 IPAddressDeny=any
 IPAddressAllow=localhost
 # One build of 238 shots peaked at 2.85 GB here at four shots at once; two builds at two shots each
-# measured 2.7 GB locally, an estimated 3.2 to 3.7 GB here with this unit's own process and the
+# measured 2.7 GB locally, an estimated 3.5 to 3.7 GB here with this unit's own process and the
 # uploads. 4000M and the web app's 4000M are ceilings within the CT's 8192 MiB. Over this the kernel kills the renderer; it starts
 # again and renders those builds again, one at a time, and a build it is killed under three times
 # ends errored, naming why.

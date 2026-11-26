@@ -731,7 +731,7 @@ re-captures shoot on fresh pages. The CT figures are `memory.peak` of the unit, 
 
 The CT ran 0.8 GB above the local figure for one build (2.85 against 2.06 GB: the renderer's own
 process, about 0.8 GB while it renders, and the upload). That offset was measured on one build, not
-two, so two builds of two shots each are estimated at 3.2 to 3.7 GB (3050 to 3520 MiB) under
+two, so two builds of two shots each are estimated at about 3.5 GB (2.69 plus 0.8; 3.7 GB, about 3520 MiB, if the offset grows to 1 GB with the second build) under
 `MemoryMax=4000M` (MiB); read the unit's `MemoryPeak` after a burst to check it. With the web unit's
 4000M the two limits take 8000 of the CT's 8192 MiB: they are ceilings, not reservations, and the web
 unit peaks near 1.3 GB.
