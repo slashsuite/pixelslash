@@ -46,6 +46,13 @@
 # So is the liveness check (PS-323): pixelslash-watchdog is stopped for the restarts, timer and any
 # pass in progress, so it cannot restart a unit mid-update, and started once the release serves. It
 # needs curl, so an update without curl stops before it changes anything.
+#
+# The bundle renderer (pixelslash-render, deploy/ssh/render-worker.ts) is opt-in: it is installed,
+# with its own system user and its own Chromium, only while the CT's .dev.vars.e2e names a
+# RENDER_URL (the renderer's loopback address, http://127.0.0.1:3100/jobs), and retired on a deploy
+# where it does not. It is restarted after the web app serves; a renderer that does not come up is
+# reported and leaves the release serving, since the review app refuses bundle builds it cannot
+# hand on (a 502 to the CLI) and takes every other build as before.
 set -Eeuo pipefail
 
 # The PIXELSLASH_* overrides are for the test, which runs this against temp directories.
@@ -65,6 +72,8 @@ HELPER_SWITCH=${PIXELSLASH_HELPER_SWITCH:-/etc/pixelslash/opencode-helper}
 HELPER_KEY=${PIXELSLASH_HELPER_KEY:-$APP_HOME/.config/pixelslash/opencode.key}
 HELPER_URL=http://127.0.0.1:4180/v1
 OPENCODE_BIN=${PIXELSLASH_OPENCODE_BIN:-$APP_HOME/.opencode/bin/opencode}
+RENDER_USER=pixelslash-render
+RENDER_HOME=${PIXELSLASH_RENDER_HOME:-/var/lib/pixelslash-render}
 D1_RETRY_SLEEP=${PIXELSLASH_D1_RETRY_SLEEP:-2}
 # A build that started processing within this many seconds is live, and a deploy waits for it.
 LIVE_BUILD_SECONDS=900
@@ -229,6 +238,62 @@ install_units() {
   fi
 }
 
+# Whether this CT renders bundles: its secrets name a renderer.
+wants_render() {
+  grep -q '^RENDER_URL=.' "$SHARED_WEB/.dev.vars.e2e"
+}
+
+# Removes the renderer from a CT that no longer wants it (or a release that has none); on a CT
+# that never ran it this changes nothing. Its user and its browsers stay, for the next opt-in.
+retire_render() {
+  if [[ -f $UNIT_DIR/pixelslash-render.service ]]; then
+    systemctl disable --now --quiet pixelslash-render || true
+    rm -f "$UNIT_DIR"/pixelslash-render.service
+  fi
+}
+
+# Installs release $1's renderer when the CT wants one: its user (no login, no group with the app),
+# its Chromium in its own state directory, and its unit. The release's files are readable by it
+# (tar keeps them 644) and the app's homes are only traversable; the state and the secrets are
+# hidden by the unit, and dist/server/.dev.vars is the app's alone (mode 600).
+install_render() {
+  local d
+  d=$(deploy_dir "$1")
+  if ! wants_render || [[ ! -f $d/pixelslash-render.service ]]; then
+    retire_render
+    return 0
+  fi
+  id -u "$RENDER_USER" >/dev/null 2>&1 ||
+    useradd --system --home-dir "$RENDER_HOME" --shell /usr/sbin/nologin "$RENDER_USER"
+  mkdir -p "$RENDER_HOME"
+  chmod 700 "$RENDER_HOME"
+  chmod o+x "$APP_HOME" "$RELEASES"
+  # The engine's pinned Playwright, so its Chromium is the one bun.lock names; --with-deps installs
+  # the system libraries it needs (apt, as root), which is why this is not run as the render user.
+  # Called in an `||` list, so errexit is off in here: each step returns its own failure.
+  (cd "$1/apps/web" && PLAYWRIGHT_BROWSERS_PATH=$RENDER_HOME/browsers PATH=$APP_PATH \
+    bunx playwright install --with-deps chromium-headless-shell) || return 1
+  chown -R "$RENDER_USER:$RENDER_USER" "$RENDER_HOME" || return 1
+  install -m 644 "$d"/pixelslash-render.service "$UNIT_DIR"/
+}
+
+# A renderer that cannot be installed (apt down, a failed browser download) is reported and left
+# out, never a rollback: the release serves, and a bundle build's finalise answers 502 until a
+# deploy installs it.
+install_render_or_skip() {
+  install_render "$1" && return 0
+  echo "pixelslash-render was not installed: a bundle build's finalise answers 502 until a deploy installs it" >&2
+  retire_render
+}
+
+# (Re)starts the renderer, when it is installed, after the web app serves. A renderer that fails is
+# reported, not rolled back: the release serves, and a bundle build it cannot take answers 502.
+restart_render() {
+  [[ -f $UNIT_DIR/pixelslash-render.service ]] || return 0
+  { systemctl enable --quiet pixelslash-render && systemctl restart pixelslash-render; } ||
+    echo "pixelslash-render did not start: a bundle build's finalise answers 502 until it does" >&2
+}
+
 # The liveness check is off while units restart on purpose. Stopping one that is not there yet (the
 # first deploy with it, or one before it) is not a failure.
 pause_watchdog() {
@@ -282,6 +347,10 @@ rollback() {
   if ! wait_for_port 3000 60 pixelslash-web; then
     echo "the previous release did not come up on :3000 either" >&2
   fi
+  # The renderer only once the web serves again: its install may run apt, which is slow.
+  install_render_or_skip "$prev"
+  systemctl daemon-reload
+  restart_render
   resume_watchdog || true
   exit 1
 }
@@ -322,6 +391,7 @@ main() {
   trap 'rollback "$prev" "$unpacked"' ERR HUP INT TERM
   pause_watchdog
   install_units "$rel"
+  install_render_or_skip "$rel"
   retire_diff
   retire_helper
   systemctl daemon-reload
@@ -341,6 +411,7 @@ main() {
   fi
   resume_watchdog
   trap - ERR HUP INT TERM
+  restart_render
   touch "$rel"
   prune_releases
   echo "release $name is serving" >&2

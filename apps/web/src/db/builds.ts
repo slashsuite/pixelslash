@@ -31,6 +31,8 @@ export type NewBuild = {
   prNumber: number | null;
   /** The uploader's brief (PS-232), trimmed; null when none was sent. */
   brief?: string | null;
+  /** A bundle build's render plan, as JSON (`docs/storybook-bundle-render.md`); absent or null for a client capture. */
+  renderPlan?: string | null;
 };
 
 /** What a snapshot is: a name and a fixed variant, plus what rendered it. */

@@ -33,7 +33,8 @@ export const pngjsSyncInflate: Plugin = {
  * The e2e run's GitHub stand-in listens on a free port picked per run (`e2e/ports.ts`), so the
  * URLs in `wrangler.jsonc` (:4174, for running the stand-in by hand) are replaced with it. A run
  * with `PIXELSLASH_E2E_DIFF_LIMIT_MPX` set gets that pixel limit instead of the LAN's (empty is none). A run
- * with `PIXELSLASH_E2E_SENTRY_PORT` also gets a DSN pointing at that ingest stand-in (PS-227).
+ * with `PIXELSLASH_E2E_SENTRY_PORT` also gets a DSN pointing at that ingest stand-in (PS-227), and one
+ * with `PIXELSLASH_E2E_RENDER_PORT` a bundle renderer there (`RENDER_URL`, the local-build suite's).
  */
 function pointAtStub(config: { vars?: Record<string, unknown> }) {
   const port = process.env["PIXELSLASH_E2E_STUB_PORT"];
@@ -41,6 +42,7 @@ function pointAtStub(config: { vars?: Record<string, unknown> }) {
   const base = `http://localhost:${port}`;
   const limit = process.env["PIXELSLASH_E2E_DIFF_LIMIT_MPX"];
   const sentryPort = process.env["PIXELSLASH_E2E_SENTRY_PORT"];
+  const renderPort = process.env["PIXELSLASH_E2E_RENDER_PORT"];
   return {
     vars: {
       ...config.vars,
@@ -56,6 +58,7 @@ function pointAtStub(config: { vars?: Record<string, unknown> }) {
       SENTRY_RELEASE: "e2e",
       // The run's own Sentry ingest stand-in (PS-227), so the e2e reports to a sink it can read.
       ...(sentryPort ? { SENTRY_DSN: `http://e2ekey@localhost:${sentryPort}/1` } : {}),
+      ...(renderPort ? { RENDER_URL: `http://localhost:${renderPort}/jobs` } : {}),
     },
   };
 }

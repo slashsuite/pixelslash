@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { dirname, extname, join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { IMAGE_BROWSERS, isBrowserName, type BrowserName } from "./browser-names.ts";
 import { parseArea, type Ignore, type Mask } from "./config-areas.ts";
 import {
@@ -17,6 +17,7 @@ import { baseUrlOf, parseStorybook, type StorybookConfig } from "./config-storyb
 import type { DiffOptions } from "./diff.ts";
 import { mergeDiffOptions, parseDiffOptions } from "./diff-options.ts";
 import { UsageError } from "./errors.ts";
+import { loadRawConfig } from "./config-file.ts";
 import { isHttpUrl, routeSlug } from "./routes.ts";
 
 export { IMAGE_BROWSERS, isBrowserName, type BrowserName };
@@ -350,19 +351,7 @@ export async function loadFeatureConfig(path: string): Promise<CaptureConfig> {
 
 /** Read a JSON config, or import a JS/TS one (its default export). */
 export async function loadConfig(path: string): Promise<CaptureConfig> {
-  if (extname(path) === ".json") {
-    let raw: unknown;
-    try {
-      raw = JSON.parse(await Bun.file(path).text());
-    } catch (e) {
-      throw new UsageError(
-        `config: ${path} is not JSON: ${e instanceof Error ? e.message : String(e)}`,
-      );
-    }
-    return besideConfig(parseConfig(raw), path);
-  }
-  const mod: unknown = await import(path);
-  return besideConfig(parseConfig(isObj(mod) ? mod.default : undefined), path);
+  return besideConfig(parseConfig(await loadRawConfig(path)), path);
 }
 
 /** A relative `setup`, spec or ref (and the composition library's lookup) is relative to the config file, not to wherever capture was run from. */

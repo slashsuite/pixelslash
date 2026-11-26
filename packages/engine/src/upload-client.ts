@@ -57,8 +57,10 @@ export type Call = {
   step: string;
   method: string;
   path: string;
-  body?: string | FormData;
-  /** The reply is a PNG, not JSON: a baseline image. */
+  body?: string | FormData | Uint8Array<ArrayBuffer>;
+  /** A byte body's type (a bundle's `application/gzip`); a string body is always JSON. */
+  contentType?: string;
+  /** The reply is bytes, not JSON: a baseline image, or a bundle the renderer fetches. */
   png?: true;
 };
 
@@ -102,18 +104,26 @@ function answer(text: string): { detail: string; fromApi: boolean; code?: string
   return { detail: (plain ?? "").slice(0, 200), fromApi: false };
 }
 
-async function attempt(client: Client, call: Call): Promise<Attempt> {
+/** A request's headers and body as sent: a string is JSON, bytes go as their `contentType`. */
+function requestOf(client: Client, call: Call): RequestInit {
   const { body } = call;
   const headers: Record<string, string> = {
     authorization: `Bearer ${client.token}`,
     "user-agent": USER_AGENT,
   };
   if (typeof body === "string") headers["content-type"] = "application/json";
+  else if (body instanceof Uint8Array)
+    headers["content-type"] = call.contentType ?? "application/octet-stream";
+  const sent = body instanceof Uint8Array ? new Blob([body]) : body;
+  return { method: call.method, headers, ...(sent === undefined ? {} : { body: sent }) };
+}
+
+async function attempt(client: Client, call: Call): Promise<Attempt> {
   // Messages drop the query: a baseline image's holds its signature, which a CI log must not print.
   const shown = call.path.split("?")[0];
   let res: Response;
   try {
-    const init = { method: call.method, headers, ...(body === undefined ? {} : { body }) };
+    const init = requestOf(client, call);
     res = await client.fetch(`${client.base}${call.path}`, init);
   } catch (e) {
     const message = `${call.method} ${client.base}${shown}: ${e instanceof Error ? e.message : String(e)}`;
@@ -175,8 +185,17 @@ async function sendWithRetries(
 
 /** A PNG the API serves: a baseline image (ob 1727). */
 export async function sendPng(client: Client, call: Omit<Call, "png">): Promise<Buffer> {
+  return sendBytes(client, call, "no image");
+}
+
+/** Bytes the API serves (a baseline image, a bundle); `none` is the failure when the reply has none. */
+export async function sendBytes(
+  client: Client,
+  call: Omit<Call, "png">,
+  none = "no body",
+): Promise<Buffer> {
   const body = await send(client, { ...call, png: true });
   if (!Buffer.isBuffer(body))
-    throw new UploadError(`${client.verb ?? "upload"} failed: ${call.step}: no image`);
+    throw new UploadError(`${client.verb ?? "upload"} failed: ${call.step}: ${none}`);
   return body;
 }

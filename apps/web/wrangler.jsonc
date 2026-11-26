@@ -59,6 +59,9 @@
     "IMAGE_SIGNING_SECRET": "",
     // The oldest `pixelslash` CLI the API takes (`x.y.z`); empty takes any. A CLI below it gets 426 `cli_outdated`.
     "MIN_CLI_VERSION": "",
+    // Where a bundle build is handed to be rendered (docs/storybook-bundle-render.md): the renderer's job
+    // endpoint. Empty refuses bundle builds (409), so a repo captures on its own runner.
+    "RENDER_URL": "",
     // Where a new project diffs (ob 1727): `ci` here; unset or anything else is `server`, the self-host default.
     "DEFAULT_DIFF_LOCATION": "ci",
     // Error reporting (PS-227), off while SENTRY_DSN is empty. Set the DSN with `wrangler secret put SENTRY_DSN`;
@@ -156,6 +159,8 @@
         "GOOGLE_CLIENT_ID": "154874965124-f14rub4dp41bq0bks3n53clg44kuffga.apps.googleusercontent.com",
         "GOOGLE_OAUTH_BASE": "",
         "MIN_CLI_VERSION": "",
+        // A Worker cannot run browsers: bundle builds go to a self-host that runs the renderer.
+        "RENDER_URL": "",
         "DEFAULT_DIFF_LOCATION": "ci",
         // Stamp the deployed commit on the deploy: `--var SENTRY_RELEASE:$(git rev-parse --short HEAD)`.
         "SENTRY_RELEASE": "",
@@ -231,6 +236,8 @@
         // `e2e-octocat` here would open the page to every visitor on the LAN; an operator there names real
         // logins in `.dev.vars`. The Playwright run lists the stub user (vite.config.ts).
         "PIXELSLASH_ADMIN_LOGINS": "",
+        // Empty: the e2e build renders nothing. The LAN self-host's `.dev.vars` names its renderer on loopback.
+        "RENDER_URL": "",
       },
     },
   },

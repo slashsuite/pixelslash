@@ -1,6 +1,6 @@
 # PixelSlash facts
 
-Checked against main at c269185 on 2026-11-25.
+Checked against main at d8968f9 on 2026-11-26.
 
 ## What it is
 PixelSlash shows what changed on a web page between two versions of it, Main and Branch, as a report you open in a browser, and can send those shots to a review app where a person accepts or rejects each change. It is in alpha, and the command line tool is at version 0.8.
@@ -16,6 +16,7 @@ PixelSlash shows what changed on a web page between two versions of it, Main and
 - `many-pages`: compares a list of paths in one run (`--routes`), and compares two folders of shots (`compare`).
 - `pinned-capture-image`: `pixelslash capture` shoots every route in a config inside a pinned container image and records what rendered each shot.
 - `storybook-stories`: shoots every story of a running Storybook 7 or later from its index, with no route list.
+- `storybook-bundle-render`: `pixelslash upload --bundle DIR` sends a static Storybook build instead of shots, and a self-hosted review app with its renderer turned on shoots every story in headless Chromium, with the same viewports, themes and parameters as a client capture; the hosted review app does not render bundles yet, so there the CLI is told to capture on the client.
 - `browser-choice`: a capture config can name Chromium, Firefox or WebKit; only Chromium is tested in a real browser.
 - `playwright-helper`: `@slashsuite/pixelslash-playwright` takes shots from your own Playwright tests, in Chromium only.
 - `native-screenshots`: takes Android and iOS shots (from Maestro or any tool that writes PNGs) and pairs them with web shots of the same name and theme.

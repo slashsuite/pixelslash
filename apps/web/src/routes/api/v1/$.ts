@@ -11,6 +11,7 @@ import {
   imageSigningSecret,
   minCliVersion,
   modelKeySecret,
+  renderDispatch,
 } from "#/server/env";
 
 const handle = ({ request }: { request: Request }) => {
@@ -26,6 +27,7 @@ const handle = ({ request }: { request: Request }) => {
     defaultDiffLocation,
     checkRuns: checkRunDeps(db),
     rateLimit: apiRateLimit(),
+    render: renderDispatch(),
   });
 };
 

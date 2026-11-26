@@ -1,6 +1,6 @@
 # Storybook bundle upload, rendered on the server: design
 
-Status: **proposed**, waiting on the maintainer's approval. Nothing in this note is built yet.
+Status: **approved, built in part.** The CLI's `upload --bundle`, the API (section 2), the render token and the self-host's renderer (`apps/web/deploy/ssh/render-worker.ts`, `pixelslash-render.service`) are built. The production renderer host is not, and the renderer runs the release's Playwright Chromium rather than the pinned capture image.
 
 ## 0. Why
 
@@ -52,7 +52,7 @@ The render worker, in the web app's container, must still:
 
 Sizing is not decided. The estimate in section 7 suggests a starting point of 12 vCPU and 16 GiB, to be measured, not assumed.
 
-Production (the hosted app) needs a renderer too. This note does not choose its host. The same worker image is meant to run there, and a decision about it is a separate question.
+Production (the hosted app) needs a renderer too. Decided by the maintainer (section 9, item 4): the render worker runs in a container beside the Cloudflare Worker, the same image as LAN, and the Worker hands it bundle jobs over HTTPS.
 
 ## 4. The job flow
 
@@ -107,9 +107,9 @@ Decided by the maintainer:
 2. Bundle secrets: warn and continue (section 6).
 3. The diff runs as each shot arrives (section 7).
 
-Still open:
+Decided by the maintainer:
 
-4. Production renderer host: decide now, or after the LAN worker has numbers?
+4. Production renderer host: production runs the render worker in the web app's container, the same as LAN. The hosted app is a Cloudflare Worker, which cannot run Chromium, so the container is a separate host beside it that the Worker hands bundle jobs to over HTTPS. The container's host and sizing are still to be chosen and measured.
 
 ## 10. Done list for the build (after approval)
 

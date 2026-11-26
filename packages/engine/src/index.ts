@@ -30,6 +30,7 @@ export type { ProcLike, SpawnProc } from "./judge.ts";
 export { PLATFORMS, type NativePlatform } from "./native.ts";
 export { importPngs, type ImportOptions, type ImportResult } from "./import-pngs.ts";
 export { isHttpUrl, loadRoutes } from "./routes.ts";
+export { loadRawConfig } from "./config-file.ts";
 export type { RunManifest } from "./run.ts";
 export type { CaptureSetup, SetupArgs } from "./setup.ts";
 export {
@@ -108,6 +109,13 @@ export {
   type UploadResult,
 } from "./upload.ts";
 export { uploadSkipped, type SkippedOptions } from "./upload-skipped.ts";
+export { uploadBundle } from "./upload-bundle.ts";
+export {
+  renderBundle,
+  type RenderJob,
+  type RenderOptions,
+  type RenderOutcome,
+} from "./render-bundle.ts";
 export type { FlakyShot, SkippedShot } from "./flake-upload.ts";
 export type { FlakeRecord } from "./flake.ts";
 export {

@@ -31,13 +31,14 @@ import { ESCALATE, enterStage, uploadLine, uploadProgress } from "./failure.ts";
 import { connect, namesProject, resolveProject } from "./remote.ts";
 import type { Io } from "./run.ts";
 import { type WaitOptions, follow, recordBuild, waitOptions } from "./status.ts";
+import { uploadBundleRun } from "./upload-bundle.ts";
 import { uploadSkippedRun } from "./upload-skipped.ts";
 import { readBrief } from "./upload-brief.ts";
 
 export const UPLOAD_USAGE =
   "pixelslash upload DIR [--server URL] [--token-path PATH] [--project ID|NAME] [--subproject NAME] [--base BRANCH] [--branch NAME] [--pr N] [--brief FILE | --brief-text TEXT] [--config FILE] [--flake-retries N] [--concurrency N] [--judge] [--wait [--timeout DURATION] [--interval DURATION]]\n`--brief FILE` or `--brief-text TEXT` sends your own words on what the build means to change (at most " +
   BRIEF_LIMIT +
-  " characters); the build's AI summary says whether the changes match it, and it decides nothing.\n`--judge` has the local vision model write one sentence per changed shot, shown on the build and branch pages; it decides nothing. With no judge it prints `skip: no judge`.\n`--wait` then waits for review as `pixelslash status --wait` does, and exits as it does.\nThe token is --token-path, PIXELSLASH_TOKEN, or the one `pixelslash login` stored. The server is --server, PIXELSLASH_SERVER, or `upload.server` in the config.\nA shot that differs from its baseline is captured again --flake-retries times (else `flake.retries` in the config, else 2; 0 turns it off), through the config's routes, up to --concurrency (else `concurrency` in the config) at a time.\n`--subproject NAME` (else `upload.subproject` in the config) sends the build to that subproject of the project; `--project` names a top-level project only.\npixelslash upload --skipped [--server URL] [--token-path PATH] [--project ID|NAME] [--subproject NAME] [--base BRANCH] [--branch NAME] [--pr N] [--config FILE] records that this commit captured nothing on purpose (a task cache skipped the capture): a passed build with no shots, so the commit still gets its PixelSlash status. It takes no DIR and changes no baseline.\nA failed upload ends on `UPLOAD FAILED: <reason>` and prints no build link, except that a build the server `errored` names its page in the reason. " +
+  " characters); the build's AI summary says whether the changes match it, and it decides nothing.\n`--judge` has the local vision model write one sentence per changed shot, shown on the build and branch pages; it decides nothing. With no judge it prints `skip: no judge`.\n`--wait` then waits for review as `pixelslash status --wait` does, and exits as it does.\nThe token is --token-path, PIXELSLASH_TOKEN, or the one `pixelslash login` stored. The server is --server, PIXELSLASH_SERVER, or `upload.server` in the config.\nA shot that differs from its baseline is captured again --flake-retries times (else `flake.retries` in the config, else 2; 0 turns it off), through the config's routes, up to --concurrency (else `concurrency` in the config) at a time.\n`--subproject NAME` (else `upload.subproject` in the config) sends the build to that subproject of the project; `--project` names a top-level project only.\npixelslash upload --skipped [--server URL] [--token-path PATH] [--project ID|NAME] [--subproject NAME] [--base BRANCH] [--branch NAME] [--pr N] [--config FILE] records that this commit captured nothing on purpose (a task cache skipped the capture): a passed build with no shots, so the commit still gets its PixelSlash status. It takes no DIR and changes no baseline.\npixelslash upload --bundle DIR [--server URL] [--token-path PATH] [--project ID|NAME] [--subproject NAME] [--base BRANCH] [--branch NAME] [--pr N] [--brief FILE | --brief-text TEXT] [--config FILE] [--wait [--timeout DURATION] [--interval DURATION]] sends a static Storybook build (the directory build-storybook wrote) and the config's storybook settings; the server renders every story with the same viewports, themes and parameters and compares the shots as it compares any build. The config must have a storybook block and no setup, routes, composition or features.\nA failed upload ends on `UPLOAD FAILED: <reason>` and prints no build link, except that a build the server `errored` names its page in the reason. " +
   ESCALATE;
 
 /** The flags `upload` and `capture --upload` share. */
@@ -321,7 +322,7 @@ export async function uploadDir(
   return follow({ remote, id, wait: flags.wait, json: false }, io, deps);
 }
 
-/** `pixelslash upload DIR`, or `pixelslash upload --skipped`. */
+/** `pixelslash upload DIR`, `pixelslash upload --bundle DIR`, or `pixelslash upload --skipped`. */
 export async function runUpload(
   argv: string[],
   io: Io,
@@ -333,6 +334,10 @@ export async function runUpload(
       io,
       deps,
     );
+  const bundle = argv.indexOf("--bundle");
+  // `--bundle DIR` is a flag with its value, so it may stand anywhere among the others.
+  if (bundle !== -1)
+    return uploadBundleRun([argv[bundle + 1] ?? "", ...argv.toSpliced(bundle, 2)], io, deps);
   const [dir, ...rest] = argv;
   if (!dir || dir.startsWith("--")) throw new UsageError("need a snapshot DIR");
   const {

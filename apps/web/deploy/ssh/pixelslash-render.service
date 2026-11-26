@@ -1,0 +1,46 @@
+# The bundle renderer (deploy/ssh/render-worker.ts; docs/storybook-bundle-render.md, section 3):
+# headless Chromium running a pull request's Storybook bundle, which is untrusted code. It runs
+# beside pixelslash-web on the CT, so it is fenced in here: its own user with no login and no access
+# to the app's state or secrets, loopback only (the review app's API on :3000 and its own :3100,
+# no route anywhere else), a read-only system, a private /tmp that holds each job's bundle and is
+# removed with it, and Chromium's own sandbox left on (no --no-sandbox, and user namespaces are not
+# restricted, since the sandbox needs them). update.sh installs it only when the CT's
+# .dev.vars.e2e names a RENDER_URL; apps/web/README.md, "Run it on the Proxmox server".
+[Unit]
+Description=PixelSlash bundle renderer
+After=network-online.target pixelslash-web.service
+Wants=network-online.target
+
+[Service]
+User=pixelslash-render
+Group=pixelslash-render
+WorkingDirectory=/home/pixelslash/releases/current/apps/web
+Environment=PATH=/home/pixelslash/.bun/bin:/usr/local/bin:/usr/bin:/bin
+Environment=HOME=/var/lib/pixelslash-render
+Environment=PLAYWRIGHT_BROWSERS_PATH=/var/lib/pixelslash-render/browsers
+Environment=TMPDIR=/tmp
+Environment=RENDER_HOST=127.0.0.1
+Environment=RENDER_PORT=3100
+Environment=RENDER_API=http://127.0.0.1:3000
+ExecStart=/home/pixelslash/.bun/bin/bun deploy/ssh/render-worker.ts
+Restart=on-failure
+RestartSec=2
+StateDirectory=pixelslash-render
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+InaccessiblePaths=-/home/pixelslash/pixelslash/apps/web/.wrangler -/home/pixelslash/pixelslash/apps/web/.dev.vars.e2e
+NoNewPrivileges=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+IPAddressDeny=any
+IPAddressAllow=localhost
+# Each browser is a few hundred MB; the web app keeps its 4000M. Over this the kernel kills the
+# renderer, the build it was rendering is left uploading and errors as an abandoned build would.
+MemoryMax=3000M
+MemorySwapMax=0
+OOMPolicy=stop
+
+[Install]
+WantedBy=multi-user.target
