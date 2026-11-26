@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@slashsuite/themes": "^0.5.0",
-    "@slashsuite/ui-react": "^0.13.0",
+    "@slashsuite/ui-react": "^0.15.2",
     "@tailwindcss/vite": "catalog:tailwind",
     "@tanstack/react-router": "catalog:tanstack",
     "@tanstack/react-start": "catalog:tanstack",
