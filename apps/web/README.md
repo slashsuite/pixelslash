@@ -684,6 +684,9 @@ system, a private `/tmp` for each job's bundle and shots, Chromium's sandbox lef
 `MemoryMax=3000M` beside the web unit's 4000M. Logs: `journalctl -u pixelslash-render -f`, one line
 per build (`render <id>: <n> shots in <s>` or `failed in <s>: <reason>`), never the token.
 
-The renderer's Chromium is the release's Playwright build, not the pinned capture image, so a
-project that switches from client capture may see its baselines change once; accept them on the
-first bundle build. Docker and Cloudflare have no renderer: `RENDER_URL` stays empty there.
+The renderer's Chromium is the release's Playwright build, not the pinned capture image, so its
+shots carry another environment fingerprint than client-captured baselines. A project that switches
+from client capture switches its default branch first: that build's shots are accepted and become
+the baselines. A branch's bundle build before then ends `errored`, naming the browser and fonts that
+moved, since its shots were compared with nothing (`src/diff/measured.ts`). Docker and Cloudflare
+have no renderer: `RENDER_URL` stays empty there.
