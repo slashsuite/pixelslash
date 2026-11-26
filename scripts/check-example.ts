@@ -13,6 +13,10 @@ import { uploadStub } from "../packages/playwright/test/upload-stub.ts";
 const root = join(import.meta.dirname, "..");
 const scratch = mkdtempSync(join(process.env["TMPDIR"] ?? tmpdir(), "ps-example-"));
 const app = join(scratch, "app");
+// What a run leaves, and the gate's typecheck of the sample (moon.yml, tsconfig.workspace.json): not a
+// user's files.
+const NOT_COPIED =
+  /node_modules|pixelslash-snapshots|test-results|moon\.yml|tsconfig\.workspace\.json/;
 
 function run(cmd: string, args: string[], cwd: string, env = process.env): Promise<string> {
   return new Promise((done, fail) => {
@@ -42,7 +46,7 @@ try {
 
   cpSync(join(root, "examples/playwright-node"), app, {
     recursive: true,
-    filter: (src) => !/node_modules|pixelslash-snapshots|test-results/.test(src),
+    filter: (src) => !NOT_COPIED.test(src),
   });
   console.log("install: the two tarballs and the sample's own dependencies");
   await run("npm", ["install", "--no-audit", "--no-fund", ...packs], app);

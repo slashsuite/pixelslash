@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@slashsuite/pixelslash-playwright": ["../../packages/playwright/types/index.d.ts"]
+    }
+  }
+}
