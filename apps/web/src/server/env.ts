@@ -112,10 +112,19 @@ export function githubConfig(): GithubConfig {
 }
 
 /**
- * Sign in with Google (PS-274), or null without `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`: then
- * the sign-in page shows no Google button and `/auth/google` is a 404.
+ * The GitHub logins that may sign in, comma-separated (`PIXELSLASH_ALLOWED_GITHUB_LOGINS`); unset or
+ * empty lets anyone in, as before. The hosted app leaves it empty.
  */
-export const googleConfig = (): GoogleConfig | null => googleConfigOf(env);
+export const allowedGithubLogins = (): string | undefined =>
+  env.PIXELSLASH_ALLOWED_GITHUB_LOGINS || undefined;
+
+/**
+ * Sign in with Google (PS-274), or null without `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`: then
+ * the sign-in page shows no Google button and `/auth/google` is a 404. Null too under an allowlist of
+ * GitHub logins, which a Google sign-in cannot prove.
+ */
+export const googleConfig = (): GoogleConfig | null =>
+  allowedGithubLogins() ? null : googleConfigOf(env);
 
 /**
  * The deployment's GitHub App (PS-23), or null without `GITHUB_APP_ID` and `GITHUB_APP_PRIVATE_KEY`.

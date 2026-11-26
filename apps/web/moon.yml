@@ -65,3 +65,10 @@ tasks:
       - "$PIXELSLASH_RSS_MODEL"
       # Where the specs write their screens: a new dir must get them.
       - "$PS_SHOT_DIR"
+  # The Docker self-host (deploy/docker/self-host.spec.ts): it builds the image from the repo root and runs
+  # it, so it needs Docker, and it is not part of `test` or `test-e2e`. Every build happens inside Docker,
+  # so it shares no `dist` and needs no mutex; its ports are its own free ones (e2e/ports.ts).
+  test-e2e-docker:
+    command: "bun run playwright test -c deploy/docker/playwright.config.ts"
+    inputs:
+      - "$CI"

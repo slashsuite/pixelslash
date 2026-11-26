@@ -18,11 +18,16 @@ yours to choose, and the ones in `wrangler.jsonc` are only defaults.
 
 Read this before you put it on the internet.
 
-- Sign-in is GitHub's OAuth. Any GitHub account can sign in, and a signed-in user can create an org and
-  projects of their own. The code has no allowlist of users. Someone who is not a member of your org cannot see
-  its projects, but they can sign in and use your storage and compute for theirs. To keep it private, put it
-  behind [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/) or run it on
-  your own box on a network you trust.
+- Sign-in is GitHub's OAuth. By default any GitHub account can sign in, and a signed-in user can create an
+  org and projects of their own. Someone who is not a member of your org cannot see its projects, but they can
+  sign in and use your storage and compute for theirs.
+- To keep it to your team, set `PIXELSLASH_ALLOWED_GITHUB_LOGINS` to their GitHub logins, comma-separated. Any
+  other login is refused at the callback with a page that names it, and no user is saved for it; a session
+  whose login is later taken off the list counts as signed out. The API tokens that login made still
+  work until a member of their org revokes them in its settings. With a list set, Google sign-in is off,
+  since a Google account proves no GitHub login. You can also put it behind
+  [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/) or run it on your own
+  box on a network you trust.
 - `SECURITY.md` lists the hardening that is on by default (model host guard, stub refusal, rate limits).
 
 ## On your own Cloudflare account
@@ -220,7 +225,8 @@ are needed.
 | `GITHUB_APP_ID` | var | no | The commit status: the App's id. With the key, below. |
 | `GITHUB_APP_PRIVATE_KEY` | secret | no | The commit status: the App's PEM. Both App values must be set or nothing calls GitHub. |
 | `GITHUB_STATUS_TOKEN` | secret | no | Without the App: a fine-grained token (commit statuses and pull requests: write) posts the build verdict as a `PixelSlash` commit status. Ignored when the App is set. See `README.md`. |
-| `PIXELSLASH_PUBLIC_URL` | var | no | Your server's URL, no trailing slash. The commit status's "Details" link. |
+| `PIXELSLASH_PUBLIC_URL` | var | no | Your server's URL, no trailing slash. The commit status's "Details" link. In Docker, also the URL the app sees itself at: behind a proxy that ends TLS, set it to the `https://` URL and the GitHub callback and the session cookie's `Secure` flag follow it. A forwarded-protocol header never decides that. |
+| `PIXELSLASH_ALLOWED_GITHUB_LOGINS` | var | no | Comma-separated GitHub logins that may sign in, case-insensitive. Empty, anyone may. Set, every other login is refused and Google sign-in is off. |
 | `PIXELSLASH_ADMIN_LOGINS` | var | no | Comma-separated GitHub logins who can open `/_admin`, a read-only page of what the deployment is doing and how long it takes. Empty, or a login not listed, gets a 404. Not linked from anywhere. |
 | `SENTRY_DSN` | secret | no | Error reporting; off while empty. |
 | `SENTRY_RELEASE`, `SENTRY_ENVIRONMENT` | var | no | Labels on those reports. |

@@ -1,6 +1,6 @@
 # PixelSlash facts
 
-Checked against main at d8968f9 on 2026-11-26.
+Checked against main at cdfe42e on 2026-11-26.
 
 ## What it is
 PixelSlash shows what changed on a web page between two versions of it, Main and Branch, as a report you open in a browser, and can send those shots to a review app where a person accepts or rejects each change. It is in alpha, and the command line tool is at version 0.8.
@@ -51,4 +51,5 @@ PixelSlash shows what changed on a web page between two versions of it, Main and
 - `hosted-review-app`: the review app is hosted at pixelslash.dev, with sign-in by GitHub or Google.
 - `self-host-cloudflare`: the review app runs on your own Cloudflare account (Workers, D1, R2), following `apps/web/SELF-HOST.md`.
 - `self-host-docker`: the review app runs in Docker, one image and one volume with `docker compose up` in `docker/self-host/`, with no Cloudflare account.
+- `self-host-sign-in-allowlist`: a self-hosted review app can limit sign-in to a list of GitHub logins (`PIXELSLASH_ALLOWED_GITHUB_LOGINS`) and, in Docker, signs in behind a proxy that ends TLS at the URL in `PIXELSLASH_PUBLIC_URL`.
 - `docs-site`: the documentation is at slashslash.build/pixelslash/docs.

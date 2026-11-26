@@ -1,13 +1,19 @@
 import { redirect } from "@tanstack/react-router";
 import { deleteCookie, getCookie, getRequestUrl, setCookie } from "@tanstack/react-start/server";
 import { type User, createSession, endSession, sessionUser } from "#/db/users";
-import { database } from "./env";
+import { signInAllowed } from "#/lib/logins";
+import { allowedGithubLogins, database } from "./env";
 
 const COOKIE = "ps_session";
 
+/**
+ * The signed-in user, or null. A session from before the login was taken off the allowlist (or
+ * before there was one) counts as signed out.
+ */
 export async function viewer(): Promise<User | null> {
   const token = getCookie(COOKIE);
-  return token ? sessionUser(database(), token) : null;
+  const user = token ? await sessionUser(database(), token) : null;
+  return user && signInAllowed(user.login, allowedGithubLogins()) ? user : null;
 }
 
 /** For a signed-in page or action: no session sends the browser to sign in. */

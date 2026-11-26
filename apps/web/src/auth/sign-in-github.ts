@@ -26,6 +26,8 @@ export type GithubCallbackDeps = {
   getCookie: (name: string) => string | undefined;
   deleteCookie: (name: string, options: { path: string }) => void;
   fetchProfile: (config: GithubConfig, code: string, callback: string) => Promise<GithubProfile>;
+  /** Whether this GitHub login may sign in (`PIXELSLASH_ALLOWED_GITHUB_LOGINS`). */
+  allowed: (login: string) => boolean;
   /** Saves the profile and answers the user's id. */
   signInUser: (profile: GithubProfile) => Promise<string>;
   startSession: (userId: string) => Promise<void>;
@@ -62,6 +64,16 @@ export async function githubCallback(
     return new Response("Sign-in expired or was tampered with. Try again.", { status: 400 });
   const callback = new URL(url.pathname, url).toString();
   const profile = await deps.fetchProfile(deps.config(), code, callback);
+  // Refused before the user is saved, so a login off the list leaves no row behind.
+  if (!deps.allowed(profile.login)) return notAllowed(profile.login);
   await deps.startSession(await deps.signInUser(profile));
   return new Response(null, { status: 302, headers: { location: "/orgs" } });
 }
+
+/** The page a GitHub login off the deployment's allowlist gets: plain text, so the login is never markup. */
+const notAllowed = (login: string): Response =>
+  new Response(
+    `This server does not let @${login} sign in. Ask its operator to add your GitHub login ` +
+      "to PIXELSLASH_ALLOWED_GITHUB_LOGINS.",
+    { status: 403, headers: { "content-type": "text/plain; charset=utf-8" } },
+  );

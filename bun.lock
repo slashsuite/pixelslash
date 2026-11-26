@@ -91,6 +91,13 @@
         "vitest": "5.1.0",
       },
     },
+    "docker/self-host": {
+      "name": "@slashsuite/pixelslash-self-host",
+      "version": "0.0.0",
+      "dependencies": {
+        "miniflare": "5.20261019.0-beta",
+      },
+    },
     "packages/cli": {
       "name": "@slashsuite/pixelslash",
       "version": "0.8.0",
@@ -589,6 +596,8 @@
     "@slashsuite/pixelslash-engine": ["@slashsuite/pixelslash-engine@workspace:packages/engine"],
 
     "@slashsuite/pixelslash-playwright": ["@slashsuite/pixelslash-playwright@workspace:packages/playwright"],
+
+    "@slashsuite/pixelslash-self-host": ["@slashsuite/pixelslash-self-host@workspace:docker/self-host"],
 
     "@slashsuite/themes": ["@slashsuite/themes@0.5.0", "", { "peerDependencies": { "tailwindcss": "^4" } }, "sha512-jVjmMF3LHhguINU02dJCMmJ653bvQfK1QGOQRMdTPGxQa+txucdM8biO2m3gRI61mMuqHtuKTShFWFULiFpgkg=="],
 

@@ -90,6 +90,9 @@
     // Comma-separated GitHub logins allowed into the operator health page, `/_admin` (PS-330). Empty: the page
     // is a 404 for everyone. It is read-only and shows no per-customer figure.
     "PIXELSLASH_ADMIN_LOGINS": "",
+    // Comma-separated GitHub logins that may sign in (a self-host keeping its server to its team). Empty:
+    // anyone may, and Google sign-in is offered when configured. Set, Google sign-in is off.
+    "PIXELSLASH_ALLOWED_GITHUB_LOGINS": "",
   },
   // The retention sweep (PS-239): hourly, and a no-op while PIXELSLASH_RETENTION_DAYS is empty.
   "triggers": { "crons": ["17 * * * *"] },
@@ -175,6 +178,7 @@
         "PIXELSLASH_RETENTION_DAYS": "",
         "PIXELSLASH_RETENTION_DELETE": "",
         "PIXELSLASH_ADMIN_LOGINS": "",
+        "PIXELSLASH_ALLOWED_GITHUB_LOGINS": "",
       },
     },
     "e2e": {
@@ -236,6 +240,7 @@
         // `e2e-octocat` here would open the page to every visitor on the LAN; an operator there names real
         // logins in `.dev.vars`. The Playwright run lists the stub user (vite.config.ts).
         "PIXELSLASH_ADMIN_LOGINS": "",
+        "PIXELSLASH_ALLOWED_GITHUB_LOGINS": "",
         // Empty: the e2e build renders nothing. The LAN self-host's `.dev.vars` names its renderer on loopback.
         "RENDER_URL": "",
       },

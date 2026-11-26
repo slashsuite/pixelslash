@@ -145,6 +145,11 @@ type ServeOptions = {
   persistRoot: string;
   tmpPath: string;
   bindings: Record<string, string>;
+  /**
+   * The origin people open the app on, when a proxy or tunnel in front of it terminates TLS: every
+   * request's URL is rewritten to it, so the sign-in callback and the cookies' Secure flag follow it.
+   */
+  upstream?: string | undefined;
 };
 
 export function miniflareOptions(
@@ -162,6 +167,7 @@ export function miniflareOptions(
     telemetry: { enabled: false },
     resourcePersistencePath: options.persistRoot,
     resourceTmpPath: options.tmpPath,
+    ...(options.upstream ? { upstream: options.upstream } : {}),
     workers: [workerOptions(readConfig(), options.bindings)],
   });
 }
