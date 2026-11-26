@@ -208,6 +208,12 @@ export type CaptureSession = {
   ) => Promise<Shoot>;
   /** Print the selectors that matched nothing since the last flush (PS-241); `close` does too. */
   flush: () => void;
+  /**
+   * Close the pooled preview pages, which `captureInto` leaves idle when it is done. Each
+   * has held every story it switched to, a few hundred MB, and an upload's re-captures shoot on fresh
+   * pages, so keeping them open through the upload only holds memory. A later pooled shot opens a new one.
+   */
+  releasePages?: () => Promise<void>;
   close: () => Promise<void>;
 };
 
@@ -281,6 +287,7 @@ export async function openCaptureSession(
         return taken;
       },
       flush: () => unmatched.flush(),
+      releasePages: () => pool.close(),
       close,
     };
   } catch (e) {

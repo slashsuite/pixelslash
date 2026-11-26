@@ -126,6 +126,21 @@ function fakeSession(
   };
 }
 
+describe("captureInto closes the pooled pages when its shots are taken", () => {
+  test.each([
+    [true, 1],
+    [false, 0],
+  ])("with reuse %s it releases them %i time(s)", async (reuse, times) => {
+    const fake = fakeSession(parseConfig({ ...base, routes: ["/", "/a"] }), ["chromium"]);
+    let released = 0;
+    fake.releasePages = async () => {
+      released++;
+    };
+    await captureInto(fake, await tmpDir(), 2, { reuse });
+    expect(released).toBe(times);
+  });
+});
+
 describe("one page × three browsers", { timeout: 60_000 }, () => {
   test("is three shots, each fingerprinted by the browser that took it", async () => {
     const config = parseConfig({ ...base, routes: ["/"] });

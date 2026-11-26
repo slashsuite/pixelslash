@@ -20,7 +20,7 @@ RestartSec=2
 # workerd, up to the build's DIFF_LIMIT_MPX (src/diff/limit.ts): 4000M is the 2500M it had plus the
 # 1000M of the separate diff unit it replaced and the 500M of the retired opencode helper, and the limit is
 # measured to fit under it (README, "Memory limits and the watchdog"). Page cache from R2 counts too
-# and is reclaimed at the Max. The CT has 6 GiB and the Proxmox host is overcommitted, so
+# and is reclaimed at the Max. The CT has 8 GB, shared with the renderer's 4000M, and the Proxmox host is overcommitted, so
 # this is a ceiling for a burst, not a reservation. Over MemoryMax the kernel
 # kills it, and OOMPolicy=stop turns that into a failed unit that Restart= brings back whole, not a
 # server with a dead workerd under it. No MemoryHigh and no swap (PS-323): over a High with nothing
