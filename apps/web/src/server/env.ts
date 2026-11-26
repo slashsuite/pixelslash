@@ -36,6 +36,17 @@ export const sweepStore = (): SweepBlobStore => r2SweepStore(env.BLOBS);
 export const retentionDays = (): number | undefined =>
   retentionDaysOf(env.PIXELSLASH_RETENTION_DAYS);
 
+/**
+ * How many days a default-branch build lives; undefined, the default, is never. A build that holds a
+ * current baseline, and each project's newest default-branch build, stay whatever its age.
+ */
+export const retentionMainDays = (): number | undefined =>
+  retentionDaysOf(env.PIXELSLASH_RETENTION_MAIN_DAYS);
+
+/** Where the database size alert is posted, once a day (a secret, never in config); unset is log only. */
+export const alertWebhookUrl = (): string | undefined =>
+  env.PIXELSLASH_ALERT_WEBHOOK_URL || undefined;
+
 /** Whether the scheduled sweep deletes; anything but `true` only logs what it would delete. */
 export const retentionDelete = (): boolean => env.PIXELSLASH_RETENTION_DELETE === "true";
 

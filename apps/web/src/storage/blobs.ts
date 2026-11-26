@@ -15,10 +15,15 @@ export interface BlobStore {
  * sizes, and delete many keys at once. A separate seam, so only the sweep's store carries it.
  */
 export interface SweepBlobStore extends BlobStore {
-  /** Every object under the directory `dir` (a key without a trailing slash), with its size. */
-  list(dir: string): Promise<{ key: string; size: number }[]>;
+  /**
+   * Every object under the directory `dir` (a key without a trailing slash), with its size and, when
+   * the store records it, when it was put (the orphan sweep's grace period reads it).
+   */
+  list(dir: string): Promise<ListedBlob[]>;
   deleteMany(keys: string[]): Promise<void>;
 }
+
+type ListedBlob = { key: string; size: number; uploaded?: Date };
 
 /** R2 deletes at most this many keys in one call. */
 const R2_DELETE_BATCH = 1000;
@@ -43,7 +48,7 @@ export function r2SweepStore(
   return {
     ...r2BlobStore(bucket),
     async list(dir) {
-      const found: { key: string; size: number }[] = [];
+      const found: ListedBlob[] = [];
       let cursor: string | undefined;
       do {
         const page = await bucket.list({
@@ -51,7 +56,9 @@ export function r2SweepStore(
           ...(pageSize && { limit: pageSize }),
           ...(cursor && { cursor }),
         });
-        found.push(...page.objects.map((o) => ({ key: o.key, size: o.size })));
+        found.push(
+          ...page.objects.map((o) => ({ key: o.key, size: o.size, uploaded: o.uploaded })),
+        );
         cursor = page.truncated ? page.cursor : undefined;
       } while (cursor);
       return found;
@@ -96,7 +103,7 @@ export function orgSweepBlobs(store: SweepBlobStore, orgId: string): SweepBlobSt
     ...orgBlobs(store, orgId),
     async list(dir) {
       const found = await store.list(scopedKey(orgId, dir));
-      return found.map((o) => ({ key: o.key.slice(prefix.length), size: o.size }));
+      return found.map((o) => ({ ...o, key: o.key.slice(prefix.length) }));
     },
     deleteMany: (keys) => store.deleteMany(keys.map((key) => scopedKey(orgId, key))),
   };

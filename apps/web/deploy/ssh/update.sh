@@ -127,7 +127,9 @@ d1() {
   shift
   out=$(mktemp)
   for try in 1 2 3 4 5; do
-    if as_app "cd $rel/apps/web && bunx wrangler d1 $* --local --env e2e" >"$out" 2>&1; then
+    # X_LOCAL_OBSERVABILITY=false: wrangler's local Miniflare keeps a trace store in the shared state
+    # by default, and nothing on the CT reads or prunes it.
+    if as_app "cd $rel/apps/web && X_LOCAL_OBSERVABILITY=false bunx wrangler d1 $* --local --env e2e" >"$out" 2>&1; then
       cat "$out"
       rm -f "$out"
       return 0
@@ -310,6 +312,24 @@ resume_watchdog() {
   systemctl enable --now --quiet pixelslash-watchdog.timer
 }
 
+# Frees what the CT's disk holds for nothing, once a release serves: the old checkout's installed
+# packages (every release installs its own; the checkout is kept only for the state and the secrets
+# in apps/web) and Miniflare's local trace store in the shared state, which the d1 calls no longer
+# write. Never the rest of .wrangler: the D1 and R2 state live there. A failure is reported,
+# not rolled back: the release is fine, and the next deploy tries again.
+reclaim_space() {
+  local dir
+  while IFS= read -r -d '' dir; do
+    echo "removing $dir" >&2
+    rm -rf "$dir" || echo "could not remove $dir: the next deploy tries again" >&2
+  done < <(find "$LEGACY" -maxdepth 3 -path "$SHARED_WEB/.wrangler" -prune -o -type d -name node_modules -prune -print0 2>/dev/null)
+  dir=$SHARED_WEB/.wrangler/state/v3/observability
+  if [[ -d $dir ]]; then
+    echo "removing $dir" >&2
+    rm -rf "$dir" || echo "could not remove $dir: the next deploy tries again" >&2
+  fi
+}
+
 # Points `current` at $1 in one rename, so a unit never sees it missing.
 set_current() {
   as_app "ln -sfn $1 $CURRENT.next && mv -T $CURRENT.next $CURRENT"
@@ -420,6 +440,7 @@ main() {
   restart_render
   touch "$rel"
   prune_releases
+  reclaim_space
   echo "release $name is serving" >&2
 }
 
