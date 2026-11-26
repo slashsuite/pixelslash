@@ -1,9 +1,9 @@
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { availableParallelism, tmpdir } from "node:os";
 import { join } from "node:path";
 import { unpackBundle } from "./bundle-archive.ts";
 import { planConfig } from "./bundle-plan.ts";
-import { captureInto, defaultConcurrency } from "./capture-into.ts";
+import { captureInto } from "./capture-into.ts";
 import { UploadError } from "./errors.ts";
 import type { FetchLike } from "./figma.ts";
 import { recapture } from "./recapture.ts";
@@ -21,8 +21,10 @@ export type RenderOptions = {
   server: string;
   /** Where each job's bundle and shots go, one fresh directory per job, removed after. Default: the temp dir. */
   scratch?: string | undefined;
-  /** The most shots a job takes at once, whatever its config asks for. */
-  maxConcurrency?: number | undefined;
+  /**
+   * How many shots a job takes at once (`renderConcurrency`). Default: the CPUs the renderer has.
+   */
+  concurrency?: number | undefined;
 };
 
 export type RenderDeps = Pick<SnapshotDeps, "env" | "listFonts"> & {
@@ -32,6 +34,20 @@ export type RenderDeps = Pick<SnapshotDeps, "env" | "listFonts"> & {
 };
 
 export type RenderOutcome = { ok: true; snapshots: number } | { ok: false; error: string };
+
+/**
+ * How many shots a render takes at once: the renderer's own count (`own`, default the CPUs it has),
+ * or the plan's `concurrency` when that asks for fewer. Not the client's load-based default
+ * (`defaultConcurrency`): a renderer in a container sees its host's load average, so on a busy
+ * host that default is one shot at a time, whatever the container has to spare. A plan never takes
+ * more than the renderer gives, since it was written for the uploader's machine, not this one.
+ */
+export function renderConcurrency(
+  asked: number | undefined,
+  own: number = availableParallelism(),
+): number {
+  return Math.max(1, Math.min(asked ?? own, own));
+}
 
 /** The longest error a render reports: the shots that failed are named, one a line. */
 const MAX_ERROR = 4000;
@@ -127,8 +143,7 @@ async function renderInto(
   const served = serveBundle(site);
   try {
     const config = planConfig(reply.plan, served.url);
-    const asked = config.concurrency ?? defaultConcurrency();
-    const concurrency = Math.max(1, Math.min(asked, opts.maxConcurrency ?? asked));
+    const concurrency = renderConcurrency(config.concurrency, opts.concurrency);
     const session = await openCaptureSession(config, { ...deps, warn });
     try {
       const result = await captureInto(session, out, concurrency, { reuse: true, warn });
