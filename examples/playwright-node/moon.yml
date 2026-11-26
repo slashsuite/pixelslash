@@ -1,0 +1,14 @@
+$schema: "../../.moon/cache/schemas/project.json"
+
+# The sample is outside the Bun workspace: a user installs it with npm, from the packed tarballs
+# (`bun scripts/check-example.ts`, CI's `example` job). This task type-checks its spec in the gate
+# without packing anything: tsconfig.workspace.json points `@slashsuite/pixelslash-playwright` at the
+# declarations the package ships (packages/playwright/types/index.d.ts), and `@playwright/test` and
+# `@types/node` resolve from the root's devDependencies.
+tags: ["ts"]
+
+tasks:
+  typecheck:
+    command: "tsc -p examples/playwright-node/tsconfig.workspace.json"
+    options:
+      runFromWorkspaceRoot: true

@@ -34,6 +34,7 @@ holds what they inherit:
 | `scripts` | `scripts` | `check-slop.ts`, `check-dashes.ts` and `write-fixtures.ts`; typecheck, lint and the test of `check-dashes.ts` |
 | `wasm` | `engines/wasm` | the Rust diff module (`diff.wasm`, committed under `packages/engine/wasm`) and its bench-only native build in `native/`; `cargo fmt --check` and clippy in `lint`, `cargo test` and `wasm:wasm-check` (what `bun run wasm:check` runs) in `test` |
 | `bench` | `bench` | the Argos benchmark: main and held-out corpora, runner, scoring (`bun run bench`, no VM: Argos's verdicts are cached; `bun run bench:check` is the regression guard, and `bun run test` runs it too; see `bench/README.md`). The VM is needed only for `--refresh-argos` |
+| `example` | `examples/playwright-node` | the npm sample, outside the Bun workspace: only `typecheck`, which checks its spec against the helper's shipped declarations (`packages/playwright/types`) through `tsconfig.workspace.json`. `bun run check:example` (CI's `example` job) installs and runs it the npm way |
 
 **Files another site reads by path.** The slashslash.build site fetches these from this repo at a
 pinned commit, and refreshes the pin when one of them changes on `main`:
@@ -52,6 +53,21 @@ still installs hoisted; its PNG hashes matched main's when the linker landed.
 `bunfig.toml` also sets `[install] globalStore = true`: most packages in `node_modules`
 are symlinks into one shared store under the Bun cache, not per-worktree
 copies. `globalStore = false` is the project-wide fallback.
+
+**One version per dependency: the catalog.** A dependency two packages share takes its version from
+the root `package.json`: `catalog` for most, `catalogs.<name>` for a group that must move together
+(`playwright`, `react`, `tailwind`, `tanstack`). A package names it as `catalog:` or
+`catalog:<name>`, and Dependabot bumps the catalog. Two exceptions keep a plain version: the runtime
+`dependencies` of the two npm packages (`packages/cli`, `packages/playwright`), because `npm pack`
+ships them as written, and the UISlash kit (`@slashsuite/themes`, `@slashsuite/ui-react`), upgraded
+on its own. `scripts/test/catalog.test.ts` fails when a dependency resolves to two versions, when a
+shared one skips the catalog, or when the npm sample falls off the catalog's major (Dependabot bumps
+the sample in its own npm pull request).
+
+**Workflows stay safe for a public repo.** CI's `gate` job runs `bun scripts/check-workflows.ts
+.github/workflows/*.yml` first: no job on a runner of our own (`runs-on` naming `self-hosted` or
+`proxmox`, or an expression), and no trigger but `push`, `pull_request`, `workflow_dispatch` and
+`workflow_call`.
 
 A change is green when all of these pass **from the worktree**:
 

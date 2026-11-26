@@ -10,6 +10,7 @@ projects:
   site: "apps/site"
   web: "apps/web"
   bench: "bench"
+  example: "examples/playwright-node"
   cli: "packages/cli"
   engine: "packages/engine"
   playwright: "packages/playwright"

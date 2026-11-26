@@ -29,3 +29,7 @@ pixelslash upload pixelslash-snapshots --server https://your-server
 `bun scripts/check-example.ts` does all of this in a temp copy, the way CI does: it runs the tests with no
 `bun` on `PATH`, type-checks the spec against the shipped declarations, and uploads the dir to a stub
 server.
+
+`moon.yml` and `tsconfig.workspace.json` are the repo gate's, not part of the sample: `bun run typecheck`
+checks the spec against the helper's declarations without packing anything. The check above leaves
+them out of its copy.

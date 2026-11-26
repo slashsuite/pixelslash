@@ -30,13 +30,13 @@
     "access": "public"
   },
   "devDependencies": {
-    "@playwright/test": "1.65.1",
+    "@playwright/test": "catalog:playwright",
     "@slashsuite/pixelslash": "workspace:*",
     "@slashsuite/pixelslash-engine": "workspace:*",
-    "@types/bun": "1.4.4",
-    "@types/pngjs": "^6.0.5",
-    "playwright": "1.65.1",
-    "pngjs": "^7.0.0"
+    "@types/bun": "catalog:",
+    "@types/pngjs": "catalog:",
+    "playwright": "catalog:playwright",
+    "pngjs": "catalog:"
   },
   "peerDependencies": {
     "@playwright/test": ">=1.40.0"

@@ -6,6 +6,6 @@
   "license": "Elastic-2.0",
   "type": "module",
   "dependencies": {
-    "miniflare": "5.20261019.0-beta"
+    "miniflare": "catalog:"
   }
 }
