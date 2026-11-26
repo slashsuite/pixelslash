@@ -5,7 +5,9 @@
 //
 // A public repository runs a fork's pull request on our workflows, so:
 //   - no job may run on a self-hosted runner: its `runs-on` must not name `proxmox` or `self-hosted`,
-//     and must not be an expression (an expression could resolve to either), and
+//     and must not be an expression (an expression could resolve to either); a job that calls a
+//     reusable workflow (`uses:`) is held to the same rule on its `with: runs-on:` input, which is
+//     how the UISlash review workflow picks its runner, and
 //   - no workflow may trigger on anything but push, pull_request, workflow_dispatch or workflow_call
 //     (never pull_request_target, workflow_run, issue_comment or any other trigger a fork can drive
 //     with more than a read-only token).
@@ -39,7 +41,9 @@ export function checkWorkflow(name: string, text: string): string[] {
   if (bad.length) failures.push(`${name}: triggers on ${bad.join(", ")}`);
   const jobs = isRecord(wf.jobs) ? wf.jobs : {};
   for (const [id, job] of Object.entries(jobs)) {
-    if (isRecord(job) && forbiddenRunner(job["runs-on"]))
+    if (!isRecord(job)) continue;
+    const input = isRecord(job.with) ? job.with["runs-on"] : undefined;
+    if (forbiddenRunner(job["runs-on"]) || forbiddenRunner(input))
       failures.push(`${name}: job ${id} runs on a self-hosted runner or an expression`);
   }
   return failures;

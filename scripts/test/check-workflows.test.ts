@@ -4,6 +4,9 @@ import { checkWorkflow } from "../check-workflows";
 const wf = (on: string, runsOn: string) =>
   `name: t\non:\n${on}\njobs:\n  j:\n    runs-on: ${runsOn}\n    steps:\n      - run: echo\n`;
 
+const call = (input: string) =>
+  `on: push\njobs:\n  j:\n    uses: o/r/.github/workflows/x.yml@main\n    with:\n${input}`;
+
 describe("check-workflows", () => {
   test("accepts a hosted runner and the allowed triggers", () => {
     const on = "  push:\n  pull_request:\n  workflow_dispatch:\n  workflow_call:";
@@ -26,6 +29,11 @@ describe("check-workflows", () => {
 
   test("refuses a runs-on expression", () => {
     expect(checkWorkflow("a.yml", wf("  push:", "${{ vars.RUNNER }}"))).toHaveLength(1);
+  });
+
+  test("holds a reusable workflow's runs-on input to the same rule", () => {
+    expect(checkWorkflow("a.yml", call("      paths: src"))).toEqual([]);
+    expect(checkWorkflow("a.yml", call("      runs-on: proxmox"))).toHaveLength(1);
   });
 
   test.each([
