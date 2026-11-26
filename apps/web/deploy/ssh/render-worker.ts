@@ -227,6 +227,8 @@ if (import.meta.main) {
     ...(queueFile ? { store: fileStore(queueFile, warn) } : {}),
     giveUp: (job, error) => reportRenderError(job, opts, error, { warn }),
   });
+  // Before the listener opens: a job taken first would be saved over the queue the last worker left.
+  void worker.resume();
   const server = Bun.serve({
     hostname: env["RENDER_HOST"] ?? "127.0.0.1",
     port: positive(env["RENDER_PORT"]) ?? 3100,
@@ -249,5 +251,4 @@ if (import.meta.main) {
   };
   process.on("SIGTERM", stop);
   process.on("SIGINT", stop);
-  void worker.resume();
 }
