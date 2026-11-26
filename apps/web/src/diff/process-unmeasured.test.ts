@@ -68,7 +68,12 @@ describe("a build with shots it did not measure", () => {
     expect(await onlyShot(ctx, moved)).toMatchObject({ diffStatus: null, rebaselineNeeded: true });
     expect(moved.status).toBe("errored");
     expect(moved.error).toContain("1 of 1 shots");
-    expect(moved.error).toContain("fonts sha256:f → sha256:g");
+    // Both environments in full, and the way to keep them equal (PS-590).
+    expect(moved.error).toContain(
+      "This build: image version:1, browser chromium 148, fonts sha256:g. " +
+        "Its baseline: image version:1, browser chromium 148, fonts sha256:f.",
+    );
+    expect(moved.error).toContain("Upload from CI or the pinned capture image");
   });
 
   test("a shot whose result never landed errors the build, it does not pass", async () => {

@@ -1,6 +1,7 @@
 import { type SQL, and, eq, inArray, lte, ne, or } from "drizzle-orm";
 import type { Db } from "./db";
 import type { Build } from "./builds";
+import { pixelsOf } from "./approved-earlier";
 import { inChunks } from "./chunks";
 import { heldShot, notSkippedFlaky } from "./markers";
 import { builds, type IgnoreRect, snapshots } from "./schema";
@@ -11,7 +12,9 @@ import { builds, type IgnoreRect, snapshots } from "./schema";
  *
  * 1. The same branch's previous shot, reviewed or not: the newest earlier build of this branch
  *    that holds the key and was not rejected. A re-run of one commit is therefore 0 changed, and
- *    the shot carries forward after a rebase or an amend too.
+ *    the shot carries forward after a rebase or an amend too, as long as main's shot for the key
+ *    is still the one that previous shot was measured against (`mainMoved`). Once main has moved
+ *    on, the previous shot shows main's own change as the branch's, so the key takes rule 2.
  * 2. Else the shot in the accepted build at the nearest of the merge-base and its ancestors (the
  *    CLI sends up to 200, so a project that CI skipped for a long stretch of main still finds its
  *    last build; ob 1788). Within one commit, the newest build. Nothing newer than the merge-base
@@ -96,6 +99,9 @@ type Candidate = BaselineSnapshot & {
   diffStatus: string | null;
   reviewState: string;
   carriedFrom: string | null;
+  /** The main shot this one was measured against (ob 1723), and that result; both null when it was not. */
+  mainBaselineKey: string | null;
+  mainDiffStatus: string | null;
 };
 
 /** Accepted for a baseline from any build: the build passed, or this one shot was accepted. */
@@ -175,6 +181,8 @@ async function queryCandidates(db: Db, build: PickFor): Promise<Candidate[]> {
         diffStatus: snapshots.diffStatus,
         reviewState: snapshots.reviewState,
         carriedFrom: snapshots.carriedFrom,
+        mainBaselineKey: snapshots.mainBaselineKey,
+        mainDiffStatus: snapshots.mainDiffStatus,
       })
       .from(snapshots)
       .innerJoin(builds, eq(builds.id, snapshots.buildId))
@@ -244,7 +252,29 @@ function pickMain(candidates: Candidate[], build: PickFor): Map<string, Baseline
   return picked;
 }
 
-function pick(candidates: Candidate[], build: PickFor): Map<string, Baseline> {
+/** One key's pick: main's shot once main has moved under the branch, else rule 1, else rule 2. */
+function pickOne(
+  prior: Candidate | undefined,
+  held: Candidate | undefined,
+  onMain: BaselineSnapshot | undefined,
+  moved: (prior: Candidate, main: BaselineSnapshot) => boolean,
+): Baseline | null {
+  if (prior && onMain && moved(prior, onMain))
+    return { shot: onMain, carry: null, accepted: onMain };
+  const fallback = held && baselineOf(held);
+  if (prior) {
+    const carry = openRow(prior) ? (prior.carriedFrom ?? prior.id) : null;
+    return { shot: baselineOf(prior), carry, accepted: fallback };
+  }
+  return fallback ? { shot: fallback, carry: null, accepted: fallback } : null;
+}
+
+function pick(
+  candidates: Candidate[],
+  build: PickFor,
+  main: Map<string, BaselineSnapshot>,
+  moved: (prior: Candidate, main: BaselineSnapshot) => boolean,
+): Map<string, Baseline> {
   const accepted = pickAccepted(candidates);
   const previous = new Map<string, Candidate>();
   for (const row of candidates) {
@@ -253,15 +283,40 @@ function pick(candidates: Candidate[], build: PickFor): Map<string, Baseline> {
   }
   const picked = new Map<string, Baseline>();
   for (const key of new Set([...accepted.keys(), ...previous.keys()])) {
-    const prior = previous.get(key);
-    const held = accepted.get(key);
-    const fallback = held && baselineOf(held);
-    if (prior) {
-      const carry = openRow(prior) ? (prior.carriedFrom ?? prior.id) : null;
-      picked.set(key, { shot: baselineOf(prior), carry, accepted: fallback });
-    } else if (fallback) picked.set(key, { shot: fallback, carry: null, accepted: fallback });
+    const one = pickOne(previous.get(key), accepted.get(key), main.get(key), moved);
+    if (one) picked.set(key, one);
   }
   return picked;
+}
+
+/**
+ * Whether main's shot for a key has moved on since the branch's previous shot was measured against
+ * main (PS-562, PS-703): a branch built again after main moved, rebased or not, would otherwise be
+ * compared with an image of the old main and show main's own change as its own. The same bytes
+ * under another key (main captured again at a later commit) have not moved. A previous shot with no
+ * main result (one measured before ob 1723, or one the budget left) gives no evidence, so it keeps
+ * rule 1; one that was new against main has moved once main holds the key.
+ */
+async function mainMovedTest(
+  db: Db,
+  candidates: Candidate[],
+  build: PickFor,
+): Promise<(prior: Candidate, main: BaselineSnapshot) => boolean> {
+  // Only the branch's previous shot per key is ever asked about (`pick`).
+  const seen = new Set<string>();
+  const keys: string[] = [];
+  for (const row of candidates) {
+    if (row.branch !== build.branch || seen.has(snapshotKeyOf(row))) continue;
+    seen.add(snapshotKeyOf(row));
+    if (row.mainBaselineKey !== null) keys.push(row.mainBaselineKey);
+  }
+  const hashes = keys.length > 0 ? await pixelsOf(db, keys) : new Map<string, string>();
+  return (prior, main) => {
+    if (prior.mainBaselineKey === null) return prior.mainDiffStatus === "new";
+    if (prior.mainBaselineKey === main.imageKey) return false;
+    const was = hashes.get(prior.mainBaselineKey);
+    return !was || was !== main.imageSha256;
+  };
 }
 
 /** The build whose set of shots decides what was removed: the branch's previous one, else the accepted one at the nearest commit in reach. */
@@ -323,9 +378,10 @@ export async function selectBaselines(
   const candidates = await queryCandidates(db, build);
   if (candidates.length === 0) return emptyBaselines();
   const baselineBuildId = primaryBuild(build, candidates);
+  const main = pickMain(candidates, build);
   return {
-    byKey: pick(candidates, build),
+    byKey: pick(candidates, build, main, await mainMovedTest(db, candidates, build)),
     removed: await removedSince(db, baselineBuildId, keys),
-    main: pickMain(candidates, build),
+    main,
   };
 }

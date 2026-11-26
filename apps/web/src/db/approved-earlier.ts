@@ -95,7 +95,7 @@ const ownerOf = (imageKey: string) => /^builds\/([^/]+)\//.exec(imageKey)?.[1] ?
  * writing build (indexed), so it never scans the table. A key with no known owner or hash (a row
  * older than the hash column) is left out, and its shot reads as not changed.
  */
-async function pixelsOf(db: Db, keys: string[]): Promise<Map<string, string>> {
+export async function pixelsOf(db: Db, keys: string[]): Promise<Map<string, string>> {
   const wanted = new Set(keys);
   const owners = [...new Set(keys.flatMap((key) => ownerOf(key) ?? []))];
   // Each statement binds the owning builds and nothing else.

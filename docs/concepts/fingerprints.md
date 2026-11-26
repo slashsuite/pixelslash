@@ -61,18 +61,20 @@ pixelslash: uploaded 2 snapshots
 build: a981b89f-… (608fbfc on main)
 ```
 
-**On any other branch**, the build errors, naming the shots and what moved, and `upload` exits 1:
+**On any other branch**, the build errors, naming both environments, and `upload` exits 1. The build's page shows the same reason:
 
 ```
 3/3 shots sent and finalised; the failure came after
-UPLOAD FAILED: build 4c98d50e-… errored on the server: 3 of 3 shots were captured in another environment than their baselines (image bare → sha256:newimage), so they were not compared; upload the default branch from this environment, then rebase this branch onto that commit and upload it again
+UPLOAD FAILED: build 4c98d50e-… errored on the server: 3 of 3 shots were captured in another environment than their baselines, so they were not compared. This build: image sha256:newimage, browser chromium 156.0.8078.4, fonts sha256:9e1c…. Its baseline: image bare, browser chromium 156.0.8078.4, fonts sha256:2344…. Upload from CI or the pinned capture image, so every build is captured in the same environment; to move the project to this environment, upload the default branch from it, then rebase this branch onto that commit and upload it again
 ```
 
-The fix is what the message says:
+Usually the branch was captured somewhere else by mistake, such as a laptop. Upload it again from CI or the pinned image, where the default branch was captured.
+
+When the project is meant to move to the new environment:
 
 1. Upload the default branch from the new environment.
 2. Rebase your branch onto that commit.
-3. Upload the branch again.
+3. Upload the branch again. It is measured against the default branch's new shots, whether the server diffs or CI does.
 
 ## Keeping them equal
 

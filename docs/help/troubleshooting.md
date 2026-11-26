@@ -120,7 +120,7 @@ The upload reached a server that refused it, or the build it opened ended `error
 
 A server-side status, not a command's own message: a shot's fingerprint differs from its baseline's, so the server refused to compare them. On the default branch the shot is accepted and becomes the new baseline; on any other branch the build ends `errored` and `upload` exits 1.
 
-Move the baseline first: upload the default branch from the new environment, rebase your branch onto that commit, then upload the branch again. [Fingerprints and environments](../concepts/fingerprints.md#on-a-server-not-compared) walks through it.
+The message names both environments. Upload from CI or the pinned capture image, so the branch is captured where its baseline was. To move the project to a new environment, move the baseline first: upload the default branch from the new environment, rebase your branch onto that commit, then upload the branch again. [Fingerprints and environments](../concepts/fingerprints.md#on-a-server-not-compared) walks through it.
 
 ## this project diffs in CI; upgrade the CLI
 

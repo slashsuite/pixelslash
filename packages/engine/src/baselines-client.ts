@@ -89,7 +89,11 @@ export async function fetchBaselines(
 ): Promise<BaselinesReply> {
   const chunks: Chunk[] = [];
   for (let i = 0; i < entries.length; i += KEYS_PER_REQUEST) {
-    const keys = entries.slice(i, i + KEYS_PER_REQUEST).map(snapshotKey);
+    // With the environment each shot was captured in, so the pick is the one finalise makes (a
+    // baseline from another environment gives way to main's from this one).
+    const keys = entries
+      .slice(i, i + KEYS_PER_REQUEST)
+      .map((e) => ({ ...snapshotKey(e), fingerprint: e.fingerprint }));
     const body = JSON.stringify({ ...request.body, keys });
     const reply = await send(client, {
       step: "fetch baselines",

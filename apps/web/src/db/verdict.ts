@@ -75,3 +75,38 @@ export async function finishRun(db: Db, buildId: string, startedAt: Date): Promi
     .returning({ id: builds.id });
   return written.length > 0 ? status : null;
 }
+
+/** A finished build whose stored verdict is not the one its shots add up to under today's rule. */
+export type StaleVerdict = { buildId: string; from: Verdict; to: Verdict };
+
+/**
+ * Bring every finished build's stored verdict up to today's rule (PS-430): a build written under an
+ * older rule (one where a new shot did not wait, PS-284) can say `passed` with a decision still open.
+ * It lists what differs and, only with `apply`, writes it, each write fenced on the status it read, so
+ * a review that lands meanwhile wins. Builds that are `processing` or `errored` are a run's and are
+ * left alone. Additive and idempotent: a second run finds nothing, since every write is the verdict
+ * the same rule reads back.
+ */
+export async function recomputeVerdicts(
+  db: Db,
+  options: { apply: boolean },
+): Promise<StaleVerdict[]> {
+  const finished = await db
+    .select({ id: builds.id, status: builds.status })
+    .from(builds)
+    .where(inArray(builds.status, VERDICT_STATUSES));
+  const stale: StaleVerdict[] = [];
+  for (const build of finished) {
+    const from = VERDICT_STATUSES.find((status) => status === build.status);
+    if (!from) continue;
+    const to = await verdictOfBuild(db, build.id);
+    if (to === from) continue;
+    stale.push({ buildId: build.id, from, to });
+    if (options.apply)
+      await db
+        .update(builds)
+        .set({ status: to })
+        .where(and(eq(builds.id, build.id), eq(builds.status, from)));
+  }
+  return stale;
+}
