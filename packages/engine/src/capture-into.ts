@@ -217,6 +217,8 @@ export async function captureInto(
     announceRetry(warn),
   );
   const captureWallMs = elapsed(shooting);
+  // Every pooled page is idle now (the solo retries ran inside mapLimit); nothing after this shoots on one.
+  await session.releasePages?.();
   const snapshots = taken.map((t) => t.entry);
   const shots = taken.map((t) => t.shot);
   const media = Object.fromEntries(

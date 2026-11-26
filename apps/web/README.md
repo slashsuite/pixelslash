@@ -510,7 +510,7 @@ public DNS. Real GitHub sign-in is a later ticket.
 | --- | --- |
 | Dashboard | `http://<ct-address>:3000` |
 | Stand-in | `http://<ct-address>:4174` (the browser is sent there to sign in) |
-| Container | CT `$CT` `pixelslash` on the Proxmox host `$SSH_HOST`: Debian 13, unprivileged, 2 vCPU, 6 GiB, 10 GB on `local-lvm`, starts on boot. The address is static in the CT config, below the router's DHCP pool. |
+| Container | CT `$CT` `pixelslash` on the Proxmox host `$SSH_HOST`: Debian 13, unprivileged, 4 vCPU, 8 GB, 10 GB on `local-lvm`, starts on boot. The address is static in the CT config, below the router's DHCP pool. |
 | Releases | `/home/pixelslash/releases/<sha>/`, user `pixelslash`, one per deploy, built on the machine that deploys; `releases/current` is the one serving. The last 3 are kept. Bun is in `~pixelslash/.bun`, Node 24 (for wrangler) in `/usr/local`. |
 | Old checkout | `/home/pixelslash/pixelslash`, the git checkout the CT served from and built in before PS-225. Nothing runs from it now; it holds the state and the secrets below. |
 | State | D1 and R2 in the old checkout's `apps/web/.wrangler/state` on the CT's disk; every release's `apps/web/.wrangler/state` links to it, so it is kept across restarts, deploys and rollbacks. |
@@ -637,7 +637,7 @@ fed 1280x16800 diffs, the diff process wedged the same way and stayed wedged pas
   and `Restart=` brings it back. The same overload with no High was killed within seconds.
 - **One unit holds it all.** Every server diff runs in `pixelslash-web`, so its `MemoryMax` is
   4000M: the 2500M it had, the 1000M of the diff process it replaced and the 500M of the retired
-  opencode helper. That is the only Max on the CT's 6 GiB; the stub is small. The Proxmox host is
+  opencode helper. The bundle renderer has its own 4000M beside it, so the two fit the CT's 8 GB; the stub is small. The Proxmox host is
   overcommitted, so the limit is a ceiling, not a reservation.
 - **The limit rests on these numbers** (PS-464), measured locally with `perf/web-burst.ts` on one
   `systemd-run --user` unit shaped like the CT's (`MemoryMax=4000M`, `MemorySwapMax=0`, no
@@ -698,19 +698,50 @@ CLI's capture code, then uploads the shots and finalises with a token that reach
 render paths. It holds no secret of its own and talks only to `127.0.0.1:3000`.
 
 A build's shots are taken in parallel: as many at once as the unit has CPUs (at most ten), or `RENDER_CONCURRENCY` in
-`pixelslash-render.service` for another count (a plan's own `concurrency` may only ask for fewer). The CT
-has 4 cores and 8 GB, which fits both units' `MemoryMax`. On it, 82 uislash shots (Forms/Input and the
+`pixelslash-render.service` for another count (a plan's own `concurrency` may only ask for fewer). The unit
+sets two, since it runs two builds (below). On the CT (4 cores, 8 GB), 82 uislash shots (Forms/Input and the
 Overview gallery sections, one theme, desktop and phone) took 95 s one at a time on the old 2 cores,
-87 s one at a time on 4, 52 s two at a time, 40 s four at a time and 40 s eight at a time, the renderer
-peaking at 1.1 GB with four. The host has 4 cores in all, so more pages than that add only memory.
+87 s one at a time on 4, 52 s two at a time, 40 s four at a time and 40 s eight at a time. The host has
+4 cores in all, so more pages than that add only memory.
 
 It renders two builds at once (`RENDER_BUILDS=2` in the unit; unset, one), each with its own
 browser and that many shots, in the order they came. A uislash pull request is a dozen builds, one
 per group: a build spends part of its time on its plan, its bundle, a browser and its slowest
 stories, and the other one fills those gaps. The twelve builds of one such pull request, captured on
 4 reserved cores (the CT has four) and 4 GB, took 148 and 156 s one build at a time, 95 and 109 s two
-at a time, 89 s three at a time, and 150 s one at a time with eight shots each, peaking at about
-1.1 GB. Two is the setting: a third adds little and its own browser's memory under the same limit.
+at a time, 89 s three at a time, and 150 s one at a time with eight shots each. Two is the setting: a
+third adds little and its own browser's memory under the same limit.
+
+**Memory.** Each worker keeps one preview page and switches stories on it, which is about twice as
+fast as a fresh page per shot but holds every story it has switched to, so a build's memory grows
+with its pages, not its shots. The pages are closed once the build's shots are taken; the upload's
+re-captures shoot on fresh pages. The CT figures are `memory.peak` of the unit, the local ones of a
+`systemd-run --user` scope with no swap on 4 pinned cores, for the 238 shots of uislash's Overview
+(7 themes, desktop and phone), every shot re-captured as the upload would for a changed one:
+
+| Run | Builds × shots at once | Peak | Wall |
+| --- | --- | --- | --- |
+| CT, before | 1 × 4 | 2.85 GB | 61 s |
+| CT, before | 2 × 4 | killed at 3000M | |
+| Local, pages kept | 1 × 4 | 2.06 GB | 61 s |
+| Local, pages closed | 1 × 4 | 1.82 GB | 61 s |
+| Local, pages closed | 2 × 4 | 3.29 GB | 120 s |
+| Local, pages closed | 2 × 2 | 2.69 GB | 142 s |
+| Local, a fresh page per shot | 2 × 4 | 1.32 GB | 75 s (no re-capture) |
+
+The CT ran 0.8 GB above the local figure for one build (2.85 against 2.06 GB: the renderer's own
+process, about 0.8 GB while it renders, and the upload). That offset was measured on one build, not
+two, so two builds of two shots each are estimated at about 3.5 GB (2.69 plus 0.8; 3.7 GB, about 3520 MiB, if the offset grows to 1 GB with the second build) under
+`MemoryMax=4000M` (MiB); read the unit's `MemoryPeak` after a burst to check it. With the web unit's
+4000M the two limits take 8000 of the CT's 8192 MiB: they are ceilings, not reservations, and the web
+unit peaks near 1.3 GB.
+
+Two shots per build costs nothing when two builds run. Eleven builds, one per uislash story group (one
+theme, desktop and phone, 1554 shots, capture only), on 4 reserved CPUs, two rounds each: one build of
+four shots at a time took 75 and 77 s, two builds of two shots 58 and 58 s, two builds of four 58 and
+57 s. A build that runs alone is slower at two shots (the Overview build above: about 35 s against 22
+to 26 s locally, capture only).
+
 The renderer is one process, so a kill (its memory limit) stops both builds. Each is then started
 again on its own, so after that first kill a kill counts only against the build that caused it.
 
@@ -743,7 +774,7 @@ it fails rather than waiting for the abandoned sweep.
 The bundle is a pull request's own code, so the unit is fenced: its own user with no login, no
 access to the app's state or `.dev.vars.e2e`, loopback only (`IPAddressAllow=localhost`), a read-only
 system, a private `/tmp` for each job's bundle and shots, Chromium's sandbox left on, and
-`MemoryMax=3000M` beside the web unit's 4000M. Logs: `journalctl -u pixelslash-render -f`, one line
+`MemoryMax=4000M` beside the web unit's 4000M. Logs: `journalctl -u pixelslash-render -f`, one line
 per build (`render <id>: <n> shots in <s>` or `failed in <s>: <reason>`), one at a start that took
 up builds left by the last renderer (`resumed <n> build(s) ...`), never the token.
 
