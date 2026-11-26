@@ -56,20 +56,26 @@ export function object(v: unknown, where: string): Obj {
   return v;
 }
 
+/** An optional positive integer: absent or null is null, anything else that is not one is a 400. */
+function positiveOrNull(v: unknown, where: string): number | null {
+  if (v === undefined || v === null) return null;
+  if (typeof v !== "number" || !Number.isSafeInteger(v) || v <= 0)
+    bad(where, "must be a positive integer");
+  return v;
+}
+
 export function parseNewBuild(raw: unknown): NewBuild {
   const b = object(raw, "body");
   const ancestors = b.ancestorShas ?? [];
   if (!Array.isArray(ancestors) || ancestors.length > MAX_ANCESTORS)
     bad("ancestorShas", `must be an array of at most ${MAX_ANCESTORS} SHAs`);
-  const pr = b.prNumber ?? null;
-  if (pr !== null && (typeof pr !== "number" || !Number.isInteger(pr) || pr <= 0))
-    bad("prNumber", "must be a positive integer");
   return {
     commitSha: sha(b.commitSha, "commitSha"),
     branch: text(b.branch, "branch", 255),
     mergeBaseSha: b.mergeBaseSha == null ? null : sha(b.mergeBaseSha, "mergeBaseSha"),
     ancestorShas: ancestors.map((s, i) => sha(s, `ancestorShas[${i}]`)),
-    prNumber: pr,
+    prNumber: positiveOrNull(b.prNumber, "prNumber"),
+    ciRunId: positiveOrNull(b.ciRunId, "ciRunId"),
     brief: brief(b.brief),
   };
 }

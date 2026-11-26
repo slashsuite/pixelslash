@@ -12,6 +12,12 @@ export type GitContext = {
    */
   ancestorShas: string[];
   prNumber: number | null;
+  /**
+   * The CI run that made the upload (`GITHUB_RUN_ID`); null outside GitHub Actions. GitHub numbers
+   * a repository's runs in the order their pushes came in, and a re-run keeps its number, so the
+   * server orders a pull request's heads by it (`supersedeBundleBuilds`).
+   */
+  ciRunId: number | null;
 };
 
 /**
@@ -44,6 +50,12 @@ async function git(cwd: string, args: string[]): Promise<string | undefined> {
 function prFromRef(ref: string | undefined): number | null {
   const m = /^refs\/pull\/(\d+)\//.exec(ref ?? "");
   return m?.[1] ? Number(m[1]) : null;
+}
+
+/** A positive run number, or null for anything else (unset, empty, not a whole number). */
+function runId(raw: string | undefined): number | null {
+  const n = Number(raw);
+  return raw && /^\d+$/.test(raw) && Number.isSafeInteger(n) && n > 0 ? n : null;
 }
 
 /** `--branch`, else CI's env (a PR build is checked out detached), else HEAD's branch name. */
@@ -96,5 +108,6 @@ export async function gitContext(opts: GitOptions): Promise<GitContext> {
     mergeBaseSha,
     ancestorShas: (log ?? "").split("\n").filter(Boolean).slice(1),
     prNumber: opts.pr ?? prFromRef(opts.env.GITHUB_REF),
+    ciRunId: runId(opts.env.GITHUB_RUN_ID),
   };
 }

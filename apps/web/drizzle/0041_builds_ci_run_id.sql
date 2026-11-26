@@ -1,0 +1,1 @@
+ALTER TABLE `builds` ADD `ci_run_id` integer;

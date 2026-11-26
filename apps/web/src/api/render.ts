@@ -174,7 +174,7 @@ const warn = (e: unknown) => reportError(e, { area: "render-supersede" });
 export async function supersedeOlderHeads(
   ctx: RenderCtx,
   { id: projectId, orgId }: { id: string; orgId: string },
-  head: { commitSha: string; prNumber: number | null },
+  head: { commitSha: string; prNumber: number | null; ciRunId?: number | null },
 ): Promise<string[]> {
   // No renderer, no bundle builds to end: the hosted app pays no query for it.
   const render = ctx.render;

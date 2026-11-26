@@ -7,6 +7,12 @@ release is the tag `v<version>` (see `.github/workflows/release.yml`).
 
 ## [Unreleased]
 
+### Fixed
+
+- In GitHub Actions, `upload` sends the run's `GITHUB_RUN_ID`. A review app with a bundle renderer uses it to
+  tell a pull request's newer head from an older one, so an older push whose run uploads late no longer ends
+  the newer head's bundle builds.
+
 ## [0.9.0] - 2026-11-26
 
 ### Added
