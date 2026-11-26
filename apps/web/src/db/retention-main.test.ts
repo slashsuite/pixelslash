@@ -92,20 +92,22 @@ describe("the default branch's own window", () => {
     expect(await buildIds(ctx)).toHaveLength(3);
   });
 
-  test("a branch build a kept main build points at stays", async () => {
+  test("a branch build a main build kept for a hop points at stays", async () => {
     const ctx = await context();
     const feature = await alone(ctx, "feature", 9);
     await age(ctx, feature, 400);
-    // Past the window too: it stays only as the project's newest main build, and keeps what it names.
-    const main = await onMain(ctx, 1);
-    await age(ctx, main, 400);
+    // Past the window and not the newest: kept only because `newest` was diffed against it.
+    const hop = await onMain(ctx, 1);
+    await age(ctx, hop, 400);
     await ctx.db
       .update(snapshots)
       .set({ baselineKey: (await onlyShot(ctx, feature)).imageKey })
-      .where(eq(snapshots.buildId, main.id));
+      .where(eq(snapshots.buildId, hop.id));
+    const newest = await onMain(ctx, 2);
+    await age(ctx, newest, 370);
     const { plan } = await sweepMain(ctx);
+    expect(plan.keptCurrent).toEqual([newest.id]);
+    expect(plan.keptReferenced.toSorted()).toEqual([feature.id, hop.id].toSorted());
     expect(plan.expired).toEqual([]);
-    expect(plan.keptCurrent).toContain(main.id);
-    expect(plan.keptReferenced).toEqual([feature.id]);
   });
 });

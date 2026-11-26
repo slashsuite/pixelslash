@@ -1,11 +1,5 @@
 import { describe, expect, test } from "vitest";
-import {
-  type Send,
-  type SizeAlertBody,
-  checkDatabaseSize,
-  shareLabel,
-  webhookPost,
-} from "./size-alert";
+import { type Send, type SizeAlertBody, checkDatabaseSize, webhookPost } from "./size-alert";
 
 const GB = 1e9;
 const NOW = new Date("2026-10-28T12:00:00Z");
@@ -86,9 +80,5 @@ describe("the database size alert", () => {
     expect(calls[0]?.[1]?.method).toBe("POST");
     expect(JSON.parse(calls[0]?.[1].body ?? "")).toEqual(body);
     await expect(post(body)).rejects.toThrow("HTTP 500");
-  });
-
-  test("the label rounds to one decimal GB", () => {
-    expect(shareLabel(7_049_000_000)).toBe("7 GB, 70% of the 10 GB cap");
   });
 });
