@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
-import type { RenderJob } from "@slashsuite/pixelslash-engine";
+import type { RenderJob, RenderOutcome } from "@slashsuite/pixelslash-engine";
 import { type Kept, MAX_QUEUED, MAX_STARTS, fileStore, renderWorker } from "./render-worker";
 
 const post = (body: unknown, type = "application/json") =>
@@ -243,6 +243,39 @@ describe("the render worker", () => {
     gated.release();
     await worker.settled();
     expect(store.saved).toEqual([]);
+  });
+
+  test("a DELETE drops a queued build from the queue and its store, stops one being rendered, and answers null for one it does not hold", async () => {
+    const store = memoryStore();
+    const lines: string[] = [];
+    const signals = new Map<string, AbortSignal>();
+    const render = (job: RenderJob, signal: AbortSignal) => {
+      signals.set(job.buildId, signal);
+      return new Promise<RenderOutcome>((done) =>
+        signal.addEventListener("abort", () => done({ ok: false, error: "render cancelled" })),
+      );
+    };
+    const worker = renderWorker(render, (l) => lines.push(l), { store });
+    for (const id of ["a", "b", "c"])
+      await worker.handle(post({ buildId: id, token: `psr_${id}.x` }));
+    const del = (id: string) =>
+      worker.handle(new Request(`http://127.0.0.1:3100/jobs/${id}`, { method: "DELETE" }));
+    expect(await (await del("b")).json()).toEqual({ dropped: "queued" });
+    expect(store.saved.map((j) => j.buildId)).toEqual(["a", "c"]);
+    expect(await (await del("a")).json()).toEqual({ dropped: "rendering" });
+    expect(signals.get("a")?.aborted).toBe(true);
+    await tick();
+    // a stopped, so c, the next in the queue, starts; b never does.
+    expect(worker.rendering()).toEqual(["c"]);
+    expect(await (await del("zz")).json()).toEqual({ dropped: null });
+    expect(
+      (await worker.handle(new Request("http://127.0.0.1:3100/jobs/a", { method: "GET" }))).status,
+    ).toBe(404);
+    await del("c");
+    await worker.settled();
+    expect(signals.has("b")).toBe(false);
+    expect(store.saved).toEqual([]);
+    expect(lines.join("\n")).not.toContain("psr_");
   });
 
   test("a stop with nothing rendering resolves at once", async () => {

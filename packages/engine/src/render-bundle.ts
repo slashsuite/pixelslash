@@ -32,6 +32,12 @@ export type RenderDeps = Pick<SnapshotDeps, "env" | "listFonts"> & {
   fetch?: FetchLike;
   warn?: (message: string) => void;
   sleep?: (ms: number) => Promise<void>;
+  /**
+   * Aborted when the server has ended the build (a newer head of its pull request was uploaded):
+   * the render stops where it is, closing its browser mid-capture, sends nothing more and reports
+   * no render error, since the build already has its reason.
+   */
+  signal?: AbortSignal;
 };
 
 export type RenderOutcome = { ok: true; snapshots: number } | { ok: false; error: string };
@@ -49,6 +55,20 @@ export function renderConcurrency(
   own: number = Math.min(availableParallelism(), DEFAULT_CONCURRENCY_CAP),
 ): number {
   return Math.max(1, Math.min(asked ?? own, own));
+}
+
+/** What a render the server ended answers: nothing was sent after the abort. */
+export const RENDER_CANCELLED = "render cancelled: the server ended this build";
+
+class Cancelled extends Error {
+  constructor() {
+    super(RENDER_CANCELLED);
+  }
+}
+
+/** Throws when the render was cancelled, so no next step starts. */
+function live(signal: AbortSignal | undefined): void {
+  if (signal?.aborted) throw new Cancelled();
 }
 
 /** The longest error a render reports: the shots that failed are named, one a line. */
@@ -76,6 +96,9 @@ export async function renderBundle(
     const snapshots = await renderInto(client, job, work, { opts, deps });
     return { ok: true, snapshots };
   } catch (e) {
+    // A throw after the abort is the abort's doing (a closed browser), not the bundle's.
+    if (e instanceof Cancelled || deps.signal?.aborted)
+      return { ok: false, error: RENDER_CANCELLED };
     const error = (e instanceof Error ? e.message : String(e)).slice(0, MAX_ERROR);
     await reportTo(client, job, error);
     return { ok: false, error };
@@ -133,12 +156,15 @@ async function renderInto(
   { opts, deps }: { opts: RenderOptions; deps: RenderDeps },
 ): Promise<number> {
   const { warn } = client;
+  const { signal } = deps;
   const path = `/api/v1/builds/${job.buildId}`;
   const started = performance.now();
   const loadStart = loadNow();
   const reply = await send(client, { step: "render plan", method: "GET", path: `${path}/render` });
   if (!isObj(reply) || !isObj(reply.plan)) throw new UploadError("render: the server sent no plan");
+  live(signal);
   const gz = await sendBytes(client, { step: "bundle", method: "GET", path: `${path}/bundle` });
+  live(signal);
   const site = join(work, "bundle");
   const out = join(work, "shots");
   await unpackBundle(new Uint8Array(gz), site);
@@ -147,8 +173,13 @@ async function renderInto(
     const config = planConfig(reply.plan, served.url);
     const concurrency = renderConcurrency(config.concurrency, opts.concurrency);
     const session = await openCaptureSession(config, { ...deps, warn });
+    // Closing the browser is what stops the shots being taken: each then fails at once.
+    const stopShots = () => void session.close().catch(() => {});
+    signal?.addEventListener("abort", stopShots, { once: true });
     try {
+      live(signal);
       const result = await captureInto(session, out, concurrency, { reuse: true, warn });
+      live(signal);
       const timings = buildTimings(
         started,
         result.shots,
@@ -175,6 +206,7 @@ async function renderInto(
       );
       return sent.snapshots;
     } finally {
+      signal?.removeEventListener("abort", stopShots);
       await session.close();
     }
   } finally {

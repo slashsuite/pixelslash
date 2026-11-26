@@ -39,6 +39,7 @@ import {
   parseRender,
   reaches,
   renderRefusal,
+  supersedeOlderHeads,
   tokenActor,
 } from "./render";
 import { RENDER_ENDPOINTS } from "./render-endpoints";
@@ -76,6 +77,7 @@ async function startBuild(ctx: Ctx): Promise<Response> {
   const project = await buildProject(ctx.db, ctx.actor, body);
   if (skippedOf(body)) {
     const made = await skippedBuild(ctx.db, project.id, input);
+    await supersedeOlderHeads(ctx, project, input);
     if (made.skipped && ctx.checkRuns)
       await syncCheckRuns({ db: ctx.db, ...ctx.checkRuns }, [made.id]);
     return json({ ...made, diffLocation: project.diffLocation }, made.skipped ? 201 : 200);
@@ -91,6 +93,7 @@ async function startBuild(ctx: Ctx): Promise<Response> {
     return fail(426, "this project diffs in CI; upgrade the CLI");
   const id = await createBuild(ctx.db, project.id, { ...input, renderPlan });
   await endAbandoned(ctx, project.id);
+  await supersedeOlderHeads(ctx, project, input);
   return json({ id, diffLocation: project.diffLocation }, 201);
 }
 

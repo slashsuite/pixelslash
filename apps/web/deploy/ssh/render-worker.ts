@@ -7,6 +7,9 @@
  *
  *   POST /jobs  { buildId, token }  -> 202, queued; 400 a malformed job; 415 not sent as JSON;
  *                                      503 the queue is full
+ *   DELETE /jobs/:buildId           -> 200 { dropped: "queued" | "rendering" | null }: the server
+ *                                      ended the build (a newer head of its pull request), so a
+ *                                      queued one is dropped and one being rendered is stopped
  *   GET /health                     -> 200 { queued, rendering: [buildId, ...] }
  *
  * A restart loses no build. `RENDER_QUEUE` names a file (mode 600) that holds the queue and the
@@ -40,7 +43,8 @@ export const MAX_QUEUED = 50;
 /** How many times one build is started before a worker that keeps dying under it gives up on it. */
 export const MAX_STARTS = 3;
 
-type Render = (job: RenderJob) => Promise<RenderOutcome>;
+/** `signal` aborts when the server has ended the build: the render stops where it is. */
+type Render = (job: RenderJob, signal: AbortSignal) => Promise<RenderOutcome>;
 type Log = (line: string) => void;
 
 /** A job as the queue's file keeps it: how many times its render has been started. */
@@ -156,6 +160,35 @@ function pool(limit: number, next: () => Kept | undefined, run: (job: Kept) => P
   return { fill, settled };
 }
 
+/**
+ * The server ended this build: drop it from the queue, or stop its render. Nothing to do for a
+ * build this worker does not hold (already rendered, or never handed here).
+ */
+function drop(
+  buildId: string,
+  {
+    queue,
+    aborts,
+    save,
+    log,
+  }: { queue: Kept[]; aborts: Map<string, AbortController>; save: () => void; log: Log },
+): Response {
+  const at = queue.findIndex((job) => job.buildId === buildId);
+  if (at >= 0) {
+    queue.splice(at, 1);
+    save();
+    log(`render ${buildId}: dropped from the queue, the server ended it`);
+    return Response.json({ dropped: "queued" });
+  }
+  const abort = aborts.get(buildId);
+  if (abort) {
+    log(`render ${buildId}: stopping, the server ended it`);
+    abort.abort();
+    return Response.json({ dropped: "rendering" });
+  }
+  return Response.json({ dropped: null });
+}
+
 /** The queue and its listener's handler; `render` is the engine's, or a test's. */
 export function renderWorker(
   render: Render,
@@ -167,6 +200,8 @@ export function renderWorker(
   const spent: Kept[] = [];
   /** The builds being rendered, in the order they started. */
   const current: Kept[] = [];
+  /** How to stop each build being rendered. */
+  const aborts = new Map<string, AbortController>();
   let stopping = false;
   let reported: Promise<void> = Promise.resolve();
 
@@ -190,11 +225,14 @@ export function renderWorker(
     current.push(job);
     save();
     const started = Date.now();
+    const abort = new AbortController();
+    aborts.set(job.buildId, abort);
     // A throw here is the renderer's own bug: renderBundle reports a render's failure itself.
-    const outcome = await render(job).catch((e: unknown): RenderOutcome => ({
+    const outcome = await render(job, abort.signal).catch((e: unknown): RenderOutcome => ({
       ok: false,
       error: String(e),
     }));
+    aborts.delete(job.buildId);
     log(rendered(job, outcome, started));
     current.splice(current.indexOf(job), 1);
     save();
@@ -225,6 +263,9 @@ export function renderWorker(
   async function handle(request: Request): Promise<Response> {
     const { pathname } = new URL(request.url);
     if (request.method === "POST" && pathname === "/jobs") return take(request);
+    // A page on this loopback cannot send a DELETE to another origin without a preflight either.
+    const dropped = /^\/jobs\/([^/]+)$/.exec(pathname)?.[1];
+    if (request.method === "DELETE" && dropped) return drop(dropped, { queue, aborts, save, log });
     if (request.method === "GET" && pathname === "/health")
       return Response.json({ queued: queue.length, rendering: rendering() });
     return new Response(null, { status: 404 });
@@ -275,7 +316,7 @@ if (import.meta.main) {
   };
   const queueFile = env["RENDER_QUEUE"];
   const builds = positive(env["RENDER_BUILDS"]) ?? 1;
-  const worker = renderWorker((job) => renderBundle(job, opts, { warn }), log, {
+  const worker = renderWorker((job, signal) => renderBundle(job, opts, { warn, signal }), log, {
     builds,
     ...(queueFile ? { store: fileStore(queueFile, warn) } : {}),
     giveUp: (job, error) => reportRenderError(job, opts, error, { warn }),

@@ -3,7 +3,12 @@ import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { packBundle } from "../src/bundle-archive.ts";
 import { renderPlan } from "../src/bundle-plan.ts";
-import { renderBundle, renderConcurrency, reportRenderError } from "../src/render-bundle.ts";
+import {
+  RENDER_CANCELLED,
+  renderBundle,
+  renderConcurrency,
+  reportRenderError,
+} from "../src/render-bundle.ts";
 import { isObj } from "../src/upload-client.ts";
 import { type Call, fakeServer, metaOf } from "./fake-server.ts";
 import { cleanup, tmp } from "./upload-fixtures.ts";
@@ -30,11 +35,18 @@ const INDEX = {
   ]),
 };
 
-/** Storybook's iframe, reduced to what capture reads: the body class and `#storybook-root`. */
-const IFRAME = `<!doctype html><body class="sb-show-preparing" style="margin:0"><div id="storybook-root"></div>
+/**
+ * Storybook's iframe, reduced to what capture reads: the body class and `#storybook-root`. A
+ * `--hang` story pings `beacon` once its page is up, then never settles.
+ */
+const iframe = (
+  beacon = "",
+) => `<!doctype html><body class="sb-show-preparing" style="margin:0"><div id="storybook-root"></div>
 <pre id="error-message"></pre><script>
 const id = new URLSearchParams(location.search).get("id");
-if (id.endsWith("--broken")) {
+if (id.endsWith("--hang")) {
+  if (${JSON.stringify(beacon)}) fetch(${JSON.stringify(beacon)}, { mode: "no-cors" });
+} else if (id.endsWith("--broken")) {
   document.getElementById("error-message").textContent = "Error: boom in " + id;
   document.body.className = "sb-show-errordisplay";
 } else {
@@ -43,10 +55,10 @@ if (id.endsWith("--broken")) {
 }
 </script>`;
 
-async function bundle(): Promise<Uint8Array> {
+async function bundle(index: object = INDEX, beacon = ""): Promise<Uint8Array> {
   const dir = await tmp();
-  await Bun.write(join(dir, "index.json"), JSON.stringify(INDEX));
-  await Bun.write(join(dir, "iframe.html"), IFRAME);
+  await Bun.write(join(dir, "index.json"), JSON.stringify(index));
+  await Bun.write(join(dir, "iframe.html"), iframe(beacon));
   return (await packBundle(dir)).gz;
 }
 
@@ -123,6 +135,64 @@ describe("renderBundle", () => {
     expect(fake.calls.some((c) => c.url.endsWith("/finalize"))).toBe(false);
     expect(await readdir(scratch)).toEqual([]);
   }, 60_000);
+
+  test("a render the server ends stops mid-capture, sends nothing more and reports no error", async () => {
+    const abort = new AbortController();
+    // The cancel lands once the browser has the story open and the shot is waiting on it.
+    let reached = false;
+    const beacon = Bun.serve({
+      port: 0,
+      hostname: "127.0.0.1",
+      fetch: () => {
+        reached = true;
+        abort.abort();
+        return new Response(null, { status: 204 });
+      },
+    });
+    const gz = await bundle(
+      { v: 5, entries: Object.fromEntries([story("ui-card--hang", "UI/Card", "Hang")]) },
+      `http://127.0.0.1:${beacon.port}/`,
+    );
+    const { plan } = renderPlan({
+      storybook: { url: "http://localhost:6006" },
+      variants: [{ name: "desktop", viewport: { width: 200, height: 100 } }],
+      stabilise: { timeoutMs: 45_000 },
+      flake: { retries: 0 },
+    });
+    const fake = fakeServer((c: Call) => {
+      if (c.method === "GET" && c.url.endsWith("/builds/b1/render")) return Response.json({ plan });
+      if (c.method === "GET" && c.url.endsWith("/builds/b1/bundle")) return new Response(gz);
+      return undefined;
+    });
+    const scratch = await tmp();
+    const started = performance.now();
+    const outcome = await renderBundle(
+      { buildId: "b1", token: "psr_b1.sig" },
+      { server: "https://ps.example", scratch },
+      { ...pinned, fetch: fake.fetch, signal: abort.signal },
+    );
+    await beacon.stop(true);
+    expect(reached).toBe(true);
+    expect(outcome).toEqual({ ok: false, error: RENDER_CANCELLED });
+    expect(performance.now() - started).toBeLessThan(30_000);
+    expect(fake.calls.map((c) => c.url.replace("https://ps.example/api/v1/builds/b1", ""))).toEqual(
+      ["/render", "/bundle"],
+    );
+    expect(await readdir(scratch)).toEqual([]);
+  }, 60_000);
+
+  test("a render already cancelled fetches the plan and nothing else", async () => {
+    const fake = await api([]);
+    const abort = new AbortController();
+    abort.abort();
+    const outcome = await renderBundle(
+      { buildId: "b1", token: "psr_b1.sig" },
+      { server: "https://ps.example" },
+      { fetch: fake.fetch, signal: abort.signal },
+    );
+    expect(outcome).toEqual({ ok: false, error: RENDER_CANCELLED });
+    expect(fake.calls).toHaveLength(1);
+  });
 
   test("a job whose build id is not one is refused before any request", async () => {
     const fake = await api([]);
