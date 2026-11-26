@@ -3,6 +3,7 @@ import { Breadcrumbs, PageHeader, Stack } from "@slashsuite/ui-react";
 import { Page } from "#/components/ui";
 import { OperatorHealthView } from "#/components/operator-health";
 import { getOperatorHealth } from "#/server/admin";
+import { titled } from "#/lib/page-title";
 
 /**
  * The operator's health page (PS-330): read-only, a 404 for anyone not on `PIXELSLASH_ADMIN_LOGINS`.
@@ -11,6 +12,7 @@ import { getOperatorHealth } from "#/server/admin";
  */
 export const Route = createFileRoute("/_admin")({
   loader: () => getOperatorHealth(),
+  head: () => titled("Operator health"),
   component: OperatorHealthPage,
 });
 

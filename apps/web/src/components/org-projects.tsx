@@ -3,7 +3,6 @@ import {
   Callout,
   Caption,
   Cluster,
-  ClusterGrow,
   IconButton,
   Stack,
   Table,
@@ -42,20 +41,20 @@ function BuildCell({ project }: { project: ProjectOverview }) {
       </Stack>
     );
   }
+  // The verdict and commit on one line, the branch on its own below: a long branch name gets the
+  // column's whole width instead of what a pill and a sha leave of it.
   return (
     <Stack gap="xs">
       <Cluster gap="sm">
         <StatusBadge status={latest.status} />
-        <ClusterGrow>
-          <Text as="span" lines={1}>
-            {latest.branch}
-          </Text>
-        </ClusterGrow>
         <Caption as="span" mono>
           {latest.commitSha.slice(0, 7)}
         </Caption>
+        {latest.prNumber !== null && <Caption as="span">PR #{latest.prNumber}</Caption>}
       </Cluster>
-      {latest.prNumber !== null && <Caption as="span">PR #{latest.prNumber}</Caption>}
+      <Text as="span" lines={1} title={latest.branch}>
+        {latest.branch}
+      </Text>
     </Stack>
   );
 }
@@ -175,7 +174,7 @@ export function WaitingStrip({ org }: { org: OrgOverview }) {
 
 export function ProjectTable({ org, now }: { org: OrgOverview; now: Date }) {
   return (
-    <Table label="Projects">
+    <Table label="Projects" narrow="stack">
       <TableHead>
         <TableRow>
           <TableHeaderCell>Project</TableHeaderCell>

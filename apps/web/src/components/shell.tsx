@@ -1,14 +1,6 @@
 import { getRouteApi } from "@tanstack/react-router";
-import type { ReactNode } from "react";
-import {
-  AppShellBrand,
-  Show,
-  Avatar,
-  Button,
-  Cluster,
-  ColourSchemeToggle,
-  Text,
-} from "@slashsuite/ui-react";
+import { type ReactNode, useId } from "react";
+import { AppShellBrand, Avatar, Cluster, ColourSchemeToggle, Menu } from "@slashsuite/ui-react";
 import { rememberTheme } from "#/lib/theme";
 import { useHydrated } from "#/lib/use-hydrated";
 
@@ -79,24 +71,32 @@ function ThemeToggle() {
   );
 }
 
-/** The signed-in user and Sign out. A POST, so it works before hydration too. */
+/**
+ * Who is signed in, and Settings and Sign out behind one menu named by their login: the header keeps
+ * a single control at every width. Sign out is a POST, so the item submits a form kept beside it.
+ */
 function UserMenu({ viewer }: { viewer: { login: string; name: string | null } }) {
+  const signOut = useId();
   return (
-    <Cluster gap="md">
-      <Show from="sm" data-testid="viewer">
-        <Cluster gap="xs">
-          <Avatar name={viewer.login} size="sm" />
-          <Text as="span">{viewer.login}</Text>
-        </Cluster>
-      </Show>
-      <Button variant="link" href="/settings">
-        Settings
-      </Button>
-      <form method="post" action="/auth/sign-out">
-        <Button type="submit" variant="link">
-          Sign out
-        </Button>
-      </form>
+    <Cluster gap="xs" data-testid="viewer">
+      <Avatar name={viewer.login} size="sm" />
+      <form id={signOut} method="post" action="/auth/sign-out" hidden />
+      <Menu
+        trigger="button"
+        size="sm"
+        label={viewer.login}
+        data-testid="user-menu"
+        items={[
+          { label: "Settings", icon: "settings", href: "/settings" },
+          {
+            label: "Sign out",
+            onClick: () => {
+              const form = document.getElementById(signOut);
+              if (form instanceof HTMLFormElement) form.requestSubmit();
+            },
+          },
+        ]}
+      />
     </Cluster>
   );
 }
@@ -107,7 +107,7 @@ export function AppBrand() {
   return <AppShellBrand label={<Wordmark />} href={viewer ? "/orgs" : "/"} />;
 }
 
-/** The end of the AppShell header: the theme toggle and, when someone is signed in, who they are and Sign out. */
+/** The end of the AppShell header: the theme toggle and, when someone is signed in, their menu. */
 export function AppControls() {
   const { viewer } = rootRoute.useLoaderData();
   return (

@@ -16,7 +16,7 @@ import type { BuildView, SnapshotView } from "#/db/review";
 import { formatDateTime } from "#/lib/format";
 import { noSummaryReason, tooManyChanges } from "#/lib/summary-limit";
 import { isDescribable, summaryCounts } from "#/lib/summary-counts";
-import { type ShotLabel, shotChips, shotLabeller } from "#/lib/shot-label";
+import { type ShotLabel, shotLabeller, shownChips } from "#/lib/shot-label";
 import { regenerateBuildSummary } from "#/server/model";
 import { hrefTo } from "#/lib/href";
 
@@ -27,8 +27,9 @@ function oneStory(ids: string[], byId: Map<string, SnapshotView>): boolean {
   return new Set(ids.map((id) => story(byId.get(id)?.name ?? id))).size === 1;
 }
 
+/** A link names its theme and its viewport, so one story shot at two widths gives two links that differ. */
 function linkText(shot: SnapshotView, label: ShotLabel, variantOnly: boolean): string {
-  const variant = shotChips(shot, label)[0] ?? shot.viewport;
+  const variant = shownChips(shot, label).slice(0, 2).join(" · ");
   return variantOnly ? variant : `${label.story} · ${variant}`;
 }
 

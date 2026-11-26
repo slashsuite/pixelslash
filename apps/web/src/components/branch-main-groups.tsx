@@ -20,6 +20,7 @@ import {
   measuredFacts,
 } from "#/lib/branch-review";
 import { hrefTo } from "#/lib/href";
+import { viewportLabel } from "#/lib/viewport-label";
 
 const MAIN_HEADING: Record<MainGroup, string> = {
   rejected: "Rejected",
@@ -120,7 +121,7 @@ function MainRow({
           <MetaList>
             {shot.platform}
             {shot.browser}
-            {shot.viewport}
+            {viewportLabel(shot.viewport)}
             {shot.theme}
           </MetaList>
         </Cluster>

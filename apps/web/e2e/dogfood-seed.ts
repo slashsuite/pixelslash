@@ -47,6 +47,15 @@ const ORGS: Org[] = [
         id: "proj-web",
         name: "web",
         builds: [
+          // A run of quiet main builds: the builds list keeps b-web-1 and folds these three.
+          ...[8, 7, 6].map((daysAgo) => ({
+            id: `b-web-0-${daysAgo}`,
+            branch: "main",
+            pr: null,
+            daysAgo,
+            status: "passed",
+            shots: shots(12, "unchanged"),
+          })),
           {
             id: "b-web-1",
             branch: "main",
@@ -256,13 +265,16 @@ const commitSha = (b: Pick<Build, "id" | "commitOf">) =>
     .update(b.commitOf ?? b.id)
     .digest("hex");
 
+/** Each name is shot twice, desktop then phone, as a story is at two viewports. */
+const viewportOf = (i: number) => (i % 2 === 0 ? "1280x720" : "390x844");
+
 function buildSql(p: Project, b: Build): string[] {
   const rows = [
     `INSERT INTO builds (id, project_id, commit_sha, branch, pr_number, status, created_at) VALUES (${q(b.id)}, ${q(p.id)}, ${q(commitSha(b))}, ${q(b.branch)}, ${b.pr ?? "NULL"}, ${q(b.status)}, ${T0 - b.daysAgo * DAY});`,
   ];
   for (const [i, [, diff, review]] of b.shots.entries()) {
     rows.push(
-      `INSERT INTO snapshots (id, build_id, name, platform, browser, viewport, theme, env_fingerprint, image_key, baseline_key, diff_result, diff_status, review_state) VALUES (${q(`${b.id}-s${i}`)}, ${q(b.id)}, ${q(`shot-${i}`)}, 'linux', 'chromium', '1280x720', 'light', 'seed', ${q(imageKey(b, i))}, ${diff === "changed" ? q(baselineKey(b, i)) : "NULL"}, ${diff === "changed" ? q(JSON.stringify(CHANGED_RESULT)) : "NULL"}, ${diff ? q(diff) : "NULL"}, ${q(review ?? "pending")});`,
+      `INSERT INTO snapshots (id, build_id, name, platform, browser, viewport, theme, env_fingerprint, image_key, baseline_key, diff_result, diff_status, review_state) VALUES (${q(`${b.id}-s${i}`)}, ${q(b.id)}, ${q(`shot-${Math.floor(i / 2)}`)}, 'linux', 'chromium', ${q(viewportOf(i))}, 'light', 'seed', ${q(imageKey(b, i))}, ${diff === "changed" ? q(baselineKey(b, i)) : "NULL"}, ${diff === "changed" ? q(JSON.stringify(CHANGED_RESULT)) : "NULL"}, ${diff ? q(diff) : "NULL"}, ${q(review ?? "pending")});`,
     );
   }
   return rows;

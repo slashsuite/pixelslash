@@ -20,7 +20,8 @@ test("sign in with Google, then with GitHub as the same email, and stay one user
   const orgName = `Signed in with Google ${randomUUID().slice(0, 8)}`;
   await createOrg(page, orgName);
 
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await page.getByTestId("user-menu").click();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
   await expect(page.getByRole("link", { name: "Sign in with Google" })).toBeVisible();
 
   await page.getByRole("link", { name: "Sign in with GitHub" }).click();

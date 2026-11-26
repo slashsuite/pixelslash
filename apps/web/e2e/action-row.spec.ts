@@ -8,9 +8,11 @@ import { CHANGED, SHA_MAIN, SHA_WORK, WHITE, uploadBuild } from "./api-upload";
  */
 
 // Short and long names, with and without a theme pill: the title line differs in width from shot to shot.
+// The chips stay few enough to fit one line at 768 in Inter: a shot with more chips than the bar is
+// wide wraps them, which is a longer chip line, not the title pushing the action row.
 const NAMES = [
   "button",
-  "overview-palette-roles-with-a-long-title-that-runs-on@theme=catppuccin-mocha@density=compact",
+  "overview-palette-roles-with-a-long-title-that-runs-on@theme=catppuccin-mocha",
   "footer@theme=dark",
   "hero",
 ];

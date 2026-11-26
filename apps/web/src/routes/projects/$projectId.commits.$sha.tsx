@@ -19,10 +19,13 @@ import { awaitsDecision } from "#/lib/snapshot-groups";
 import { useReviewKeys } from "#/lib/use-review-keys";
 import { getCommitReview } from "#/server/commit-review";
 import { reviewShot } from "#/server/fns";
+import { titled } from "#/lib/page-title";
 
 export const Route = createFileRoute("/projects/$projectId/commits/$sha")({
   loader: ({ params }) =>
     getCommitReview({ data: { projectId: params.projectId, sha: params.sha } }),
+  head: ({ loaderData, params }) =>
+    titled(`Commit ${params.sha.slice(0, 7)}`, loaderData?.project.name),
   component: CommitReviewPage,
 });
 
@@ -92,7 +95,12 @@ function useWalk(ran: Ran[]) {
   return { focusId, busy, error, review, helpOpen, closeHelp: () => setHelpOpen(false) };
 }
 
-function Meta({ head, totals, ran }: Pick<CommitReview, "head" | "totals"> & { ran: number }) {
+function Meta({
+  head,
+  totals,
+  ran,
+  noun,
+}: Pick<CommitReview, "head" | "totals"> & { ran: number; noun: string }) {
   return (
     <Cluster gap="xs" data-testid="commit-meta">
       {head && (
@@ -105,7 +113,7 @@ function Meta({ head, totals, ran }: Pick<CommitReview, "head" | "totals"> & { r
         {totalsText(totals)}
       </Text>
       <Text as="span" tone="muted">
-        across {plural(ran, "project")}; j and k move, a and r decide, ? lists the keys
+        across {plural(ran, noun)}; j and k move, a and r decide, ? lists the keys
       </Text>
     </Cluster>
   );
@@ -123,7 +131,12 @@ function CommitReviewPage() {
         }
         title={`${project.name} · ${short(sha)}`}
       >
-        <Meta head={head} totals={totals} ran={ran.length} />
+        <Meta
+          head={head}
+          totals={totals}
+          ran={ran.length}
+          noun={groups.length > 1 ? "subproject" : "project"}
+        />
         {walk.error && <Callout tone="danger">{walk.error}</Callout>}
         {ran.map((group) => (
           <GroupSection
@@ -135,7 +148,8 @@ function CommitReviewPage() {
             onReview={(g, shot, state) => void walk.review(g, shot, state)}
           />
         ))}
-        <NotRun groups={groups.filter((g) => g.build === null)} />
+        {/* A parent with subprojects uploads no builds of its own, so it is never "not run". */}
+        <NotRun groups={groups.filter((g) => g.build === null && !g.top)} />
       </ListLayout>
       {walk.helpOpen && <ShortcutHelp onClose={walk.closeHelp} />}
     </Page>

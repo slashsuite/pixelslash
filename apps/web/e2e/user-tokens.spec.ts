@@ -16,7 +16,8 @@ test("issue a personal token in settings, see it once, use it, revoke it", async
   await context.addCookies([{ name: "ps_session", value: session, url: SERVER }]);
   await open(page, "/orgs");
 
-  await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await page.getByTestId("user-menu").click();
+  await page.getByRole("menuitem", { name: "Settings" }).click();
   await expect(page).toHaveURL(/\/settings$/);
   await expect(page.getByRole("heading", { name: "API tokens" })).toBeVisible();
   await expect(page.getByTestId("no-tokens")).toBeVisible();

@@ -45,7 +45,7 @@ async function seed(provision: Provision) {
   );
   // The shape of a build written under an older verdict rule: work to review, status `passed`.
   sql(`UPDATE builds SET status = 'passed' WHERE id = '${staleId}'`);
-  return projectId;
+  return { projectId, token };
 }
 
 test.describe("on a phone", () => {
@@ -55,7 +55,7 @@ test.describe("on a phone", () => {
     page,
     provision,
   }) => {
-    const projectId = await seed(provision);
+    const { projectId } = await seed(provision);
     await open(page, `/projects/${projectId}`);
 
     const card = page.getByTestId("build-card").first();
@@ -105,7 +105,7 @@ for (const scheme of ["light", "dark"] as const) {
     test.use({ colorScheme: scheme, viewport: { width: 1280, height: 800 } });
 
     test("a build with work to review does not read passed", async ({ page, provision }) => {
-      const projectId = await seed(provision);
+      const { projectId } = await seed(provision);
       await open(page, `/projects/${projectId}`);
 
       const row = page.getByTestId("build-row").first();
@@ -118,3 +118,43 @@ for (const scheme of ["light", "dark"] as const) {
     });
   });
 }
+
+/**
+ * A busy project's main builds pass one after another with nothing to review. Each run of them
+ * keeps its newest build in the list and folds the rest behind a line that says how many; a build
+ * with work to review is never folded, and the line opens the run in place.
+ */
+test("a run of auto-accepted main builds folds behind one line", async ({ page, provision }) => {
+  const { projectId, token } = await seed(provision);
+  const shots = [
+    { name: "hero", png: WHITE },
+    { name: "ticker", png: WHITE },
+    { name: "footer", png: WHITE },
+  ];
+  // Three more main builds, newest last, each the same as main's accepted shots.
+  for (const sha of ["c", "d", "e"])
+    await uploadBuild(token, { branch: "main", commitSha: sha.repeat(40) }, shots);
+
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await open(page, `/projects/${projectId}`);
+  // Newest first: main e, the fold (d, c), the feature build, then main a, alone past the feature.
+  const rows = page.getByTestId("build-row");
+  await expect(rows).toHaveCount(3);
+  await expect(rows.nth(0)).toContainText("e".repeat(7));
+  await expect(rows.nth(1)).toContainText("feature/a-long-branch-name");
+  await expect(rows.nth(2)).toContainText("a".repeat(7));
+  const fold = page.getByRole("table").getByTestId("build-fold");
+  await expect(fold).toHaveCount(1);
+  await expect(fold).toContainText("2 more main builds, auto-accepted");
+
+  const toggle = fold.getByTestId("build-fold-toggle");
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(toggle).toHaveText("Hide");
+  await expect(rows).toHaveCount(5);
+  await expect(rows.nth(1)).toContainText("d".repeat(7));
+  await expect(rows.nth(2)).toContainText("c".repeat(7));
+  await toggle.click();
+  await expect(rows).toHaveCount(3);
+});

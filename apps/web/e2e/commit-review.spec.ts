@@ -99,6 +99,37 @@ test("a commit's changes across the subprojects are reviewed on one page", async
 });
 
 /**
+ * A parent with subprojects uploads no builds of its own: on a commit where only its subprojects
+ * ran, "Not run" lists the subproject that did not run and never the parent, and the summary
+ * counts subprojects.
+ */
+test("the commit page leaves the parent out of not run", async ({ page, provision }) => {
+  const { orgId, projectId, token } = await provision({ org: "Parent Co", project: "storefront" });
+  for (const name of ["e2e", "storybook"])
+    sql(
+      `INSERT INTO projects (id, org_id, name, diff_location, parent_project_id) VALUES ('${randomUUID()}', '${orgId}', '${name}', 'server', '${projectId}')`,
+    );
+  const main = { branch: "main", commitSha: SHA_MAIN };
+  const work = {
+    branch: "work",
+    commitSha: SHA_WORK,
+    mergeBaseSha: SHA_MAIN,
+    ancestorShas: [SHA_MAIN],
+  };
+  for (const subproject of ["e2e", "storybook"])
+    await uploadBuild(token, { ...main, subproject }, shots(WHITE));
+  await uploadBuild(token, { ...work, subproject: "e2e" }, shots(CHANGED));
+
+  await open(page, `/projects/${projectId}/commits/${SHA_WORK}`);
+  await expect(page.getByTestId("commit-group")).toHaveCount(1);
+  const notRun = page.getByTestId("commit-not-run-row");
+  await expect(notRun).toHaveCount(1);
+  await expect(notRun).toContainText("storybook");
+  await expect(page.getByTestId("commit-not-run")).not.toContainText("storefront");
+  await expect(page.getByTestId("commit-meta")).toContainText("across 1 subproject;");
+});
+
+/**
  * A review started on one subproject's shot walks the commit's whole change set: accepting the
  * last change of the first subproject opens the second's first change, with no stop on a build
  * page between, the counter counts both, and the commit's page shows once nothing waits.

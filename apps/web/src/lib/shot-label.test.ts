@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { shotChips, shotLabeller, titleWords, variantChips } from "./shot-label";
+import { shotChips, shotLabeller, shownChips, titleWords, variantChips } from "./shot-label";
 
 const NAMES = [
   "ui-callout-tones@theme=default",
@@ -86,5 +86,19 @@ describe("variantChips", () => {
 
   test("a name with no theme gets no theme chip: the colour scheme is never one", () => {
     expect(variantChips(label("solo"))).toEqual([]);
+  });
+});
+
+describe("shownChips", () => {
+  test("names the viewport, so one story at two widths reads as two shots", () => {
+    const label = shotLabeller(["button-primary"])("button-primary");
+    expect(shownChips({ theme: "light", viewport: "1280x800" }, label)).toEqual([
+      "Light",
+      "Desktop 1280x800",
+    ]);
+    expect(shownChips({ theme: "light", viewport: "390x844" }, label)).toEqual([
+      "Light",
+      "Phone 390x844",
+    ]);
   });
 });

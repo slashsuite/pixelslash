@@ -1,26 +1,10 @@
-import { Button, CopyLine, EmptyState, Step, Steps, Text } from "@slashsuite/ui-react";
+import { CopyLine, EmptyState, Step, Steps, Text } from "@slashsuite/ui-react";
 
-/** An org with no projects: what a project is, and the two steps to a first build. */
-export function EmptyOrg({
-  serverUrl,
-  onNewProject,
-  hydrated,
-}: {
-  serverUrl: string;
-  onNewProject: () => void;
-  hydrated: boolean;
-}) {
+/** An org with no projects: what a project is, and the two steps to a first build. The header holds the one "+ New project". */
+export function EmptyOrg({ serverUrl, hydrated }: { serverUrl: string; hydrated: boolean }) {
   const command = `PIXELSLASH_TOKEN=… pixelslash upload DIR --server ${serverUrl}`;
   return (
-    <EmptyState
-      data-testid="empty-org"
-      title="No projects yet"
-      actions={
-        <Button disabled={!hydrated} onClick={onNewProject}>
-          + New project
-        </Button>
-      }
-    >
+    <EmptyState data-testid="empty-org" title="No projects yet">
       <Text tone="muted">
         A project holds one app's builds. Make one, issue a token in its settings, then upload from
         CI or your machine.

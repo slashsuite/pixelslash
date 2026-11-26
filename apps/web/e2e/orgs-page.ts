@@ -1,8 +1,11 @@
 import { type Page, expect } from "@playwright/test";
 
-/** Open the New organization dialog, create the org, and land on it. Returns its id. */
+/**
+ * Open the New organization dialog, create the org, and land on it. Returns its id. The button is
+ * the rail's, or the empty state's "+ New organization" when the viewer has no organization yet.
+ */
 export async function createOrg(page: Page, name: string): Promise<string> {
-  await page.getByRole("button", { name: "New organization", exact: true }).click();
+  await page.getByRole("button", { name: /^(\+ )?New organization$/ }).click();
   await page.getByLabel("Organization name").fill(name);
   await page.getByRole("button", { name: "Create organization" }).click();
   await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();

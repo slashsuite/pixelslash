@@ -3,12 +3,14 @@ import { Button, CenteredLayout, Stack } from "@slashsuite/ui-react";
 import { Page } from "#/components/ui";
 import { getViewer } from "#/server/fns";
 import { getSignInOptions } from "#/server/sign-in";
+import { titled } from "#/lib/page-title";
 
 export const Route = createFileRoute("/")({
   beforeLoad: async () => {
     if (await getViewer()) throw redirect({ to: "/orgs" });
   },
   loader: () => getSignInOptions(),
+  head: () => titled(),
   component: SignIn,
 });
 
