@@ -8,9 +8,11 @@ export type CompareRow = {
   name: string;
   /** `chromium 1280x720 prefers: dark`: the rest of the identity; the scheme only when the compare varied it. */
   shot: string;
-  /** Relative to the index: a changed snapshot's `report.html`, a new one's `branch.png`; else none. */
+  /** A changed snapshot's `report.html`, relative to the index; else none. */
   report: string | undefined;
-  /** A new snapshot's PNG as copied under `--out`, absolute, for the summary to name (PS-618). */
+  /** A new snapshot's PNG as copied under `--out`, relative to the index, for the report to show (PS-618). */
+  shotHref?: string | undefined;
+  /** The same PNG, absolute, for the summary to name. */
   shotFile?: string | undefined;
   changedPixels: number;
   /** The fingerprint fields that differ between Main and Branch; empty when they agree. */
@@ -159,6 +161,11 @@ function a11ySection(input: Rows): string {
   return `<section><h2>Accessibility (${rows.length} scanned)</h2>\n    <ul>\n      ${items}\n    </ul></section>`;
 }
 
+/** One name under a group; a new shot's ends with where its PNG is. */
+function nameLine(n: ChangeName): string {
+  return n.shotFile ? `  ${n.label}: ${pathToFileURL(n.shotFile).href}` : `  ${n.label}`;
+}
+
 /** How many names a group prints in the terminal before `+N more`. */
 const NAMES_PER_GROUP = 10;
 
@@ -168,11 +175,9 @@ const NAMES_PER_GROUP = 10;
  */
 export function changeLines(input: Rows): string[] {
   const cap = NAMES_PER_GROUP;
-  const line = (n: ChangeName) =>
-    n.shotFile ? `  ${n.label}: ${pathToFileURL(n.shotFile).href}` : `  ${n.label}`;
   return changeGroups(input).flatMap(({ group, names }) => [
     `${group}:`,
-    ...names.slice(0, cap).map(line),
+    ...names.slice(0, cap).map(nameLine),
     ...(names.length > cap ? [`  +${names.length - cap} more`] : []),
   ]);
 }
@@ -208,8 +213,8 @@ function compareList(
 
 /** A new shot, shown in full under its name: it has no baseline, so this is its check (PS-618). */
 function newShot(r: CompareRow): string {
-  if (!r.report) return "";
-  return `<br><a href="${esc(r.report)}"><img class="new" src="${esc(r.report)}" alt="${esc(rowLabel(r))}" loading="lazy"></a>`;
+  if (!r.shotHref) return "";
+  return `<br><a href="${esc(r.shotHref)}"><img class="new" src="${esc(r.shotHref)}" alt="${esc(rowLabel(r))}" loading="lazy"></a>`;
 }
 
 /**

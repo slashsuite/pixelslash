@@ -117,7 +117,7 @@ async function newRow(
   await mkdir(dest, { recursive: true });
   const file = join(dest, "branch.png");
   await Bun.write(file, await readPng(paths.branch, e));
-  return { ...rowOf(e, paths.varied), report: `${dir}/branch.png`, shotFile: file };
+  return { ...rowOf(e, paths.varied), shotHref: `${dir}/branch.png`, shotFile: file };
 }
 
 /**
