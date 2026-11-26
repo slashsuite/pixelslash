@@ -1,0 +1,1 @@
+ALTER TABLE `snapshots` ADD `main_baseline_snapshot_id` text;
