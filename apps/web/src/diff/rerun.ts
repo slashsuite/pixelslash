@@ -4,6 +4,7 @@ import { chunk, inChunks } from "#/db/chunks";
 import type { Db } from "#/db/db";
 import type { Build } from "#/db/builds";
 import { ABANDONED_REASON } from "#/db/abandoned";
+import { acceptSettledFlakyShots } from "#/db/flaky-main";
 import { isMarker } from "#/db/markers";
 import { markStale } from "#/db/stale-apply";
 import { snapshots } from "#/db/schema";
@@ -88,7 +89,8 @@ async function reopenReviews(db: Db, ids: string[]): Promise<void> {
 /**
  * The review rule for a re-diffed shot: one measured the same as before keeps its review; one whose
  * result moved goes back to pending, since the decision was on another result. On the default branch
- * a moved one is accepted again, as a fresh build's would be (ob 1559), unless it is flaky (ob 1724).
+ * a moved one is accepted again, as a fresh build's would be (ob 1559), unless it is flaky (ob 1724)
+ * and its image is not settled.
  */
 async function settleReviews(
   db: Db,
@@ -122,6 +124,7 @@ async function settleReviews(
       .where(
         and(inArray(snapshots.id, part), isNull(snapshots.flakeId), isNull(snapshots.staleOf)),
       );
+  await acceptSettledFlakyShots(db, build, moved);
 }
 
 /**
