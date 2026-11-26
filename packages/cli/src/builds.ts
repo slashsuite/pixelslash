@@ -5,6 +5,7 @@ import {
   REMOTE_FLAGS,
   connect,
   resolveProject,
+  resolveSubproject,
   type Remote,
   type RemoteDeps,
   type RemoteFlags,
@@ -12,7 +13,7 @@ import {
 import type { Io } from "./run.ts";
 
 const REMOTE = "[--server URL] [--token-path PATH] [--project ID|NAME] [--config FILE] [--json]";
-export const BUILDS_USAGE = `pixelslash builds [--branch NAME] [--limit N] ${REMOTE}`;
+export const BUILDS_USAGE = `pixelslash builds [--subproject NAME] [--branch NAME] [--limit N] ${REMOTE}\n\`--subproject NAME\` (else \`upload.subproject\` in the config) lists that subproject's builds; \`--project\` names its top-level project.`;
 export const BUILD_USAGE = `pixelslash build ID|latest [--branch NAME] ${REMOTE}\n\`latest\` is the newest build of the project (on --branch, if given).`;
 
 /** The API's own cap on a page. */
@@ -60,10 +61,12 @@ const FLAGS = [...REMOTE_FLAGS, "project", "branch", "limit"] as const;
 /** `pixelslash builds`: the project's builds, newest first. `--json` is the API's reply as sent. */
 export async function runBuilds(argv: string[], io: Io, deps: RemoteDeps = {}): Promise<number> {
   const { json, rest } = takeJson(argv);
-  const flags = readFlagPairs(rest, FLAGS);
+  const flags = readFlagPairs(rest, [...FLAGS, "subproject"]);
   const limit = parseLimit(flags.limit);
   const remote = await connect(flags, deps);
-  const project = await resolveProject(remote, flags.project);
+  const top = await resolveProject(remote, flags.project);
+  const sub = flags.subproject ?? remote.upload?.subproject;
+  const project = sub === undefined ? top : await resolveSubproject(remote, top, sub);
   const reply = await remote.client.get(
     `/api/v1/projects/${encodeURIComponent(project.id)}/builds`,
     {

@@ -210,12 +210,24 @@ const COMMANDS: Record<
   project: { usage: PROJECT_USAGE, run: runProject },
 };
 
+/**
+ * `--help` or `-h` anywhere on the line: the usage, on stdout, exit 0. No flag takes a value that
+ * starts with `--`, so `--help` is never a value; `-h` only counts on its own after the command.
+ */
+function wantsHelp(args: string[]): boolean {
+  return args.includes("--help") || args[0] === "-h";
+}
+
 export async function run(argv: string[], io: Io = process, deps: CliDeps = {}): Promise<number> {
   if (argv[0] === "--version") {
     io.stdout.write(`pixelslash ${CLIENT_VERSION}\n`);
     return 0;
   }
   const command = COMMANDS[argv[0] ?? ""];
+  if (wantsHelp(command ? argv.slice(1) : argv)) {
+    io.stdout.write(`${command?.usage ?? USAGE}\n`);
+    return 0;
+  }
   // A bad PIXELSLASH_DIFF_CORES is a usage error (exit 2) before any command starts work.
   const checked =
     <T>(work: () => Promise<T>) =>

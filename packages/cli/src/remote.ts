@@ -163,3 +163,25 @@ export async function resolveProject(remote: Remote, flag: string | undefined): 
     throw e;
   }
 }
+
+/**
+ * The subproject `wanted` (a name or an id) of the top-level project `parent`. One it does not
+ * have, or the token cannot see, is a usage error naming the ones it has and how to make it.
+ */
+export async function resolveSubproject(
+  remote: Remote,
+  parent: Project,
+  wanted: string,
+): Promise<Project> {
+  const children = (await listProjects(remote.client)).filter((p) => p.parentId === parent.id);
+  const byId = children.find((p) => p.id === wanted);
+  if (byId) return byId;
+  const [hit, ...others] = children.filter((p) => p.name === wanted);
+  if (hit && others.length === 0) return hit;
+  if (hit)
+    throw new UsageError(`"${wanted}" is more than one subproject of ${parent.name}: pass its id`);
+  const has = children.length > 0 ? `\n${listed(children)}` : "";
+  throw new UsageError(
+    `${parent.name} has no subproject "${wanted}" (or the token cannot see it): create it with \`pixelslash project create ${wanted} --parent ${parent.name}\`${has}`,
+  );
+}

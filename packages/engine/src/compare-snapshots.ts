@@ -104,6 +104,23 @@ function withA11y<R extends CompareRow>(
 }
 
 /**
+ * A shot only on Branch: nothing to diff it against, so its PNG is copied to `dir/branch.png`
+ * under `--out`, where the report shows it and the summary names it. A new page is then looked at,
+ * not only counted.
+ */
+async function newRow(
+  paths: { branch: string; out: string; varied: boolean },
+  e: SnapshotEntry,
+  dir: string,
+): Promise<CompareRow> {
+  const dest = join(paths.out, dir);
+  await mkdir(dest, { recursive: true });
+  const file = join(dest, "branch.png");
+  await Bun.write(file, await readPng(paths.branch, e));
+  return { ...rowOf(e, paths.varied), report: `${dir}/branch.png`, shotFile: file };
+}
+
+/**
  * Both sides' ignore areas, like the server: an element that moved is covered at its old and its
  * new place. The diff options are the Branch entry's, also like the server.
  */
@@ -235,17 +252,18 @@ async function compareIn(
   await mkdir(out, { recursive: true });
   const paths = { main: opts.mainDir, branch: opts.branchDir, out, varied };
   // Each matched pair's dir is named in Branch's order before any diff starts, as one at a time did.
+  // A new shot gets a dir too: its PNG is copied there, so the report shows it (PS-618).
   const pairs = branch.snapshots.map((e) => {
     const before = mainBy.get(identity(e));
-    return { e, before, dir: before ? dirFor(e, taken) : "" };
+    return { e, before, dir: dirFor(e, taken) };
   });
   const diffed = await mapInOrder(pairs, poolCores(), ({ e, before, dir }) =>
     before ? diffMatch(paths, before, e, dir) : Promise.resolve(undefined),
   );
-  for (const [i, { e }] of pairs.entries()) {
+  for (const [i, { e, dir }] of pairs.entries()) {
     const match = diffed[i];
     if (!match) {
-      result.added.push(withA11y(rowOf(e, varied), undefined, e));
+      result.added.push(withA11y(await newRow(paths, e, dir), undefined, e));
       continue;
     }
     const { row, changed, diffMs } = match;

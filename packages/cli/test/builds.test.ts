@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from "vitest";
 import { CLIENT_VERSION, type ProcLike } from "@slashsuite/pixelslash-engine";
 import { run } from "../src/run.ts";
 import { capture, cleanup, tmp } from "./support.ts";
-import { SERVER, USER_TOKEN, fakeApi } from "./remote-support.ts";
+import { SERVER, USER_TOKEN, build, fakeApi } from "./remote-support.ts";
 import { gitRepo, snapshotDir } from "./upload-support.ts";
 
 afterAll(cleanup);
@@ -35,6 +35,40 @@ describe("pixelslash builds / build", () => {
     expect(cap.stdout).toMatch(
       /^b2\s+feature\s+4f2c1ab\s+changes\s+1\s+2026-10-22T09:00:00.000Z$/m,
     );
+  });
+
+  test("--subproject lists that subproject's builds", async () => {
+    const org = { id: "o", name: "Acme" };
+    const api = fakeApi({
+      projects: [
+        { id: "p1", name: "uislash", org, parent_project_id: null },
+        { id: "p2", name: "button", org, parent_project_id: "p1" },
+        { id: "p3", name: "button", org, parent_project_id: "p9" },
+      ],
+    });
+    api.replies["/api/v1/projects/p2/builds"] = {
+      api_version: 1,
+      builds: [build("b7", "main")],
+      next_cursor: null,
+    };
+    const cap = capture();
+    const argv = ["builds", "--server", SERVER, "--project", "uislash", "--subproject", "button"];
+    expect(await run(argv, cap.io, await deps(api))).toBe(0);
+    expect(api.seen.at(-1)?.url.pathname).toBe("/api/v1/projects/p2/builds");
+    expect(cap.stdout).toMatch(/^b7\s+main\s+4f2c1ab\s+changes\s+1\s/m);
+
+    const json = capture();
+    expect(await run([...argv, "--json"], json.io, await deps(api))).toBe(0);
+    expect(JSON.parse(json.stdout).builds[0].id).toBe("b7");
+
+    // One the project does not have is a usage error that says how to make it.
+    const missing = capture();
+    const none = ["builds", "--server", SERVER, "--project", "uislash", "--subproject", "card"];
+    expect(await run(none, missing.io, await deps(api))).toBe(2);
+    expect(missing.stderr).toContain(
+      'uislash has no subproject "card" (or the token cannot see it): create it with `pixelslash project create card --parent uislash`',
+    );
+    expect(missing.stderr).toContain("  button (Acme) p2");
   });
 
   test("--json prints the API's reply unchanged", async () => {

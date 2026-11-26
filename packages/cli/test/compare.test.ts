@@ -93,6 +93,33 @@ describe("compare", () => {
     expect(existsSync(join(out, "masked"))).toBe(false);
   });
 
+  test("a route with no baseline is new, with its shot in the output and the report", async () => {
+    const main = await snapshotDir([{ name: "home", grey: 100 }]);
+    const branch = await snapshotDir([
+      { name: "home", grey: 100 },
+      { name: "items-1", grey: 30 },
+    ]);
+    const out = await tmp();
+    const cap = capture();
+    expect(await run(["compare", main, branch, "--out", out], cap.io, {})).toBe(0);
+    const shot = join(out, "items-1/chromium-40x40-light/branch.png");
+    expect(cap.stdout.split("\n").slice(0, 3)).toEqual([
+      "pixelslash: 0 changed, 1 unchanged, 1 new, 0 removed",
+      "new:",
+      `  items-1 (chromium 40x40): file://${shot}`,
+    ]);
+    // The shot is copied out of BRANCH_DIR byte for byte, so the report stands on its own.
+    const src = join(branch, "items-1/light.png");
+    expect(Buffer.from(await Bun.file(shot).arrayBuffer())).toEqual(
+      Buffer.from(await Bun.file(src).arrayBuffer()),
+    );
+    const index = await Bun.file(join(out, "index.html")).text();
+    const added = index.slice(index.indexOf("New on Branch (1)"));
+    expect(added).toContain('<img class="new" src="items-1/chromium-40x40-light/branch.png"');
+    // The unchanged shot still gets no files.
+    expect(existsSync(join(out, "home"))).toBe(false);
+  });
+
   test("names the changed, new and removed snapshots under the counts line", async () => {
     const main = await snapshotDir([
       { name: "a", grey: 100 },
@@ -119,7 +146,7 @@ describe("compare", () => {
       "  b (chromium 40x40 prefers: light)",
       "  c (chromium 40x40 prefers: light)",
       "new:",
-      "  fresh (chromium 40x40 prefers: dark)",
+      `  fresh (chromium 40x40 prefers: dark): file://${join(out, "fresh/chromium-40x40-dark/branch.png")}`,
       "removed:",
       "  gone (chromium 40x40 prefers: light)",
     ]);
