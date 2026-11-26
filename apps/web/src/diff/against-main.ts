@@ -29,10 +29,13 @@ const notMeasured: MainFields = {
   mainDiffResult: null,
 };
 
-/** The shot's own diff already is against main: it is copied, not measured twice. */
+/**
+ * The shot's own diff already is against main's shot: it is copied, not measured twice. The shot,
+ * not its image key: one image is many shots' key, and their ignore areas may differ.
+ */
 function reusable(shot: SnapshotRow, main: BaselineSnapshot): boolean {
   return (
-    shot.baselineKey === main.imageKey &&
+    shot.baselineSnapshotId === main.id &&
     shot.carriedFrom === null &&
     (shot.diffStatus === "changed" || shot.diffStatus === "unchanged")
   );

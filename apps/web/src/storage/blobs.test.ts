@@ -7,6 +7,7 @@ function memoryStore(): BlobStore & { keys: () => string[] } {
     keys: () => [...data.keys()],
     put: async (key, body) => void data.set(key, body),
     get: async () => null,
+    has: async (key) => data.has(key),
     delete: async (key) => void data.delete(key),
   };
 }

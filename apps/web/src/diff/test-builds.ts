@@ -12,6 +12,7 @@ import {
 import type { Db } from "#/db/db";
 import type { SentFlake } from "#/db/flakes";
 import { type FlakyPolicy, snapshots } from "#/db/schema";
+import { snapshotStem } from "#/db/stem";
 import { TEST_MODEL_KEY_SECRET } from "#/db/test-db";
 import { sha256Bytes } from "#/lib/crypto";
 import { type BlobStore, orgBlobs } from "#/storage/blobs";
@@ -220,3 +221,29 @@ export async function onlyShot(ctx: Uploads, build: Build) {
   if (!row) throw new Error("build has no snapshots");
   return row;
 }
+
+/**
+ * Put a build's images back in the layout shots had before images were stored by hash: each under
+ * its shot's own stem, in the build's folder. For the tests of what old builds still do (the
+ * retention sweep reads build folders). The hash-keyed blob goes once no row names it.
+ */
+export async function legacyLayout(ctx: Uploads, build: Build): Promise<Build> {
+  for (const row of await rows(ctx, build)) {
+    if (!row.imageKey.startsWith("images/")) continue;
+    const key = `${await snapshotStem({ ...row, buildId: build.id })}.png`;
+    const bytes = await new Response(await ctx.scoped.get(row.imageKey)).arrayBuffer();
+    await ctx.scoped.put(key, bytes, "image/png");
+    await ctx.db.update(snapshots).set({ imageKey: key }).where(eq(snapshots.id, row.id));
+    const [still] = await ctx.db
+      .select({ id: snapshots.id })
+      .from(snapshots)
+      .where(eq(snapshots.imageKey, row.imageKey))
+      .limit(1);
+    if (!still) await ctx.scoped.delete(row.imageKey);
+  }
+  return build;
+}
+
+/** `upload`, its images then put back in the old layout (`legacyLayout`): a build as stored before. */
+export const uploadLegacy = async (...args: Parameters<typeof upload>) =>
+  legacyLayout(args[0], await upload(...args));

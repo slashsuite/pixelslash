@@ -29,6 +29,7 @@ export function timedBlobs(blobs: BlobStore, timer: PartTimer | undefined): Blob
   return {
     put: (key, body, contentType) => timer.time("blob", () => blobs.put(key, body, contentType)),
     get: (key) => blobs.get(key),
+    has: (key) => timer.time("blob", () => blobs.has(key)),
     delete: (key) => blobs.delete(key),
   };
 }

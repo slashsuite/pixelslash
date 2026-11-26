@@ -2,7 +2,6 @@ import { eq } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
 import { ImageUnknownError } from "#/db/builds";
 import { snapshots } from "#/db/schema";
-import { diffKeyOf } from "./compare";
 import { type Shot, context, onlyShot, rows, sha, upload } from "./test-builds";
 import { RED, shot } from "./test-shots";
 
@@ -61,7 +60,7 @@ describe("a build sent by hash", () => {
     expect(a.diffKey).toBeTruthy();
     expect(b.diffKey).toBeTruthy();
     expect(a.diffKey).not.toBe(b.diffKey);
-    expect(a.diffKey).toBe(diffKeyOf(a.imageKey.replace(/\.png$/, "")));
+    expect(a.diffKey).toContain(`builds/${first.id}/`);
     expect(b.diffKey).toContain(`builds/${second.id}/`);
     for (const row of [a, b]) expect(await ctx.scoped.get(row.diffKey ?? "")).not.toBeNull();
   });
