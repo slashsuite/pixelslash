@@ -160,10 +160,10 @@ export function pack(
  * pointing at it), without running update.sh. For a test about the deploy AFTER it: a deploy spawns
  * a long chain of small processes, whose wall time a loaded host stretches past the test's 5 s.
  */
-export function serve(s: Setup, sha: string) {
+export function serve(s: Setup, sha: string, opts: Parameters<typeof pack>[1] = {}) {
   const rel = join(s.releases, sha);
   mkdirSync(rel, { recursive: true });
-  expect(spawnSync("tar", ["-xzf", pack(sha), "-C", rel]).status).toBe(0);
+  expect(spawnSync("tar", ["-xzf", pack(sha, opts), "-C", rel]).status).toBe(0);
   // what unpack_release adds: the release's link to the state shared by every release
   mkdirSync(join(rel, "apps/web/.wrangler"), { recursive: true });
   symlinkSync(join(s.legacyWeb, ".wrangler/state"), join(rel, "apps/web/.wrangler/state"));

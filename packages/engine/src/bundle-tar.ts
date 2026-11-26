@@ -14,7 +14,7 @@ export const MAX_UNPACKED_BYTES = 1024 * 1024 * 1024;
 /** The most bytes a render plan may be as JSON: a config is a few KB. The server holds it to this too. */
 export const MAX_PLAN_BYTES = 64 * 1024;
 /** The most bytes the index may be: a 2400-story index is about 1 MB. */
-export const MAX_INDEX_BYTES = 32 * 1024 * 1024;
+const MAX_INDEX_BYTES = 32 * 1024 * 1024;
 /** The longest path ustar holds (a 155-byte prefix, `/`, a 100-byte name). */
 const MAX_PATH = 255;
 const BLOCK = 512;
@@ -104,14 +104,14 @@ function octalField(block: Uint8Array, at: number, width: number, what: string):
 }
 
 /** What a header says: a file (with its size) or a directory, by path. */
-export type TarEntry = { path: string; kind: "file" | "dir"; size: number };
+type TarEntry = { path: string; kind: "file" | "dir"; size: number };
 
 /**
  * Read one header block; `undefined` for a zero block (the end). Only a regular file or a directory
  * is accepted: a link, a device or anything else is refused by path, since an unpack must never
  * write outside its directory or follow a link out of it.
  */
-export function readHeader(block: Uint8Array): TarEntry | undefined {
+function readHeader(block: Uint8Array): TarEntry | undefined {
   if (block.every((b) => b === 0)) return undefined;
   if (field(block, 257, 5) !== "ustar") throw new BundleError("bundle: not a ustar archive");
   const stored = octalField(block, 148, 8, "checksum");
@@ -151,7 +151,7 @@ export function* tarEntries(tar: Uint8Array): Generator<TarEntry & { data: Uint8
 }
 
 /** The stories in a Storybook 7+ index (`entries` of type `story`); docs pages are not counted. */
-export function storyCount(index: unknown): number {
+function storyCount(index: unknown): number {
   if (typeof index !== "object" || index === null || !("entries" in index))
     throw new BundleError(`bundle: ${INDEX_ENTRY} has no "entries": needs Storybook 7 or later`);
   const { entries } = index;

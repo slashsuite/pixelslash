@@ -1,7 +1,7 @@
 import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
-import { RENDER_UNIT, bunxBody, cleanup, deploy, pack, setup } from "./update-harness";
+import { RENDER_UNIT, bunxBody, cleanup, deploy, pack, serve, setup } from "./update-harness";
 
 afterEach(cleanup);
 
@@ -44,6 +44,20 @@ describe("update.sh and the bundle renderer", () => {
       commands.some((l) => l.startsWith("systemctl restart pixelslash-stub pixelslash-web")),
     ).toBe(true);
     expect(commands.some((l) => l.startsWith("systemctl restart pixelslash-render"))).toBe(false);
+  });
+
+  test("a rollback brings the web app back before it reinstalls the renderer", () => {
+    const s = setup();
+    writeFileSync(join(s.legacyWeb, ".dev.vars.e2e"), "RENDER_URL=http://127.0.0.1:3100/jobs\n");
+    serve(s, "aaaaaaa", { render: true });
+    const { status, commands } = deploy(s, pack("bbbbbbb", { broken: true, render: true }));
+    expect(status).toBe(1);
+    const at = (re: RegExp) => commands.findLastIndex((l) => re.test(l));
+    const web = at(/^systemctl restart pixelslash-stub pixelslash-web /);
+    expect(web).toBeGreaterThan(-1);
+    expect(at(/^bunx playwright install /)).toBeGreaterThan(web);
+    expect(at(/^systemctl restart pixelslash-render /)).toBeGreaterThan(web);
+    expect(existsSync(join(s.unitDir, RENDER_UNIT))).toBe(true);
   });
 
   test("without a RENDER_URL nothing of it is installed, and a unit left from before is retired", () => {

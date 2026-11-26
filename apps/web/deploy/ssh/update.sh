@@ -278,7 +278,8 @@ install_render() {
 }
 
 # A renderer that cannot be installed (apt down, a failed browser download) is reported and left
-# out, never a rollback: the release serves, and a bundle build is refused until a deploy installs it.
+# out, never a rollback: the release serves, and a bundle build's finalise answers 502 until a
+# deploy installs it.
 install_render_or_skip() {
   install_render "$1" && return 0
   echo "pixelslash-render was not installed: a bundle build's finalise answers 502 until a deploy installs it" >&2
@@ -286,12 +287,12 @@ install_render_or_skip() {
 }
 
 # (Re)starts the renderer, when it is installed, after the web app serves. A renderer that fails is
-# reported, not rolled back: the release serves, and a bundle build it cannot take is refused.
+# reported, not rolled back: the release serves, and a bundle build it cannot take answers 502.
 restart_render() {
   [[ -f $UNIT_DIR/pixelslash-render.service ]] || return 0
   systemctl enable --quiet pixelslash-render
   systemctl restart pixelslash-render ||
-    echo "pixelslash-render did not start: bundle builds are refused until it does" >&2
+    echo "pixelslash-render did not start: a bundle build's finalise answers 502 until it does" >&2
 }
 
 # The liveness check is off while units restart on purpose. Stopping one that is not there yet (the
@@ -341,13 +342,16 @@ rollback() {
   pause_watchdog
   set_current "$prev"
   install_units "$prev"
-  install_render_or_skip "$prev"
   systemctl daemon-reload
   systemctl restart pixelslash-stub pixelslash-web
   [[ -z $failed || $failed == "$prev" ]] || rm -rf "$failed"
   if ! wait_for_port 3000 60 pixelslash-web; then
     echo "the previous release did not come up on :3000 either" >&2
   fi
+  # The renderer only once the web serves again: its install may run apt, which is slow.
+  install_render_or_skip "$prev"
+  systemctl daemon-reload
+  restart_render
   resume_watchdog || true
   exit 1
 }

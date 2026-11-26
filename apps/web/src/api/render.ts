@@ -32,7 +32,7 @@ export type RenderDispatch = {
 };
 
 /** The largest bundle archive taken, gzipped. */
-export const MAX_BUNDLE_BYTES = 64 * 1024 * 1024;
+const MAX_BUNDLE_BYTES = 64 * 1024 * 1024;
 /** The longest render error kept. */
 const MAX_RENDER_ERROR = 4000;
 
@@ -175,7 +175,7 @@ const RENDER_PATHS = new Set([
 ]);
 
 /** Paths only a render token calls. */
-export const RENDERER_ONLY = new Set([
+const RENDERER_ONLY = new Set([
   "GET /api/v1/builds/:id/bundle",
   "GET /api/v1/builds/:id/render",
   "POST /api/v1/builds/:id/render-error",
@@ -221,6 +221,7 @@ export async function renderActor(
   if (!buildId) return null;
   const row = await renderBuildRow(deps.db, buildId);
   if (!row || row.plan === null || now - row.at.getTime() > ABANDONED_AFTER_MS) return null;
+  // Past uploading only for a retried finalise or render error, which then changes nothing.
   if (!["uploading", "processing", "errored"].includes(row.status)) return null;
   return { actor: { kind: "ci", projectId: row.projectId }, buildId };
 }
