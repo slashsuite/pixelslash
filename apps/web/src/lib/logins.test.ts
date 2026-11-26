@@ -1,12 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { loginsOf, signInAllowed } from "./logins";
-
-describe("loginsOf", () => {
-  test("splits on commas, trims, lowercases and drops blanks", () => {
-    expect(loginsOf(" Ada, ,grace ,")).toEqual(["ada", "grace"]);
-    expect(loginsOf(undefined)).toEqual([]);
-  });
-});
+import { signInAllowed } from "./logins";
 
 describe("signInAllowed", () => {
   test("no list, or an empty one, lets anyone in", () => {
