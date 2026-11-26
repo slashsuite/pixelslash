@@ -31,7 +31,7 @@ Nothing leaves the machine except to the server the project is configured for, a
 
 **The renderer is the pinned capture image** (`docker/capture/Dockerfile`: fixed Bun, Playwright, Chromium and the font set). Shots it renders carry the same fingerprint a client capture in that image carries. Section 5 is the reason this matters.
 
-**Parallelism** is the config's `concurrency`, which the renderer already honours, with the preview pool keeping pages open per worker.
+**Parallelism** is the renderer's own: as many shots at once as it has CPUs (`RENDER_CONCURRENCY` sets another count), with the preview pool keeping pages open per worker. The config's `concurrency` can ask for fewer, never more, since it was written for the uploader's machine. The client's default (CPUs minus the load average) is not used: a renderer in a container sees its host's load, and on a busy host that default is one shot at a time.
 
 ## 3. Where it runs
 

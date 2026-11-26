@@ -260,7 +260,9 @@ the Cloudflare section above.
 
 1. A Debian-family container with systemd and a **static address**, reachable from your machine by ssh through
    the Proxmox host as root. The reference one is 2 vCPU, 6 GB, 10 GB,
-   which the units' memory limits are sized for. It needs `curl`: `update.sh` stops without it.
+   which the units' memory limits are sized for. With the bundle renderer turned on give it 4 vCPU and
+   8 GB: the renderer takes as many shots at once as it has CPUs, and its `MemoryMax` sits beside the web
+   unit's. It needs `curl`: `update.sh` stops without it.
 2. A user `pixelslash` with home `/home/pixelslash`, [Bun](https://bun.sh) installed for it
    (`/home/pixelslash/.bun/bin/bun`), and Node 24 in `/usr/local` (wrangler runs under it).
 3. The deployment's secrets, in a mode 600 file owned by `pixelslash` at
