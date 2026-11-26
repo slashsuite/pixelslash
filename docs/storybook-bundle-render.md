@@ -31,7 +31,7 @@ Nothing leaves the machine except to the server the project is configured for, a
 
 **The renderer is the pinned capture image** (`docker/capture/Dockerfile`: fixed Bun, Playwright, Chromium and the font set). Shots it renders carry the same fingerprint a client capture in that image carries. Section 5 is the reason this matters.
 
-**Parallelism** is the renderer's own: as many shots at once as it has CPUs, at most ten (`RENDER_CONCURRENCY` sets another count), with the preview pool keeping pages open per worker. The config's `concurrency` can ask for fewer, never more, since it was written for the uploader's machine. The client's default (CPUs minus the load average) is not used: a renderer in a container sees its host's load, and on a busy host that default is one shot at a time.
+**Parallelism** is the renderer's own: as many shots at once as it has CPUs, at most ten (`RENDER_CONCURRENCY` sets another count), with the preview pool keeping pages open per worker, and `RENDER_BUILDS` builds at once (default one; the LAN self-host's unit sets two), each with its own browser. The config's `concurrency` can ask for fewer, never more, since it was written for the uploader's machine. The client's default (CPUs minus the load average) is not used: a renderer in a container sees its host's load, and on a busy host that default is one shot at a time.
 
 ## 3. Where it runs
 
@@ -66,7 +66,7 @@ Everything the renderer does goes through the existing upload API, so nothing ne
 
 If the render worker fails part-way, the build ends `errored`, naming the stories that did not render, through the same path a capture failure takes today.
 
-A restart of the render worker drops no build. Its queue and the build it is rendering are kept on disk; a stop lets the build being rendered finish, and a worker killed mid-build renders that build again when it starts. A build the worker has been killed under three times ends `errored`, naming why, since it may be what kills the worker.
+A restart of the render worker drops no build. Its queue and the builds it is rendering are kept on disk; a stop lets the builds being rendered finish, and a worker killed mid-build renders those builds again when it starts. A build the worker has been killed under three times ends `errored`, naming why, since it may be what kills the worker.
 
 ## 5. Fingerprint and baselines
 

@@ -1,27 +1,28 @@
 /**
  * The self-host's bundle renderer (`docs/storybook-bundle-render.md`, sections 3 and 4): a
  * loopback listener the review app hands each bundle build to (`RENDER_URL`), and a queue that
- * renders one build at a time with the engine's `renderBundle`, the same capture code a client
- * runs. It holds no secret: each job carries the build-scoped token the server minted for it, and
+ * renders up to `RENDER_BUILDS` builds at once, in the order they came, with the engine's
+ * `renderBundle`, the same capture code a client runs. It holds no secret: each job carries the build-scoped token the server minted for it, and
  * every request it makes goes to its own `RENDER_API`, never to an address a job names.
  *
  *   POST /jobs  { buildId, token }  -> 202, queued; 400 a malformed job; 415 not sent as JSON;
  *                                      503 the queue is full
- *   GET /health                     -> 200 { queued, rendering }
+ *   GET /health                     -> 200 { queued, rendering: [buildId, ...] }
  *
  * A restart loses no build. `RENDER_QUEUE` names a file (mode 600) that holds the queue and the
- * build being rendered, written on every change; a new worker renders them again, in order. A stop
- * (SIGTERM) lets the build being rendered finish, starts no other and keeps taking jobs into the
- * file, then exits, so a deploy's restart waits for the render rather than dropping it. A build the
+ * builds being rendered, written on every change; a new worker renders them again, in order. A stop
+ * (SIGTERM) lets the builds being rendered finish, starts no other and keeps taking jobs into the
+ * file, then exits, so a deploy's restart waits for the renders rather than dropping them. A build the
  * worker was killed under (a crash, the memory limit, a stop that ran out of time) is started again,
  * at most `MAX_STARTS` times in all; after that it is ended `errored`, naming why, since it may be
  * what kills the renderer.
  *
  * `RENDER_HOST` (default 127.0.0.1) and `RENDER_PORT` (default 3100) are where it listens,
  * `RENDER_API` (default http://127.0.0.1:3000) the review app it speaks to, `RENDER_SCRATCH` the
- * directory each job's bundle and shots go in (default the temp dir), `RENDER_CONCURRENCY` how many
- * shots a job takes at once (default the CPUs the renderer has, at most ten; a plan may ask for
- * fewer), and `RENDER_QUEUE` the queue's file (unset: the queue is in memory only).
+ * directory each job's bundle and shots go in (default the temp dir), `RENDER_BUILDS` how many builds
+ * it renders at once (default 1), `RENDER_CONCURRENCY` how many shots a job takes at once (default
+ * the CPUs the renderer has, at most ten; a plan may ask for fewer), and `RENDER_QUEUE` the queue's
+ * file (unset: the queue is in memory only).
  * `pixelslash-render.service` runs it; `apps/web/README.md`, "Run it on the Proxmox server", says
  * how it is turned on.
  */
@@ -50,6 +51,8 @@ export type QueueStore = { load(): Kept[]; save(jobs: Kept[]): void };
 
 type WorkerOptions = {
   store?: QueueStore;
+  /** How many builds render at once (default 1). */
+  builds?: number;
   /** End a build `errored` with this render error, without rendering it; false: try at the next start. */
   giveUp?: (job: RenderJob, error: string) => Promise<boolean>;
 };
@@ -131,47 +134,71 @@ async function giveUpOn(
   }
 }
 
+/**
+ * Runs `run` on up to `limit` jobs at once. `fill` takes jobs from `next` while fewer than `limit`
+ * run, and runs again as each one ends; `settled` resolves once none is running.
+ */
+function pool(limit: number, next: () => Kept | undefined, run: (job: Kept) => Promise<void>) {
+  const live = new Set<Promise<void>>();
+  const take = () => (live.size < limit ? next() : undefined);
+  const fill = (): void => {
+    for (let job = take(); job; job = take()) {
+      const done: Promise<void> = run(job).then(() => {
+        live.delete(done);
+        fill();
+      });
+      live.add(done);
+    }
+  };
+  const settled = async (): Promise<void> => {
+    while (live.size > 0) await Promise.all(live);
+  };
+  return { fill, settled };
+}
+
 /** The queue and its listener's handler; `render` is the engine's, or a test's. */
-export function renderWorker(render: Render, log: Log, { store, giveUp }: WorkerOptions = {}) {
+export function renderWorker(
+  render: Render,
+  log: Log,
+  { store, giveUp, builds = 1 }: WorkerOptions = {},
+) {
   const queue: Kept[] = [];
   /** Builds given up on whose render error has not reached the server yet. */
   const spent: Kept[] = [];
-  let current: Kept | null = null;
-  let draining = false;
+  /** The builds being rendered, in the order they started. */
+  const current: Kept[] = [];
   let stopping = false;
-  let idle: Promise<void> = Promise.resolve();
   let reported: Promise<void> = Promise.resolve();
 
-  const save = () => store?.save([...(current ? [current] : []), ...queue, ...spent].map(kept));
+  const save = () => store?.save([...current, ...queue, ...spent].map(kept));
 
-  async function drain(): Promise<void> {
-    for (
-      let job = stopping ? undefined : queue.shift();
-      job;
-      job = stopping ? undefined : queue.shift()
-    ) {
-      job.starts += 1;
-      current = job;
-      save();
-      const started = Date.now();
-      // A throw here is the renderer's own bug: renderBundle reports a render's failure itself.
-      const outcome = await render(job).catch((e: unknown): RenderOutcome => ({
-        ok: false,
-        error: String(e),
-      }));
-      log(rendered(job, outcome, started));
-      current = null;
-      save();
-    }
-    // Set here, not in a `finally`: a job taken after the last shift must see the loop has ended.
-    draining = false;
+  /**
+   * The next build to start, if one may start now. A build started before (left by a worker that
+   * was killed) renders alone: two builds at once both count a kill, and the one that did not cause
+   * it must not run out of starts beside the one that did.
+   */
+  function next(): Kept | undefined {
+    const head = queue[0];
+    if (stopping || !head) return undefined;
+    if (current.some((job) => job.starts > 1) || (head.starts > 0 && current.length > 0))
+      return undefined;
+    return queue.shift();
   }
 
-  function kick(): void {
-    if (draining || stopping || queue.length === 0) return;
-    draining = true;
-    idle = drain();
-  }
+  const { fill: kick, settled } = pool(builds, next, async (job) => {
+    job.starts += 1;
+    current.push(job);
+    save();
+    const started = Date.now();
+    // A throw here is the renderer's own bug: renderBundle reports a render's failure itself.
+    const outcome = await render(job).catch((e: unknown): RenderOutcome => ({
+      ok: false,
+      error: String(e),
+    }));
+    log(rendered(job, outcome, started));
+    current.splice(current.indexOf(job), 1);
+    save();
+  });
 
   async function take(request: Request): Promise<Response> {
     // The bundle's own script runs on this loopback too. A page cannot send this content type to
@@ -182,7 +209,7 @@ export function renderWorker(render: Render, log: Log, { store, giveUp }: Worker
     if (!isJob(job))
       return Response.json({ error: "a job is { buildId, token }" }, { status: 400 });
     // A finalise the CLI retried after a lost reply hands the same build again: it is taken once.
-    if (current?.buildId === job.buildId || queue.some((q) => q.buildId === job.buildId))
+    if ([...current, ...queue].some((q) => q.buildId === job.buildId))
       return Response.json({ queued: queue.length }, { status: 202 });
     if (queue.length >= MAX_QUEUED)
       return Response.json({ error: "the render queue is full" }, { status: 503 });
@@ -192,11 +219,14 @@ export function renderWorker(render: Render, log: Log, { store, giveUp }: Worker
     return Response.json({ queued: queue.length }, { status: 202 });
   }
 
+  /** The builds being rendered, in the order they started. */
+  const rendering = () => current.map((job) => job.buildId);
+
   async function handle(request: Request): Promise<Response> {
     const { pathname } = new URL(request.url);
     if (request.method === "POST" && pathname === "/jobs") return take(request);
     if (request.method === "GET" && pathname === "/health")
-      return Response.json({ queued: queue.length, rendering: current?.buildId ?? null });
+      return Response.json({ queued: queue.length, rendering: rendering() });
     return new Response(null, { status: 404 });
   }
 
@@ -219,15 +249,11 @@ export function renderWorker(render: Render, log: Log, { store, giveUp }: Worker
     await reported;
   }
 
-  /** Start no other build; resolves once the one being rendered, and any give-up report, are done. */
+  /** Start no other build; resolves once those being rendered, and any give-up report, are done. */
   function stop(): Promise<void> {
     stopping = true;
-    return Promise.all([idle, reported]).then(() => {});
+    return Promise.all([settled(), reported]).then(() => {});
   }
-
-  /** Resolves once every job taken so far has rendered. */
-  const settled = () => idle;
-  const rendering = () => current?.buildId ?? null;
 
   return { handle, settled, resume, stop, rendering, queued: () => queue.length };
 }
@@ -248,7 +274,9 @@ if (import.meta.main) {
     concurrency: positive(env["RENDER_CONCURRENCY"]),
   };
   const queueFile = env["RENDER_QUEUE"];
+  const builds = positive(env["RENDER_BUILDS"]) ?? 1;
   const worker = renderWorker((job) => renderBundle(job, opts, { warn }), log, {
+    builds,
     ...(queueFile ? { store: fileStore(queueFile, warn) } : {}),
     giveUp: (job, error) => reportRenderError(job, opts, error, { warn }),
   });
@@ -259,7 +287,9 @@ if (import.meta.main) {
     port: positive(env["RENDER_PORT"]) ?? 3100,
     fetch: worker.handle,
   });
-  log(`pixelslash-render on ${server.url.href}, rendering against ${opts.server}`);
+  log(
+    `pixelslash-render on ${server.url.href}, rendering against ${opts.server}, ${builds} build(s) at once`,
+  );
   if (!queueFile) warn("RENDER_QUEUE is not set: a restart drops the builds queued here");
   let stopped = false;
   const stop = () => {
@@ -267,8 +297,8 @@ if (import.meta.main) {
     stopped = true;
     const rendering = worker.rendering();
     log(
-      rendering
-        ? `stopping once build ${rendering} is rendered; ${worker.queued()} queued for the next start`
+      rendering.length > 0
+        ? `stopping once ${rendering.length === 1 ? "build" : "builds"} ${rendering.join(", ")} ${rendering.length === 1 ? "is" : "are"} rendered; ${worker.queued()} queued for the next start`
         : `stopping; ${worker.queued()} queued for the next start`,
     );
     // It still takes jobs into the queue's file until it exits.
