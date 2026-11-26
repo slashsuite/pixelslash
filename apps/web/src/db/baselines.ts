@@ -1,6 +1,7 @@
 import { type SQL, and, eq, inArray, lte, ne, or } from "drizzle-orm";
 import type { Db } from "./db";
 import type { Build } from "./builds";
+import { pixelsOf } from "./approved-earlier";
 import { inChunks } from "./chunks";
 import { heldShot, notSkippedFlaky } from "./markers";
 import { builds, type IgnoreRect, snapshots } from "./schema";
@@ -301,18 +302,15 @@ async function mainMovedTest(
   candidates: Candidate[],
   build: PickFor,
 ): Promise<(prior: Candidate, main: BaselineSnapshot) => boolean> {
-  const keys = candidates.flatMap((row) =>
-    row.branch === build.branch && row.mainBaselineKey !== null ? [row.mainBaselineKey] : [],
-  );
-  const hashes = new Map<string, string | null>();
-  const found = await inChunks(keys, 1, (part) =>
-    db
-      .select({ imageKey: snapshots.imageKey, imageSha256: snapshots.imageSha256 })
-      .from(snapshots)
-      .innerJoin(builds, eq(builds.id, snapshots.buildId))
-      .where(and(eq(builds.projectId, build.projectId), inArray(snapshots.imageKey, part))),
-  );
-  for (const row of found) hashes.set(row.imageKey, row.imageSha256);
+  // Only the branch's previous shot per key is ever asked about (`pick`).
+  const seen = new Set<string>();
+  const keys: string[] = [];
+  for (const row of candidates) {
+    if (row.branch !== build.branch || seen.has(snapshotKeyOf(row))) continue;
+    seen.add(snapshotKeyOf(row));
+    if (row.mainBaselineKey !== null) keys.push(row.mainBaselineKey);
+  }
+  const hashes = keys.length > 0 ? await pixelsOf(db, keys) : new Map<string, string>();
   return (prior, main) => {
     if (prior.mainBaselineKey === null) return prior.mainDiffStatus === "new";
     if (prior.mainBaselineKey === main.imageKey) return false;
