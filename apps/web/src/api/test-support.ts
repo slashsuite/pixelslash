@@ -30,6 +30,7 @@ export function memoryStore(failPuts = false) {
       const held = data.get(key);
       return held ? new Blob([held]).stream() : null;
     },
+    has: async (key) => data.has(key),
     delete: async (key) => void data.delete(key),
     list: async (dir) =>
       [...data]

@@ -78,7 +78,9 @@ async function candidatesOf(db: Db, { days, now }: RetentionOptions): Promise<Ca
  * The candidate build each image key belongs to. A blob belongs to the build whose folder holds it
  * (`builds/<id>/...`), which is not always the build of the row naming it: a shot stored by hash
  * (PS-424) reads another build's image. A key outside that layout is its row's build's own. A key
- * whose folder is not a candidate has no owner here: that build stays for certain.
+ * whose folder is not a candidate has no owner here: that build stays for certain. An image stored
+ * by content (`images/<sha256>.png`) is the org's, not a build's: the sweep never deletes it, so it
+ * holds no build back.
  */
 function blobOwners(
   shots: Array<{ buildId: string; imageKey: string }>,
@@ -86,6 +88,7 @@ function blobOwners(
 ): Map<string, string> {
   const owners = new Map<string, string>();
   for (const s of shots) {
+    if (s.imageKey.startsWith("images/")) continue;
     const folder = /^builds\/([^/]+)\//.exec(s.imageKey)?.[1] ?? s.buildId;
     if (candidates.has(folder)) owners.set(s.imageKey, folder);
   }

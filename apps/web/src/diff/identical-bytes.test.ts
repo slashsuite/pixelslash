@@ -190,8 +190,8 @@ describe("identical bytes", () => {
       reviewState: "pending",
     });
     expect(second.status).toBe("changes");
-    // Only the against-main measurement (ob 1723, red against main's white) reads images.
-    expect(store.gets).not.toContain(firstShot.imageKey);
+    // Only the against-main measurement (ob 1723, red against main's white) reads images: the
+    // branch's red, one blob for both builds now that an image is stored by its hash, and main's white.
     expect(store.gets).toHaveLength(2);
     expect(store.puts.filter((key) => key.endsWith(".diff.png"))).toEqual([]);
   });

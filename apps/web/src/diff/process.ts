@@ -204,7 +204,8 @@ export type ProcessResult = {
 
 /**
  * Whether a shot's stored result still stands. It does when it was measured (a status, or a
- * re-baseline that measured nothing) against the baseline that would be picked now, carrying the
+ * re-baseline that measured nothing) against the baseline shot that would be picked now (the shot,
+ * not its image key: one image is many shots' key, and they may differ in environment), carrying the
  * change that would be carried now. The baseline is chosen from other builds' shots, and one can
  * be accepted or decided between two runs; a shot measured against another baseline is measured
  * again, so a resumed build ends with the verdict a single run would have given. A shot's own
@@ -213,7 +214,7 @@ export type ProcessResult = {
  */
 function stands(shot: SnapshotRow, baseline: Baseline | undefined): boolean {
   if (shot.diffStatus === null && !shot.rebaselineNeeded) return false;
-  if (shot.baselineKey === (baseline?.shot.imageKey ?? null))
+  if (shot.baselineSnapshotId === (baseline?.shot.id ?? null))
     return shot.carriedFrom === (baseline?.carry ?? null);
   return measuredPastCarry(shot, baseline);
 }
@@ -221,7 +222,7 @@ function stands(shot: SnapshotRow, baseline: Baseline | undefined): boolean {
 /** Measured against the accepted shot because it differed from an undecided one (`diffOne`). */
 function measuredPastCarry(shot: SnapshotRow, baseline: Baseline | undefined): boolean {
   if (!baseline?.carry || shot.carriedFrom !== null) return false;
-  return shot.baselineKey === (baseline.accepted?.imageKey ?? null);
+  return shot.baselineSnapshotId === (baseline.accepted?.id ?? null);
 }
 
 /**

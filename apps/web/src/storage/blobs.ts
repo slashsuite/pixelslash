@@ -5,6 +5,8 @@
 export interface BlobStore {
   put(key: string, body: ArrayBuffer | ReadableStream, contentType: string): Promise<void>;
   get(key: string): Promise<ReadableStream | null>;
+  /** Whether a blob is stored under `key`, without reading it: an image keyed by its hash is put once. */
+  has(key: string): Promise<boolean>;
   delete(key: string): Promise<void>;
 }
 
@@ -22,7 +24,7 @@ export interface SweepBlobStore extends BlobStore {
 const R2_DELETE_BATCH = 1000;
 
 /** The part of an R2 bucket the stores use, so a test can hand in a recording view of one. */
-type R2Store = Pick<R2Bucket, "put" | "get" | "delete">;
+type R2Store = Pick<R2Bucket, "put" | "get" | "head" | "delete">;
 
 /**
  * Both default to R2's own limits: a list page is 1000 keys (no `limit` is passed) and a delete
@@ -70,6 +72,7 @@ export function r2BlobStore(bucket: R2Store): BlobStore {
       const object = await bucket.get(key);
       return object?.body ?? null;
     },
+    has: async (key) => (await bucket.head(key)) !== null,
     delete: (key) => bucket.delete(key),
   };
 }
@@ -105,6 +108,7 @@ export function orgBlobs(store: BlobStore, orgId: string): BlobStore {
   return {
     put: (key, body, contentType) => store.put(scoped(key), body, contentType),
     get: (key) => store.get(scoped(key)),
+    has: (key) => store.has(scoped(key)),
     delete: (key) => store.delete(scoped(key)),
   };
 }

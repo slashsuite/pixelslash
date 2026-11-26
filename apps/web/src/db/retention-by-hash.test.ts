@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { expect, test } from "vitest";
-import { context, onlyShot, sha, upload } from "#/diff/test-builds";
+import { context, onlyShot, sha, uploadLegacy as upload } from "#/diff/test-builds";
 import { RED, shot } from "#/diff/test-shots";
 import { DAY_MS } from "#/lib/retention";
 import { orgSweepBlobs } from "#/storage/blobs";

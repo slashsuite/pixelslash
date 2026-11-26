@@ -35,8 +35,8 @@ async function readBlob(blobs: BlobStore, key: string): Promise<Buffer> {
 /**
  * The diff image's key sits beside the shot it belongs to: under the shot's own stem
  * (`snapshotStem`), never its `imageKey`. A shot stored by hash (PS-424) shares another build's
- * `imageKey`, so a key derived from that would make two builds write one overlay. For a shot that
- * sent its PNG the stem and the `imageKey` agree, so its key is what it always was.
+ * `imageKey`, and so does every shot of the org with the same bytes since images are stored by
+ * hash: a key derived from that would make two builds write one overlay.
  */
 export function diffKeyOf(stem: string): string {
   return `${stem}.diff.png`;

@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
-import { type Ctx, context, onlyShot, rows, sha, upload } from "#/diff/test-builds";
+import { type Ctx, context, onlyShot, rows, sha, uploadLegacy as upload } from "#/diff/test-builds";
 import { RED, shot } from "#/diff/test-shots";
 import { DAY_MS } from "#/lib/retention";
 import { orgSweepBlobs } from "#/storage/blobs";

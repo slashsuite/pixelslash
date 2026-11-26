@@ -162,6 +162,10 @@ measured count.
 - **No `build_id` index.** It was the left prefix of the shots' unique index, which serves every lookup by build, so a
   shot's insert writes 5 rows, not 6 (migration 0037).
 - **A re-run of a build** writes no shot that was already accepted or whose result stands.
+- **Images are stored once per org.** A PNG is keyed by its sha256 under the org (`images/<sha256>.png`), and is written
+  only when the org does not hold it yet, from any of its projects. The fixture has two distinct images, so (a) and (b)
+  store one each and (c) none, where each build used to store 100 PNGs of its own. Shots stored before keep their key
+  under the build's folder, which still reads.
 - **Tokens** (not in these numbers, which go through no request): a token's `last_used_at` is written at most once in 5
   minutes, not on every request, so "last used" on the settings pages is true to within 5 minutes.
 
@@ -169,7 +173,9 @@ measured count.
 
 Off unless you set it. `PIXELSLASH_RETENTION_DAYS=30` (a whole number above 0; anything else is off)
 makes the review app expire PR builds: a build older than that window, on a branch that is not the
-project's default branch, is deleted with its blobs (R2, or the self-host's bucket) and its rows.
+project's default branch, is deleted with its blobs (R2, or the self-host's bucket) and its rows. Its blobs are those in its own
+folder (`builds/<id>/`): overlays, CI masks, metrics, and the PNGs of shots stored before images went by hash. An image
+stored by hash (`images/<sha256>.png`) is the org's, shared by every build that sent those bytes, and the sweep leaves it.
 Default-branch builds are never deleted. Neither is a build a surviving build still points at as its
 baseline (`baselineKey`, `mainBaselineKey`, `baselineSnapshotId`, `carriedFrom`, and a removed marker's
 `image_key` / `baseline_key`), followed through the builds that are kept, so a chain only goes once

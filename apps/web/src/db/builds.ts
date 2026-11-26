@@ -175,11 +175,17 @@ const shown = (input: SnapshotInput) => ({
   a11y: input.a11y ?? null,
 });
 
-/** The shot's image: stored under its own stem when it came with its bytes, else the one a hash names. */
+/**
+ * Where an image is stored: once per org, under its own hash, so every build and project of the org
+ * that sends the same bytes points at the one blob. Shots stored before this read their old key
+ * (`builds/<id>/<stem>.png`) from their row, which still works.
+ */
+export const imageKeyOf = (sha256: string) => `images/${sha256}.png`;
+
+/** The shot's image: stored under its hash when it came with its bytes and the org lacks it, else the one a hash names. */
 async function imageOf(
   { db, blobs, timer }: { db: Db; blobs: BlobStore; timer?: PartTimer | undefined },
   build: Build,
-  stem: string,
   png: ArrayBuffer | HeldImage,
 ): Promise<Held> {
   if (!(png instanceof ArrayBuffer)) {
@@ -189,13 +195,10 @@ async function imageOf(
     if (!held) throw new ImageUnknownError();
     return held;
   }
-  const imageKey = `${stem}.png`;
-  await blobs.put(imageKey, png, "image/png");
-  return {
-    imageKey,
-    imageSha256: await timeIf(timer, "digest", () => sha256Bytes(png)),
-    imageSize: readPngSize(new Uint8Array(png)),
-  };
+  const imageSha256 = await timeIf(timer, "digest", () => sha256Bytes(png));
+  const imageKey = imageKeyOf(imageSha256);
+  if (!(await blobs.has(imageKey))) await blobs.put(imageKey, png, "image/png");
+  return { imageKey, imageSha256, imageSize: readPngSize(new Uint8Array(png)) };
 }
 
 /**
@@ -208,7 +211,7 @@ async function rowFields(
   stem: string,
   { input, png, metrics = null, ci = null, flake = null }: SentSnapshot,
 ) {
-  const image = await imageOf({ db, blobs, timer }, build, stem, png);
+  const image = await imageOf({ db, blobs, timer }, build, png);
   const ciResults = await putCiResults(blobs, stem, ci, image);
   return fieldsOf(input, image, {
     metricsKey: await putMetrics(blobs, stem, metrics),
@@ -283,9 +286,9 @@ function whileUploading(buildId: string, row: typeof snapshots.$inferInsert): SQ
 }
 
 /**
- * Store a snapshot's PNG and its row. Sending the same name + variant again replaces it:
- * the blob key comes from that identity, so the second PNG overwrites the first in place.
- * The blob goes first, so a failed put leaves no row to count.
+ * Store a snapshot's PNG and its row. Sending the same name + variant again replaces the row, which
+ * then names the second PNG's blob. The PNG is stored once per org under its hash, so bytes the org
+ * already holds are not written again. The blob goes first, so a failed put leaves no row to count.
  *
  * A shot sent by hash (PS-424) has no PNG: its row takes `imageKey`, `imageSha256` and `imageSize`
  * from a finished build of the same project that holds that hash, and everything else (masks,

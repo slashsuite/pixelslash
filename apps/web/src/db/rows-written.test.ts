@@ -118,6 +118,8 @@ const frozen = { now: () => 0 };
 const LIMIT = { a: 708, b: 768, c: 758 };
 
 const tally: Tally = { rows: 0, byStatement: new Map() };
+/** The images a build stored, and their bytes: each is stored once per org, under its hash. */
+const images = { puts: 0, bytes: 0 };
 let held: { dispose: () => Promise<void> };
 let ctx: Uploads;
 
@@ -133,7 +135,21 @@ beforeAll(async () => {
   });
   const org = await createOrg(db, user.id, "Acme");
   const project = await createProject(db, user.id, org.id, { name: "web", diffLocation: "server" });
-  ctx = { db, projectId: project.id, scoped: orgBlobs(memoryStore().store, org.id) };
+  const scoped = orgBlobs(memoryStore().store, org.id);
+  ctx = {
+    db,
+    projectId: project.id,
+    scoped: {
+      ...scoped,
+      put: async (key, body, type) => {
+        if (key.startsWith("images/") && body instanceof ArrayBuffer) {
+          images.puts += 1;
+          images.bytes += body.byteLength;
+        }
+        await scoped.put(key, body, type);
+      },
+    },
+  };
 }, 60_000);
 
 afterAll(() => held?.dispose());
@@ -141,9 +157,12 @@ afterAll(() => held?.dispose());
 async function counted<T>(run: () => Promise<T>) {
   tally.rows = 0;
   tally.byStatement.clear();
+  images.puts = 0;
+  images.bytes = 0;
   const value = await run();
   const breakdown = [...tally.byStatement].map(([k, v]) => `${k}: ${v}`).join(", ");
-  return { value, rows: tally.rows, byStatement: new Map(tally.byStatement), breakdown };
+  const stored = { ...images };
+  return { value, rows: tally.rows, byStatement: new Map(tally.byStatement), breakdown, stored };
 }
 
 async function measured(spec: Parameters<typeof upload>[1]) {
@@ -176,12 +195,15 @@ describe(`rows written per build of ${SHOTS} shots, on a local D1`, () => {
     expect(b.build.status).toBe("passed");
     const c = await measured({ branch: "feat", commit: sha(3), mergeBase: sha(1), shots: mix });
     expect(c.build.status).toBe("changes");
+    const stored = (m: typeof a) => `${m.stored.puts} images, ${m.stored.bytes} bytes`;
     process.stderr.write(
       `\nrows written per build (${SHOTS} shots):\n` +
-        `  (a) first main build:  ${a.rows}  (${a.breakdown})\n` +
-        `  (b) second main build: ${b.rows}  (${b.breakdown})\n` +
-        `  (c) branch build:      ${c.rows}  (${c.breakdown})\n`,
+        `  (a) first main build:  ${a.rows}, ${stored(a)}  (${a.breakdown})\n` +
+        `  (b) second main build: ${b.rows}, ${stored(b)}  (${b.breakdown})\n` +
+        `  (c) branch build:      ${c.rows}, ${stored(c)}  (${c.breakdown})\n`,
     );
+    // Two distinct images in all (white and red): each is stored once, by the first build to send it.
+    expect([a.stored.puts, b.stored.puts, c.stored.puts]).toEqual([1, 1, 0]);
     // D1 reports the count locally: a zero would make every limit below pass for nothing.
     expect(a.rows).toBeGreaterThan(SHOTS);
     expect(a.rows).toBeLessThanOrEqual(LIMIT.a);

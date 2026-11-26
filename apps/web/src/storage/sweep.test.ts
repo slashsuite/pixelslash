@@ -26,6 +26,7 @@ const recording = (target: R2Bucket) => {
   const view = {
     put: target.put.bind(target),
     get: target.get.bind(target),
+    head: target.head.bind(target),
     list: (options?: R2ListOptions) => {
       lists.push({ ...options });
       return target.list(options);
@@ -92,5 +93,12 @@ describe("the R2 sweep store", () => {
     expect(await store.list("orgs/a/builds/b1")).toEqual([]);
     expect(await store.list("orgs/b/builds/b1")).toHaveLength(1);
     expect(() => a.deleteMany(["../b/builds/b1/one.png"])).toThrow(/unsafe/);
+  });
+
+  test("has answers from the bucket's head, scoped to the org", async () => {
+    const a = orgSweepBlobs(r2SweepStore(bucket), "has-a");
+    await a.put("images/abc.png", png(3), "image/png");
+    expect(await a.has("images/abc.png")).toBe(true);
+    expect(await orgSweepBlobs(r2SweepStore(bucket), "has-b").has("images/abc.png")).toBe(false);
   });
 });

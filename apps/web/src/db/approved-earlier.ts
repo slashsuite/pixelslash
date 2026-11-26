@@ -89,9 +89,13 @@ async function defaultBranchOf(db: Db, projectId: string): Promise<string | unde
 /** The build that wrote an image, from its key `builds/<buildId>/…`; null for any other shape. */
 const ownerOf = (imageKey: string) => /^builds\/([^/]+)\//.exec(imageKey)?.[1] ?? null;
 
+/** The hash an image key stored by content names (`images/<sha256>.png`); null for any other shape. */
+const hashOfKey = (imageKey: string) => /^images\/([0-9a-f]{64})\.png$/.exec(imageKey)?.[1] ?? null;
+
 /**
- * The image hash behind each stored image key. A key is per upload, so main re-captured with the
- * same pixels has a new key: only a differing hash means main changed. The read goes by the
+ * The image hash behind each stored image key. An old key is per upload, so main re-captured with
+ * the same pixels has a new key: only a differing hash means main changed. A key stored by content
+ * names its hash and needs no read. The read goes by the
  * writing build (indexed), so it never scans the table. A key with no known owner or hash (a row
  * older than the hash column) is left out, and its shot reads as not changed.
  */
@@ -106,6 +110,10 @@ export async function pixelsOf(db: Db, keys: string[]): Promise<Map<string, stri
       .where(inArray(snapshots.buildId, part)),
   );
   const out = new Map<string, string>();
+  for (const key of wanted) {
+    const hash = hashOfKey(key);
+    if (hash) out.set(key, hash);
+  }
   for (const row of rows)
     if (row.imageSha256 && wanted.has(row.imageKey)) out.set(row.imageKey, row.imageSha256);
   return out;
