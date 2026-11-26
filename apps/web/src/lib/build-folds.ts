@@ -1,5 +1,5 @@
 /** The fields a build in the project's list is folded by. */
-export type FoldableBuild = {
+type FoldableBuild = {
   id: string;
   branch: string;
   status: string;
@@ -10,7 +10,7 @@ export type FoldableBuild = {
 export type ListItem<B> = { kind: "build"; build: B } | { kind: "fold"; key: string; builds: B[] };
 
 /** A build the list can fold: on the default branch, passed and with nothing to review, so auto-accepted. */
-export const isQuiet = (build: FoldableBuild, defaultBranch: string) =>
+const isQuiet = (build: FoldableBuild, defaultBranch: string) =>
   build.branch === defaultBranch && build.status === "passed" && build.counts.toReview === 0;
 
 /**
@@ -27,7 +27,9 @@ export function foldQuiet<B extends FoldableBuild>(
   const flush = () => {
     const [newest, ...rest] = run;
     if (newest) items.push({ kind: "build", build: newest });
-    if (rest[0]) items.push({ kind: "fold", key: rest[0].id, builds: rest });
+    // Keyed by the run's oldest build, which a newer quiet build arriving on top does not change.
+    const oldest = rest.at(-1);
+    if (oldest) items.push({ kind: "fold", key: oldest.id, builds: rest });
     run = [];
   };
   for (const build of builds) {

@@ -51,6 +51,8 @@ test("a commit's changes across the subprojects are reviewed on one page", async
   await page.waitForURL(`**/projects/${projectId}/commits/${SHA_WORK}`);
 
   await expect(page.getByTestId("commit-totals")).toHaveText("2 changes · 2 waiting");
+  // The parent ran too, so the two are projects, not subprojects.
+  await expect(page.getByTestId("commit-meta")).toContainText("across 2 projects;");
   const groups = page.getByTestId("commit-group");
   await expect(groups).toHaveCount(2);
   await expect(groups.nth(0)).toHaveAttribute("data-project", "storefront");

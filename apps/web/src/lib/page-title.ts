@@ -3,7 +3,7 @@
  * joined with a middle dot (`Build feat/x · web · PixelSlash`). An empty part is left out, so a page
  * with none is plain `PixelSlash`.
  */
-export function pageTitle(...parts: (string | null | undefined)[]): string {
+function pageTitle(...parts: (string | null | undefined)[]): string {
   return [...parts.filter((part): part is string => Boolean(part)), "PixelSlash"].join(" · ");
 }
 

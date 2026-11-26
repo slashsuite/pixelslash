@@ -135,7 +135,8 @@ function CommitReviewPage() {
           head={head}
           totals={totals}
           ran={ran.length}
-          noun={groups.length > 1 ? "subproject" : "project"}
+          // The parent counts as a project, not a subproject, when it ran on this commit too.
+          noun={groups.length > 1 && !ran.some((g) => g.top) ? "subproject" : "project"}
         />
         {walk.error && <Callout tone="danger">{walk.error}</Callout>}
         {ran.map((group) => (
@@ -148,8 +149,10 @@ function CommitReviewPage() {
             onReview={(g, shot, state) => void walk.review(g, shot, state)}
           />
         ))}
-        {/* A parent with subprojects uploads no builds of its own, so it is never "not run". */}
-        <NotRun groups={groups.filter((g) => g.build === null && !g.top)} />
+        {/* A parent that has never uploaded a build of its own is only its subprojects' group, never "not run". */}
+        <NotRun
+          groups={groups.filter((g) => g.build === null && !(g.top && g.lastBuild === null))}
+        />
       </ListLayout>
       {walk.helpOpen && <ShortcutHelp onClose={walk.closeHelp} />}
     </Page>
