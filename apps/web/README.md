@@ -693,7 +693,7 @@ finalize is resumable. Whether the CT's workerd does that is checked by the CT r
 `pixelslash upload --bundle DIR` sends a static Storybook build instead of shots, and the server
 renders it (`docs/storybook-bundle-render.md`). On the CT that is `pixelslash-render`
 (`deploy/ssh/render-worker.ts`): a loopback listener on `127.0.0.1:3100` that the web unit hands each
-bundle build to, and a queue that renders one build at a time with the engine's `renderBundle`, the
+bundle build to, and a queue that renders two builds at once with the engine's `renderBundle`, the
 CLI's capture code, then uploads the shots and finalises with a token that reaches only that build's
 render paths. It holds no secret of its own and talks only to `127.0.0.1:3000`.
 
@@ -703,6 +703,16 @@ has 4 cores and 8 GB, which fits both units' `MemoryMax`. On it, 82 uislash shot
 Overview gallery sections, one theme, desktop and phone) took 95 s one at a time on the old 2 cores,
 87 s one at a time on 4, 52 s two at a time, 40 s four at a time and 40 s eight at a time, the renderer
 peaking at 1.1 GB with four. The host has 4 cores in all, so more pages than that add only memory.
+
+It renders two builds at once (`RENDER_BUILDS=2` in the unit; unset, one), each with its own
+browser and that many shots, in the order they came. A uislash pull request is a dozen builds, one
+per group: a build spends part of its time on its plan, its bundle, a browser and its slowest
+stories, and the other one fills those gaps. The twelve builds of one such pull request, captured on
+4 reserved cores and 4 GB (the CT's shape), took 148 and 156 s one build at a time, 95 and 109 s two
+at a time, 89 s three at a time, and 150 s one at a time with eight shots each, peaking at about
+1.1 GB. Two is the setting: a third adds little and its own browser's memory under the same limit.
+The
+renderer is one process, so a kill (its memory limit) stops both builds, and each is started again.
 
 It is off until the CT's `.dev.vars.e2e` names it. To turn it on, add
 
@@ -719,12 +729,12 @@ previous deploy left, and the API answers a bundle build `409`, so the CLI says 
 client. A renderer that does not take a job (down, or 50 builds queued) makes the CLI's finalise a
 `502`.
 
-A restart drops no build. The renderer keeps its queue, and the build it is rendering, in
+A restart drops no build. The renderer keeps its queue, and the builds it is rendering, in
 `/var/lib/pixelslash-render/queue.json` (mode 600: it holds each build's render token), and a new
-renderer renders them again, in order. A stop (a deploy, `systemctl restart`) lets the build being
+renderer renders them again, in order. A stop (a deploy, `systemctl restart`) lets the builds being
 rendered finish, starts no other, then exits; it has up to 20 minutes (`TimeoutStopSec`). A deploy
 queues the renderer's restart (`systemctl restart --no-block`) rather than waiting on it, so it ends
-while that build finishes.
+while those builds finish.
 A build the renderer dies under (a crash, its memory limit, a stop that ran out of time) is started
 again on the next start; one it has died under three times ends `errored`,
 `render failed: the renderer stopped 3 times while rendering this build ...`, so a CLI waiting on

@@ -48,7 +48,7 @@ describe("the render worker", () => {
     for (const id of ["a", "b"])
       expect((await worker.handle(post({ buildId: id, token: `psr_${id}.x` }))).status).toBe(202);
     const health = await worker.handle(new Request("http://127.0.0.1:3100/health"));
-    expect(await health.json()).toEqual({ queued: 1, rendering: "a" });
+    expect(await health.json()).toEqual({ queued: 1, rendering: ["a"] });
     expect(gated.events).toEqual(["start a"]);
     gated.release();
     await Promise.resolve();
@@ -189,6 +189,59 @@ describe("the render worker", () => {
     expect(store.saved.map((j) => j.buildId)).toEqual(["b", "c"]);
   });
 
+  test("with builds: 2, renders two at once, starts the next as either ends, and keeps both in its store", async () => {
+    const store = memoryStore();
+    const gated = gatedRender();
+    const worker = renderWorker(gated.render, () => {}, { store, builds: 2 });
+    for (const id of ["a", "b", "c", "d"])
+      await worker.handle(post({ buildId: id, token: `psr_${id}.x` }));
+    expect(gated.events).toEqual(["start a", "start b"]);
+    const health = await worker.handle(new Request("http://127.0.0.1:3100/health"));
+    expect(await health.json()).toEqual({ queued: 2, rendering: ["a", "b"] });
+    // Killed here, a new worker would render a and b again, then c and d.
+    expect(store.saved.map((j) => `${j.buildId} ${j.starts}`)).toEqual([
+      "a 1",
+      "b 1",
+      "c 0",
+      "d 0",
+    ]);
+    // Taken while both slots are busy, a build is queued, not rendered beside them.
+    await worker.handle(post({ buildId: "b", token: "psr_b.x" }));
+    expect(store.saved).toHaveLength(4);
+    gated.release();
+    await tick();
+    expect(gated.events).toEqual(["start a", "start b", "end a", "start c"]);
+    expect(store.saved.map((j) => j.buildId)).toEqual(["b", "c", "d"]);
+    let stopped = false;
+    const stopping = worker.stop().then(() => (stopped = true));
+    gated.release();
+    await tick();
+    // d is not started, and the stop waits for c, still rendering.
+    expect(gated.events).toEqual(["start a", "start b", "end a", "start c", "end b"]);
+    expect(stopped).toBe(false);
+    gated.release();
+    await stopping;
+    expect(store.saved.map((j) => j.buildId)).toEqual(["d"]);
+  });
+
+  test("a job taken as a slot runs out of work is rendered, not stranded", async () => {
+    const rendered: string[] = [];
+    const worker = renderWorker(
+      async (job) => {
+        rendered.push(job.buildId);
+        return { ok: true, snapshots: 1 };
+      },
+      () => {},
+      { builds: 2 },
+    );
+    await worker.handle(post({ buildId: "a", token: "t" }));
+    await worker.handle(post({ buildId: "b", token: "t" }));
+    await worker.settled();
+    await worker.handle(post({ buildId: "c", token: "t" }));
+    await worker.settled();
+    expect(rendered).toEqual(["a", "b", "c"]);
+  });
+
   test("a stop with nothing rendering resolves at once", async () => {
     const worker = renderWorker(gatedRender().render, () => {}, { store: memoryStore() });
     await worker.stop();
@@ -196,7 +249,7 @@ describe("the render worker", () => {
     expect(await (await worker.handle(new Request("http://127.0.0.1:3100/health"))).json()).toEqual(
       {
         queued: 1,
-        rendering: null,
+        rendering: [],
       },
     );
   });
