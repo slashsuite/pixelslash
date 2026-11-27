@@ -21,13 +21,8 @@ const MIGRATIONS = join(import.meta.dirname, "../../drizzle");
  * start from.
  */
 
-/**
- * An in-memory SQLite with the real migrations applied, behind the same async Drizzle API
- * D1 gives in production. Tests only: no network, no Cloudflare account. Runs under Bun (`bun --bun vitest`).
- * `beforeQuery` sees each statement before it runs and may run SQL of its own, to put a write
- * between a read and the write that follows it.
- */
-export function testDb(beforeQuery?: (query: string, exec: (sql: string) => void) => void) {
+/** An in-memory SQLite with foreign keys on and the real migrations applied. */
+function migratedSqlite(): DatabaseSync {
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec("PRAGMA foreign_keys = ON");
   for (const file of readdirSync(MIGRATIONS)
@@ -39,6 +34,17 @@ export function testDb(beforeQuery?: (query: string, exec: (sql: string) => void
       sqlite.exec(stmt);
     }
   }
+  return sqlite;
+}
+
+/**
+ * An in-memory SQLite with the real migrations applied, behind the same async Drizzle API
+ * D1 gives in production. Tests only: no network, no Cloudflare account. Runs under Bun (`bun --bun vitest`).
+ * `beforeQuery` sees each statement before it runs and may run SQL of its own, to put a write
+ * between a read and the write that follows it.
+ */
+export function testDb(beforeQuery?: (query: string, exec: (sql: string) => void) => void) {
+  const sqlite = migratedSqlite();
   const one = (query: string, params: SQLInputValue[], method: string) => {
     beforeQuery?.(query, (sql) => sqlite.exec(sql));
     const stmt = sqlite.prepare(query);
@@ -91,6 +97,50 @@ export async function d1Db(): Promise<{ db: Db; d1: D1Database; dispose: () => P
     }
   }
   return { db: drizzleD1(proxy.env.DB), d1: proxy.env.DB, dispose: () => proxy.dispose() };
+}
+
+/**
+ * A D1 binding over an in-memory SQLite with the real migrations applied: the slice of
+ * `D1Database` that Drizzle's D1 driver and the Worker's own reads use (`prepare`, `bind`, `run`,
+ * `all`, `raw`, `first`; no `batch`). For a test that hands the Worker its bindings and needs no D1
+ * limit, so it does not pay `d1Db()`'s seconds of booting workerd. `db` is Drizzle over the same
+ * binding.
+ */
+export function memoryD1(): { db: Db; d1: D1Database } {
+  const sqlite = migratedSqlite();
+  const size = () => {
+    const [pages] = Object.values(sqlite.prepare("PRAGMA page_count").get() ?? {});
+    const [bytes] = Object.values(sqlite.prepare("PRAGMA page_size").get() ?? {});
+    return Number(pages) * Number(bytes);
+  };
+  const meta = (changes = 0) => ({ changes, size_after: size(), duration: 0 });
+  const statement = (query: string, params: SQLInputValue[] = []) => {
+    const rows = (arrays: boolean) => {
+      const stmt = sqlite.prepare(query);
+      stmt.setReturnArrays(arrays);
+      return stmt.all(...params);
+    };
+    const run = async () => {
+      const { changes } = sqlite.prepare(query).run(...params);
+      return { success: true, results: [], meta: meta(Number(changes)) };
+    };
+    return {
+      bind: (...values: SQLInputValue[]) => statement(query, values),
+      run,
+      all: async () => ({ success: true, results: rows(false), meta: meta() }),
+      raw: async () => rows(true),
+      first: async () => rows(false)[0] ?? null,
+    };
+  };
+  // Only `prepare`: nothing the Worker's sweep runs batches.
+  const d1: unknown = { prepare: (query: string) => statement(query) };
+  if (!isD1(d1)) throw new Error("memoryD1 builds a binding with prepare");
+  return { db: drizzleD1(d1), d1 };
+}
+
+/** The slice of `D1Database` `memoryD1()` builds. */
+function isD1(x: unknown): x is D1Database {
+  return typeof x === "object" && x !== null && "prepare" in x;
 }
 
 /** Ada, the user a seeded store signs in. */

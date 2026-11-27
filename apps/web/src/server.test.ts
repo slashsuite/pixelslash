@@ -1,12 +1,13 @@
 import { eq } from "drizzle-orm";
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { ABANDONED_AFTER_MS, ABANDONED_REASON } from "#/db/abandoned";
 import { must } from "#/test/must";
 import { builds } from "#/db/schema";
-import { d1Db, seededStore } from "#/test/store";
+import { memoryD1, seededStore } from "#/test/store";
 
 // The Worker reads its bindings from `cloudflare:workers`, which Node does not have: the test hands it
-// a real local D1 and an R2 bucket over a map, and the Worker's own env module reads them.
+// a D1 binding over in-memory SQLite and an R2 bucket over a map, and the Worker's own env module reads
+// them. Not `d1Db()`: booting workerd took 3 to 4 of the default 5 seconds, so a loaded run timed out.
 const bindings = vi.hoisted(() => ({ env: {} as Record<string, unknown> }));
 vi.mock("cloudflare:workers", () => bindings);
 vi.mock("@tanstack/react-start/server-entry", () => ({ default: { fetch: () => new Response() } }));
@@ -31,15 +32,9 @@ function r2Bucket(objects: Map<string, Listed>) {
   };
 }
 
-const disposers: (() => Promise<void>)[] = [];
-afterEach(async () => {
-  for (const dispose of disposers.splice(0)) await dispose();
-});
-
 describe("the Worker's scheduled sweep", () => {
   test("with retention off it still ends an abandoned build, and deletes nothing", async () => {
-    const d1 = await d1Db();
-    disposers.push(d1.dispose);
+    const d1 = memoryD1();
     const { db, org, project } = await seededStore({ db: d1.db });
     await db.insert(builds).values({
       id: "gone",
