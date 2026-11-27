@@ -7,6 +7,17 @@ release is the tag `v<version>` (see `.github/workflows/release.yml`).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-27
+
+### Added
+
+- A route can list `actions` to run on its settled page before the shot: `{ click }`, `{ hover }`,
+  `{ type, text }` and `{ advance: ms }`. `advance` moves the paused page clock by exactly that many ms,
+  so a UI that opens on a click and shows a panel after a timer can be shot in either state and stays
+  byte-stable. Stories take the same through `storybook.actions`, keyed by story id. An `advance`
+  without `stabilise.timers` is a config error, and a failing action fails the shot and names itself
+  (#340).
+
 ### Fixed
 
 - In GitHub Actions, `upload` sends the run's `GITHUB_RUN_ID`. A review app with a bundle renderer uses it to
