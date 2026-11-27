@@ -56,12 +56,15 @@ describe("check-workflows", () => {
     ["wrangler d1 export db --output dump2>/dev/null >&2", 1],
     ['wrangler d1 export db --output x2>"$RUNNER_TEMP/e" 2>&1', 0],
     ["wrangler d1 export db --output x # &> /dev/null", 1],
+    ['echo "step #1" && wrangler d1 export db --output x', 1],
+    ["wrangler d1 export db --output x 2>/dev/null 10>/dev/null", 1],
     // A later redirect undoes an earlier sink.
     ["wrangler d1 export db --output x &> /dev/null 2>&1 2>&2 1>&2 >out.log", 1],
     ['wrangler d1 export db --output x > "$RUNNER_TEMP/log" 2>&1 2> err.log', 1],
     // Only the export's own redirects count, not the next command's.
     ['wrangler d1 export db --output x && echo ok > "$RUNNER_TEMP/log" 2>&1', 1],
     ["wrangler d1 export db --output x; echo ok &> /dev/null", 1],
+    ["wrangler d1 export db --output x & echo ok > /dev/null 2>&1", 1],
     // A pipe takes stdout to another command; `|&` takes stderr too.
     ["wrangler d1 export db --output x 2> /dev/null | tee y", 1],
     ["wrangler d1 export db --output x 2> /dev/null |& cat", 1],

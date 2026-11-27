@@ -47,10 +47,12 @@ function forbiddenRunner(runsOn: unknown): boolean {
 const EXPORT = /\bd1\s+export\b/;
 const SINK = /^["']?(?:\$RUNNER_TEMP\/|\$\{RUNNER_TEMP\}\/|\/dev\/null\b)/;
 // A command list's separators, longest first, so `||` is not read as two pipes.
-const SEPARATOR = /(\|\||&&|\|&|;|\|)/;
+// A lone `&` (run in the background) ends a command too; the `&` of `&>`, `>&` and `2>&1` does not.
+const SEPARATOR = /(\|\||&&|\|&|;|\||(?<![>&])&(?![>&]))/;
 // A redirect: `&>`, `&>>`, `>&` or `[n]>`, `[n]>>`, `[n]>&`, then its target. The shell reads n as a
-// descriptor only when it starts a word: `dump2>f` is the word `dump2` and then `>f`.
-const REDIRECT = /(&>>?|((?<!\S)\d)?>>?(&?))\s*("[^"]*"|'[^']*'|[^\s;|&<>]+)/g;
+// descriptor only when it is a whole word up to the `>`: `dump2>f` is the word `dump2` and then `>f`,
+// and `10>f` is descriptor 10, never `>f` after a `10`.
+const REDIRECT = /(&>>?|(?:(?<!\S)(\d+)|(?<!(?<!\S)\d+))>>?(&?))\s*("[^"]*"|'[^']*'|[^\s;|&<>]+)/g;
 // A comment to the end of the line: the shell never reads a redirect in it.
 const COMMENT = /(?:^|\s)#.*$/;
 
@@ -100,7 +102,9 @@ function outputs(segment: string, piped: "" | "|" | "|&"): [Fd, Fd] {
 /** Whether a shell line runs `d1 export` with its stdout or stderr left on the log. */
 function exportLeaks(line: string): boolean {
   if (!EXPORT.test(line) || line.trimStart().startsWith("#")) return false;
-  const parts = line.replace(COMMENT, "").split(SEPARATOR);
+  // Only after the export: a `#` before it may sit inside quotes.
+  const at = line.search(EXPORT);
+  const parts = (line.slice(0, at) + line.slice(at).replace(COMMENT, "")).split(SEPARATOR);
   // Even indices are commands, odd ones the separators between them.
   return parts.some((part, i) => {
     if (i % 2 || !EXPORT.test(part)) return false;
