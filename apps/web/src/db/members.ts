@@ -1,5 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import { type Db, ForbiddenError, NotFoundError } from "./db";
+import { dropInvitesOf } from "./invites";
 import { requireMember } from "./orgs";
 import { type MemberRole, members } from "./schema";
 
@@ -61,7 +62,11 @@ async function guarded(
   throw new LastOwnerError();
 }
 
-/** An owner removes a member (themselves included, unless the last owner). Only the membership goes: org tokens stay. */
+/**
+ * An owner removes a member (themselves included, unless the last owner). The membership goes, and
+ * every pending invite naming them or sent by them (an email of theirs the server has not seen yet
+ * included), so no sign-in puts them back; org tokens stay.
+ */
 export async function removeMember(
   db: Db,
   ownerId: string,
@@ -70,6 +75,7 @@ export async function removeMember(
 ): Promise<void> {
   await requireOwner(db, ownerId, orgId);
   await guarded(db, orgId, userId, "remove");
+  await dropInvitesOf(db, orgId, userId, { sentByThem: true });
 }
 
 /** An owner makes a member an owner, or steps an owner (themselves included) down, unless the last. */
@@ -93,4 +99,5 @@ export async function setMemberRole(
 export async function leaveOrg(db: Db, userId: string, orgId: string): Promise<void> {
   await requireMember(db, userId, orgId);
   await guarded(db, orgId, userId, "remove");
+  await dropInvitesOf(db, orgId, userId, { sentByThem: false });
 }

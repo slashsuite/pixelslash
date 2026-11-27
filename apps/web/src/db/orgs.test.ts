@@ -2,19 +2,12 @@ import { describe, expect, test } from "vitest";
 import { ForbiddenError, NotFoundError } from "./db";
 import { LastOwnerError, leaveOrg, removeMember, setMemberRole } from "./members";
 import { clearOrgModel, setOrgModel } from "./models";
-import {
-  createOrg,
-  createProject,
-  getProject,
-  getProjectWithOrg,
-  inviteMember,
-  listOrgs,
-  withdrawInvite,
-} from "./orgs";
+import { createOrg, createProject, getProject, getProjectWithOrg, listOrgs } from "./orgs";
+import { inviteMember, withdrawInvite } from "./invites";
 import { issueOrgToken, listOrgTokens, revokeOrgToken } from "./tokens";
 import { builds, snapshots } from "./schema";
 import { TEST_MODEL_KEY_SECRET, testDb } from "#/test/store";
-import { createSession, endSession, sessionUser, signInGithubUser } from "./users";
+import { signInGithubUser } from "./users";
 import { must } from "#/test/must";
 
 const profile = (githubId: number, login: string) => ({
@@ -318,6 +311,22 @@ describe("roles", () => {
     expect(Object.values(await roles(db, alice.id)).filter((r) => r === "owner")).toHaveLength(1);
   });
 
+  test("a removed member does not rejoin by an invite on their next sign-in", async () => {
+    const { db, org, alice, bob } = await acmeOrg();
+    // Bob's email, which the server has not seen yet, invited by him before he goes; and no
+    // invite for someone already in.
+    await inviteMember(db, bob, org.id, "bob@example.com");
+    await expect(inviteMember(db, alice, org.id, "BOB")).rejects.toThrow(
+      "bob is already a member of this organization.",
+    );
+    await removeMember(db, alice.id, org.id, bob.id);
+    expect(must((await listOrgs(db, alice.id))[0], "the org").invites).toEqual([]);
+
+    await signInGithubUser(db, { ...profile(2, "bob"), email: "bob@example.com" });
+    expect(await listOrgs(db, bob.id)).toEqual([]);
+    expect(await roles(db, alice.id)).toEqual({ alice: "owner" });
+  });
+
   test("any member can leave, and is then out of the org", async () => {
     const { db, org, alice, bob, eve } = await acmeOrg();
     await leaveOrg(db, bob.id, org.id);
@@ -325,19 +334,5 @@ describe("roles", () => {
     expect(await roles(db, alice.id)).toEqual({ alice: "owner" });
     await expect(leaveOrg(db, bob.id, org.id)).rejects.toThrow(NotFoundError);
     await expect(leaveOrg(db, eve.id, org.id)).rejects.toThrow(NotFoundError);
-  });
-});
-
-describe("sessions", () => {
-  test("a session resolves its user until it expires or ends", async () => {
-    const db = testDb();
-    const user = await signInGithubUser(db, profile(1, "alice"));
-    const now = new Date("2026-10-19T00:00:00Z");
-    const token = await createSession(db, user.id, now);
-
-    expect((await sessionUser(db, token, now))?.id).toBe(user.id);
-    expect(await sessionUser(db, token, new Date("2026-12-01T00:00:00Z"))).toBeNull();
-    await endSession(db, token);
-    expect(await sessionUser(db, token, now)).toBeNull();
   });
 });

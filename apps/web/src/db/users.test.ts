@@ -1,7 +1,15 @@
 import { describe, expect, test } from "vitest";
-import { createOrg, inviteMember, listOrgs } from "./orgs";
+import { inviteMember } from "./invites";
+import { createOrg, listOrgs } from "./orgs";
 import { testDb } from "#/test/store";
-import { EmailInUseError, signInGithubUser, signInGoogleUser } from "./users";
+import {
+  EmailInUseError,
+  createSession,
+  endSession,
+  sessionUser,
+  signInGithubUser,
+  signInGoogleUser,
+} from "./users";
 
 /** Sign in with Google beside GitHub (PS-274): one user per person, met on a verified email. */
 
@@ -130,5 +138,19 @@ describe("invites by email or GitHub login", () => {
     expect(await listOrgs(db, g.id)).toEqual([]);
     const carol = await signInGithubUser(db, github(3, "carol"));
     expect((await listOrgs(db, carol.id)).map((o) => o.id)).toEqual([org.id]);
+  });
+});
+
+describe("sessions", () => {
+  test("a session resolves its user until it expires or ends", async () => {
+    const db = testDb();
+    const user = await signInGithubUser(db, github(1, "alice"));
+    const now = new Date("2026-10-19T00:00:00Z");
+    const token = await createSession(db, user.id, now);
+
+    expect((await sessionUser(db, token, now))?.id).toBe(user.id);
+    expect(await sessionUser(db, token, new Date("2026-12-01T00:00:00Z"))).toBeNull();
+    await endSession(db, token);
+    expect(await sessionUser(db, token, now)).toBeNull();
   });
 });

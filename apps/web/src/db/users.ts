@@ -139,7 +139,7 @@ async function acceptInvites(db: Db, user: User): Promise<void> {
   for (const part of chunk(pending, 0, 2))
     await db
       .insert(members)
-      .values(part.map((i) => ({ orgId: i.orgId, userId: user.id })))
+      .values(part.map((i) => ({ orgId: i.orgId, userId: user.id, role: "member" as const })))
       .onConflictDoNothing();
   await db.delete(invites).where(matching);
 }

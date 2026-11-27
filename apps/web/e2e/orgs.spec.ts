@@ -131,7 +131,7 @@ function addPeople(orgId: string) {
   return people;
 }
 
-/** The members tab as an owner, then as a member: an owner removes a member; a member has no controls on anyone else. */
+/** The members tab as an owner, then as a member: an owner removes a member; a member has no controls on anyone else's row, nor on org tokens or the org's model. */
 test("an owner removes a member, and a member sees no controls on anyone else's row", async ({
   page,
   provision,
@@ -150,14 +150,29 @@ test("an owner removes a member, and a member sees no controls on anyone else's 
   await expect(page.getByTestId("member-row")).toHaveCount(2);
   await expect(row(people.member)).toHaveCount(0);
 
-  // Stepped down by another owner: the viewer is now a member.
+  // Stepped down by another owner while the page is open: the next click is a 403 that says why.
   sql(`UPDATE members SET role = 'member' WHERE org_id = '${orgId}' AND user_id = ${VIEWER}`);
+  const refused = page.waitForResponse((res) => res.request().method() === "POST");
+  await row(people.owner)
+    .getByRole("button", { name: `Remove ${people.owner}` })
+    .click();
+  expect((await refused).status()).toBe(403);
+  await expect(row(people.owner).getByRole("alert")).toHaveText(
+    "Only an owner of this organization can do that.",
+  );
   await page.reload();
   await expectHydrated(page);
   await expect(row("e2e-octocat").getByTestId("member-role")).toHaveText("member");
   await expect(row(people.owner).getByRole("button")).toHaveCount(0);
   // On their own row a member can only leave.
   await expect(row("e2e-octocat").getByRole("button")).toHaveText(["Leave"]);
+  // Org tokens and the org's model are an owner's: a member reads them and changes nothing.
+  await open(page, `/orgs?org=${orgId}&tab=tokens`);
+  await expect(page.getByText("Only an owner issues and revokes org tokens.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Issue org token" })).toHaveCount(0);
+  await open(page, `/orgs?org=${orgId}&tab=model`);
+  await expect(page.getByText("Only an owner sets the org's model.")).toBeVisible();
+  await expect(page.getByTestId("model-base-url")).toBeDisabled();
 });
 
 /** The settings page's diff location form: a save survives a reload. What a CI project's upload then does is `local-build/upload.local-build.test.ts`. */

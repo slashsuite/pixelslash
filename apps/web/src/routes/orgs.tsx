@@ -273,11 +273,18 @@ function OrgPanel({
   onWithdraw: (invite: OrgOverview["invites"][number]) => Promise<unknown>;
   memberActions: MemberActions;
 }) {
+  const isOwner = org.members.some((m) => m.login === viewerLogin && m.role === "owner");
   return (
     <>
       <OrgHeader org={org} tab={tab} hydrated={hydrated} onDialog={onDialog} />
       {tab === "tokens" && (
-        <OrgTokensPanel orgId={org.id} orgName={org.name} tokens={tokens} hydrated={hydrated} />
+        <OrgTokensPanel
+          orgId={org.id}
+          orgName={org.name}
+          tokens={tokens}
+          hydrated={hydrated}
+          isOwner={isOwner}
+        />
       )}
       {tab === "model" && (
         <ModelSettings
@@ -285,6 +292,7 @@ function OrgPanel({
           scope={{ kind: "org", orgId: org.id }}
           saved={model}
           hydrated={hydrated}
+          lockedReason={isOwner ? undefined : "Only an owner sets the org's model."}
         />
       )}
       {tab === "timings" && timings && <TimingsPanel projects={timings} />}

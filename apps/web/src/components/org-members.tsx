@@ -168,7 +168,7 @@ export function MembersPanel({
         <Stack divided>
           {org.members.map((member) => (
             <MemberRow
-              key={member.userId}
+              key={`${org.id}:${member.userId}`}
               member={member}
               isViewer={member.login === viewerLogin}
               viewerIsOwner={viewerIsOwner}

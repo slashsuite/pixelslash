@@ -1,16 +1,25 @@
 import { notFound } from "@tanstack/react-router";
+import { createServerOnlyFn } from "@tanstack/react-start";
+import { setResponseStatus } from "@tanstack/react-start/server";
 import { ForbiddenError, NotFoundError } from "#/db/db";
 
 /**
  * A repository NotFoundError (missing, or another org's) becomes the router's 404. A refusal the
- * viewer should read (not an owner, the last owner) keeps its message on the way to the client.
+ * viewer should read (not an owner, the last owner) is a 403 that keeps its message on the way to
+ * the client: a server fn replies to what its handler throws itself, so the status is set here.
  */
+/** Runs only in a server fn's handler; the client build drops it, and the server-only import with it. */
+const forbidden = createServerOnlyFn(() => setResponseStatus(403));
+
 export async function or404<T>(work: Promise<T>): Promise<T> {
   try {
     return await work;
   } catch (error) {
     if (error instanceof NotFoundError) throw notFound();
-    if (error instanceof ForbiddenError) throw new Error(error.message, { cause: error });
+    if (error instanceof ForbiddenError) {
+      forbidden();
+      throw new Error(error.message, { cause: error });
+    }
     throw error;
   }
 }
