@@ -455,6 +455,41 @@ the top level's plus the env, so forgetting `CLOUDFLARE_ENV=production` publishe
 [`SELF-HOST.md`](SELF-HOST.md).) It is still a production build to the stub guard: it refuses to start
 pointed at anything but github.com.
 
+### From CI: the deploy workflow
+
+Production deploys run from `.github/workflows/deploy.yml`. Every push to `main` starts it: it waits for that
+commit's CI run, and once CI succeeds the `deploy` job asks for approval in the `production` environment. After
+one click (the run's page, **Review deployments**) it runs the steps below in order: the production build, the
+D1 migrations, `wrangler deploy` with `SENTRY_RELEASE`, `scripts/check-commit.ts` and `web:smoke`. A deploy
+nobody approves just waits; reject it to drop it. One runs at a time and a running one is never cancelled.
+
+To deploy (or roll back to) a given commit on `main`, run it by hand with that sha; it still needs CI green on
+that commit and the same approval:
+
+```bash
+gh workflow run deploy.yml -f sha=<sha on main>    # -f sha=main for the tip
+```
+
+The `production` environment is set up once. Only `main` may deploy to it, the repo owner is its required
+reviewer, and it alone holds the three secrets (`<reviewer-user-id>` is `gh api users/<login> --jq .id`):
+
+```bash
+gh api -X PUT repos/slashsuite/pixelslash/environments/production --input - <<'EOF'
+{"reviewers":[{"type":"User","id":<reviewer-user-id>}],
+ "deployment_branch_policy":{"protected_branches":false,"custom_branch_policies":true}}
+EOF
+gh api -X POST repos/slashsuite/pixelslash/environments/production/deployment-branch-policies -f name=main -f type=branch
+printf '%s' "$CLOUDFLARE_API_TOKEN"  | gh secret set CLOUDFLARE_API_TOKEN  --env production
+printf '%s' "$CLOUDFLARE_ACCOUNT_ID" | gh secret set CLOUDFLARE_ACCOUNT_ID --env production
+printf '%s' "$SMOKE_TOKEN"           | gh secret set SMOKE_TOKEN           --env production   # the smoke account's token, below
+```
+
+The Cloudflare token is the scoped deploy token described next; never paste a token on the command line.
+
+### By hand: the fallback
+
+When the workflow cannot run (GitHub down, a broken runner), deploy from a clean checkout at the commit.
+
 Deploy with an API token, not `wrangler login`, so the credentials are scoped and the commands are repeatable.
 Create the token in your Cloudflare dashboard under **My Profile → API Tokens → Create Token** (a custom
 token), with these permissions:

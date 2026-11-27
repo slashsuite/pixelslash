@@ -1,0 +1,140 @@
+name: Deploy
+
+# Deploys the review app to production (`env.production` in apps/web/wrangler.jsonc, pixelslash.dev) from CI,
+# so a fix ships without the maintainer's shell. The steps are apps/web/README.md's "Deploy to Cloudflare",
+# in its order: build, migrate, deploy, check the live commit, smoke.
+#
+# Two ways in:
+# - A push to main: `ci` waits for that commit's CI run (ci.yml, the push on main) and goes on only when it
+#   succeeded, then `deploy` deploys that head sha.
+# - A manual run (workflow_dispatch) with a sha, `main` by default: the same, for a commit on main whose CI
+#   push run succeeded. That is how a deploy someone rejected is run again, or an older commit rolled back to.
+#
+# This waits on CI from inside a push run rather than triggering on `workflow_run`, which
+# scripts/check-workflows.ts refuses: a fork's pull request can drive a workflow_run with secrets.
+#
+# `deploy` runs in the `production` environment. Only `main` may deploy to it, it has a required reviewer
+# (every deploy waits for one approval), and it alone holds the secrets: CLOUDFLARE_API_TOKEN,
+# CLOUDFLARE_ACCOUNT_ID and SMOKE_TOKEN (the smoke account's token, apps/web/smoke). Its setup is in
+# apps/web/README.md. Actions are pinned to a commit; the tag is in the comment.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: The commit on main to deploy (a sha, or main for its tip)
+        required: true
+        default: main
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    # CI on main takes about half an hour; the wait is bounded by this.
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      # The commit to deploy, in full, and on main: a manual run may name a sha, never one off main.
+      - id: sha
+        env:
+          WANTED: ${{ github.event_name == 'workflow_dispatch' && inputs.sha || github.sha }}
+        run: |
+          sha="$(git rev-parse --verify --quiet "${WANTED}^{commit}")" || {
+            echo "::error::$WANTED is not a commit in this repository"
+            exit 1
+          }
+          if ! git merge-base --is-ancestor "$sha" origin/main; then
+            echo "::error::$sha is not on main"
+            exit 1
+          fi
+          echo "deploying $sha"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+      # The newest CI run of a push on main for that commit. A run not there yet (both workflows start on
+      # the same push) or not finished is asked again every 30 s; any conclusion but success stops here.
+      - name: Wait for CI on that commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.sha.outputs.sha }}
+        run: |
+          while true; do
+            run="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$SHA&event=push&branch=main&per_page=1" \
+              --jq '.workflow_runs[0] | select(.) | "\(.status) \(.conclusion) \(.html_url)"')"
+            if [ -z "$run" ]; then
+              echo "no CI run for $SHA yet"
+            else
+              read -r status conclusion url <<< "$run"
+              echo "CI $url: $status $conclusion"
+              if [ "$status" = "completed" ]; then
+                [ "$conclusion" = "success" ] && exit 0
+                echo "::error::CI on $SHA ended $conclusion: $url"
+                exit 1
+              fi
+            fi
+            sleep 30
+          done
+
+  deploy:
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # One production deploy at a time, and a running one is never cancelled (a deploy cut short could
+    # leave the migrations applied and the Worker not). A newer deploy waiting replaces an older one waiting.
+    concurrency:
+      group: production
+      cancel-in-progress: false
+    environment:
+      name: production
+      url: https://pixelslash.dev
+    env:
+      SHA: ${{ needs.ci.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.ci.outputs.sha }}
+          # moon diffs the head against MOON_BASE before any task runs (the smoke step), so the full history.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: .tool-versions
+      - run: bun install --frozen-lockfile
+      # Without CLOUDFLARE_ENV=production the build is the top level's (placeholder D1, no route), and
+      # wrangler deploy would publish a different Worker.
+      - name: Build env.production
+        working-directory: apps/web
+        run: CLOUDFLARE_ENV=production bun run build
+      # Before the deploy that needs them; the only step that changes the database.
+      - name: Apply the D1 migrations
+        working-directory: apps/web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: bunx wrangler d1 migrations apply pixelslash --remote --env production
+      - name: Deploy the Worker
+        working-directory: apps/web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: bunx wrangler deploy --var SENTRY_RELEASE:"$(git rev-parse --short HEAD)"
+      # The live page names the commit it was built from (apps/web/build-commit.ts); up to two minutes.
+      - name: Check the live commit
+        run: bun scripts/check-commit.ts https://pixelslash.dev/ "$SHA"
+      - name: Smoke
+        env:
+          MOON_BASE: origin/main
+          SMOKE_BASE_URL: https://pixelslash.dev
+          SMOKE_TOKEN: ${{ secrets.SMOKE_TOKEN }}
+        run: bunx moon run web:smoke
