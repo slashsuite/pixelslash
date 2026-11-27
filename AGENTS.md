@@ -68,8 +68,8 @@ the sample in its own npm pull request).
 
 **Workflows stay safe for a public repo.** CI's `gate` job runs `bun scripts/check-workflows.ts
 .github/workflows/*.yml` first: no job on a runner of our own (`runs-on` naming `self-hosted` or
-`proxmox`, or an expression), and no trigger but `push`, `pull_request`, `workflow_dispatch` and
-`workflow_call`.
+`proxmox`, or an expression), and no trigger but `push`, `pull_request`, `workflow_dispatch`,
+`workflow_call` and `schedule` (which runs only on `main`, so no fork can drive it).
 
 A change is green when all of these pass **from the worktree**:
 
@@ -349,7 +349,11 @@ our own code. Do not offer "borrow their X" as an option.
 
 Every commit, branch and PR is published as soon as it is pushed. Keep secrets, LAN addresses, home
 paths, ticket internals and commercial plans out of all of them. Prefer permissive or public-domain
-dependencies.
+dependencies. Actions logs are public too: a workflow step prints nothing that holds data or a link to it
+(`check-workflows.ts` keeps `wrangler d1 export`, which prints a presigned link to the dump, off the log).
+
+Agents never run `wrangler d1 time-travel restore` against the production database: it overwrites it in
+place. A restore goes into a new database (`apps/web/README.md`, "Backups and restore").
 
 ## Repo invariants
 
