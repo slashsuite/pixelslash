@@ -114,11 +114,18 @@ export type UploadResult = {
   timings: Timings;
 } & FlakeOutcome;
 
+/** How many finalises in a row may measure nothing before the CLI gives up on the build. */
+const FINALISE_STALLS = 3;
+/** How long the CLI keeps finalising a build the server has not finished measuring, in all. */
+const FINALISE_BUDGET_MS = 10 * 60_000;
+
 /**
  * Finalise, and again while the server's diff runs out of budget with shots left (ob 1645). The
  * server resumes: a finalise sent again measures only what is not yet measured, so this is the
- * CLI doing what a person would otherwise click. It goes on only while the count left falls, so a
- * build that is failing for another reason is tried once more and then given up, never looped.
+ * CLI doing what a person would otherwise click. A slow shot can use a whole run's budget and
+ * measure nothing (one shot took 11 s on a wide change), so a count that does not fall is not the end: the CLI
+ * gives up after FINALISE_STALLS such replies in a row, or once FINALISE_BUDGET_MS has passed. An
+ * errored reply with no count left is failing for another reason and is not tried again.
  */
 async function finalise(
   client: Client,
@@ -126,7 +133,9 @@ async function finalise(
   count: number,
   timings: Timings | undefined,
 ): Promise<unknown> {
+  const started = Date.now();
   let left = Infinity;
+  let stalls = 0;
   for (;;) {
     const reply = await send(client, {
       step: "finalize",
@@ -136,9 +145,11 @@ async function finalise(
     });
     if (!isObj(reply) || reply.status !== "errored") return reply;
     const now = reply.unmeasured;
-    if (typeof now !== "number" || now <= 0 || now >= left) return reply;
+    if (typeof now !== "number" || now <= 0) return reply;
+    stalls = now < left ? 0 : stalls + 1;
+    left = Math.min(left, now);
+    if (stalls >= FINALISE_STALLS || Date.now() - started >= FINALISE_BUDGET_MS) return reply;
     client.warn(`upload: ${now} of ${count} shots still to measure on the server; continuing`);
-    left = now;
   }
 }
 
