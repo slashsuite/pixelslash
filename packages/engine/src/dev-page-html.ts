@@ -33,14 +33,14 @@ export const DEV_PAGE_HTML = `<!doctype html>
     ol li.pin { box-shadow: inset 0 -2px 0 #9cf; }
     ol li.current { background: #223; }
     a { color: #9cf; }
-    h3 { font-size: 13px; margin: 16px 0 8px; }
+    h3 { font-size: 14px; margin: 16px 0 8px; }
     pre { white-space: pre-wrap; background: #181818; border: 1px solid #333; padding: 12px; margin: 0; }
     .pair { margin: 0 0 24px; }
     .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
     .boxed { position: relative; display: inline-block; max-width: 100%; line-height: 0; }
     .boxed img { display: block; max-width: 100%; }
     .box { position: absolute; border: 2px solid #f0f; box-sizing: border-box; }
-    .box span { position: absolute; top: 0; left: 0; background: #f0f; color: #000; font: 600 11px/1.4 ui-sans-serif, system-ui, sans-serif; padding: 0 4px; }
+    .box span { position: absolute; top: 0; left: 0; background: #f0f; color: #000; font: 600 14px/1.4 ui-sans-serif, system-ui, sans-serif; padding: 0 4px; }
     .onion { position: relative; overflow: hidden; max-width: 100%; border: 1px solid #333; background: #fff; margin: 8px 0 4px; }
     .onion img { position: absolute; top: 0; left: 0; max-width: none; border: 0; background: none; }
     .slider { display: flex; gap: 8px; align-items: center; color: #888; }

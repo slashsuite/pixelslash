@@ -58,7 +58,7 @@ export const BOX_CSS = `.ignore { position: absolute; box-sizing: border-box; po
     .box.noise { border: 1px dashed #8a8a8a; }
     .box.shift { border: 2px dotted #4dd0e1; }
     .box.moved { border: 2px dashed #7bd88f; }
-    .regions { margin: 12px 0 0; padding: 0 0 0 20px; color: #ccc; font-size: 12px; }
+    .regions { margin: 12px 0 0; padding: 0 0 0 20px; color: #ccc; font-size: 14px; }
     .regions .noise { color: #888; }
     .regions .shift { color: #4dd0e1; }
     .regions .moved { color: #7bd88f; }`;

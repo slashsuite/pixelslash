@@ -85,11 +85,11 @@ function cell(ms: number | undefined): string {
 }
 
 const CSS = `.timings h2 { font-size: 14px; margin: 0 0 12px; }
-    .timings table { border-collapse: collapse; font-size: 12px; }
+    .timings table { border-collapse: collapse; font-size: 14px; }
     .timings th, .timings td { text-align: left; padding: 2px 16px 2px 0; color: #ccc; font-weight: normal; }
     .timings th { color: #aaa; }
     .timings tfoot td { border-top: 1px solid #333; }
-    .timings .note { font-size: 12px; color: #aaa; margin: 8px 0 0; }`;
+    .timings .note { font-size: 14px; color: #aaa; margin: 8px 0 0; }`;
 
 /**
  * The report's small timings table: one row per shot, slowest first, then the run's totals. It
