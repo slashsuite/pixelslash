@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { operatorHealth } from "./admin-health";
 import { P99_MIN_COMPARES, percentile } from "#/lib/timings";
 import { baseline, build, setup, shots } from "./compares-test-kit";
+import { must } from "#/test/must";
 
 const now = new Date("2026-11-05T12:00:00Z");
 const MIN = 60 * 1000;
@@ -150,7 +151,7 @@ describe("the operator page's window figures (PS-342)", () => {
       times.slice(300, P99_MIN_COMPARES - 1).map((ms) => server(ms)),
     );
     expect((await windowOf(db)).perSnapshot).toMatchObject({ n: P99_MIN_COMPARES - 1, p99: null });
-    await shots(db, b, [server(times[P99_MIN_COMPARES - 1] ?? 0)]);
+    await shots(db, b, [server(must(times[P99_MIN_COMPARES - 1], "the last time"))]);
     const sorted = times.toSorted((x, y) => x - y);
     expect((await windowOf(db)).perSnapshot).toEqual({
       p50: percentile(sorted, 0.5),

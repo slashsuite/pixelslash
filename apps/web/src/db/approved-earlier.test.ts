@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { type Ctx, context, onlyShot, sha, upload } from "#/diff/test-builds";
 import { RED, shot } from "#/diff/test-shots";
 import { acceptAllSnapshots, buildView, reviewSnapshot } from "./review";
+import { must } from "#/test/must";
 
 /**
  * An unchanged shot whose change from the default branch was accepted on an earlier build of the
@@ -38,8 +39,7 @@ async function acceptedOnBuildOne() {
   const ctx = await context();
   await upload(ctx, { branch: "main", commit: sha(1), shots: [{ png: white }] });
   const first = await upload(ctx, onBranch(2, red));
-  const firstShot = await onlyShot(ctx, first);
-  if (!firstShot) throw new Error("no shot");
+  const firstShot = must(await onlyShot(ctx, first), "the first build's shot");
   await accept(ctx, firstShot.id);
   return { ctx, first, firstShot };
 }
@@ -78,8 +78,7 @@ describe("approved earlier on this branch", () => {
     const ctx = await context();
     await upload(ctx, { branch: "main", commit: sha(1), shots: [{ png: white }] });
     const first = await upload(ctx, onBranch(2, red));
-    const firstShot = await onlyShot(ctx, first);
-    if (!firstShot) throw new Error("no shot");
+    const firstShot = must(await onlyShot(ctx, first), "the first build's shot");
     await accept(ctx, firstShot.id);
     // Main moves on to a different image, and the branch is rebased onto it (PS-562): the shot is
     // measured against main's new image, not the one the approval was given against.
@@ -117,8 +116,7 @@ describe("approved earlier on this branch", () => {
     // The branch's first shot has no main shot at its merge-base, so it is new against main.
     await upload(ctx, { branch: "main", commit: sha(1), shots: [{ png: white, name: "other" }] });
     const first = await upload(ctx, onBranch(2, red));
-    const firstShot = await onlyShot(ctx, first);
-    if (!firstShot) throw new Error("no shot");
+    const firstShot = must(await onlyShot(ctx, first), "the first build's shot");
     await accept(ctx, firstShot.id);
     await upload(ctx, { branch: "main", commit: sha(4), shots: [{ png: blue }] });
     const second = await upload(ctx, {
@@ -171,8 +169,7 @@ describe("approved earlier on this branch", () => {
     const ctx = await context();
     await upload(ctx, { branch: "main", commit: sha(1), shots: [{ png: white }] });
     const first = await upload(ctx, onBranch(2, red));
-    const firstShot = await onlyShot(ctx, first);
-    if (!firstShot) throw new Error("no shot");
+    const firstShot = must(await onlyShot(ctx, first), "the first build's shot");
     await reviewSnapshot(ctx.db, {
       projectId: ctx.projectId,
       snapshotId: firstShot.id,

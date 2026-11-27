@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, test } from "vitest";
 import { getPlatformProxy } from "wrangler";
+import { must } from "#/test/must";
 
 /**
  * 0037 drops `snapshots_build_idx`, an index on `build_id` alone: the left prefix of the table's
@@ -49,7 +50,7 @@ describe("migration 0037", () => {
   test("drops only the build index, keeps the shot, and a lookup by build still uses an index", async () => {
     const db = await d1();
     expect(AT).toBeGreaterThan(0);
-    const sql = readFileSync(new URL(FILES[AT] ?? "", MIGRATIONS), "utf8");
+    const sql = readFileSync(new URL(must(FILES[AT], "the migration"), MIGRATIONS), "utf8");
     expect(sql.trim()).toBe("DROP INDEX `snapshots_build_idx`;");
     await apply(db, FILES.slice(0, AT));
     await db.batch([
@@ -63,7 +64,7 @@ describe("migration 0037", () => {
       ),
     ]);
     const before = await indexes(db);
-    await apply(db, [FILES[AT] ?? ""]);
+    await apply(db, [must(FILES[AT], "the migration")]);
 
     expect(before).toContain("snapshots_build_idx");
     expect(await indexes(db)).toEqual(before.filter((name) => name !== "snapshots_build_idx"));

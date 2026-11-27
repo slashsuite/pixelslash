@@ -7,6 +7,7 @@ import { baselinePairs, markStale } from "./stale-apply";
 import { projectStale, staleScope } from "./stale";
 import { setTwinProject, twinsOfBuild } from "./twins";
 import { type World, world } from "./twins-test-support";
+import { must } from "#/test/must";
 
 /** The stale rule (PS-297): a native twin is stale from a web change a person accepted until a person accepts the native shot. */
 
@@ -186,7 +187,7 @@ describe("markStale", () => {
     expect(stale?.staleOf).toBe(await idOf(w, "Button/primary", "linux"));
     expect(fresh?.staleOf).toBeNull();
     expect(
-      holdsChange({ diffStatus: "unchanged", carriedFrom: null, staleOf: stale?.staleOf ?? null }),
+      holdsChange({ diffStatus: "unchanged", carriedFrom: null, staleOf: must(stale).staleOf }),
     ).toBe(true);
     expect(holdsChange({ diffStatus: "unchanged", carriedFrom: null, staleOf: null })).toBe(false);
   });

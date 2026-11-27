@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { expect, open, test } from "./fixtures";
+import { expect, expectHydrated, open, test } from "./fixtures";
 import { uploadBuild } from "./api-upload";
 import { sql } from "./d1";
 import { highlightToggle, showPanel } from "./snapshot-viewer";
@@ -54,7 +54,7 @@ test("the compare view of the changed checkout shot", async ({ page, provision }
   await open(page, `/projects/${projectId}/builds/${buildId}`);
   await page.getByTestId("snapshot-row").first().getByRole("link").click();
   await expect(page).toHaveURL(/\/snapshots\//);
-  await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
+  await expectHydrated(page);
   // The review app's own diff counted what the CLI run did, so report.json describes this page.
   await showPanel(page);
   await expect(page.getByTestId("changed-px")).toHaveText(
@@ -70,12 +70,14 @@ test("the compare view of the changed checkout shot", async ({ page, provision }
   const highlight = highlightToggle(page);
   await highlight.click();
   await expect(highlight).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator('svg[aria-label="Measured regions"]').first()).toBeVisible();
+  await expect(
+    page.getByRole("img", { name: "Measured regions", exact: true }).first(),
+  ).toBeVisible();
   await page.mouse.move(0, 0);
   await highlight.blur();
   await page.evaluate(() => document.fonts.ready.then(() => undefined));
   // Both panes' pictures drawn, not just their frames.
-  const images = page.locator("main img");
+  const images = page.getByRole("main").getByRole("img", { name: /^cart / });
   await expect(images.first()).toBeVisible();
   await page.waitForFunction(() =>
     [...document.querySelectorAll("main img")].every(

@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/d1";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { describe, expect, onTestFinished, test } from "vitest";
 import { memoryStore } from "#/api/test-support";
 import { eq } from "drizzle-orm";
 import { type Uploads, diffFinalised, sha, upload } from "#/diff/test-builds";
@@ -9,9 +9,7 @@ import { retryBusy } from "./busy";
 import type { Build } from "./builds";
 import type { Db } from "./db";
 import { builds } from "./schema";
-import { createOrg, createProject } from "./orgs";
-import { d1Db } from "./test-d1";
-import { signInGithubUser } from "./users";
+import { d1Db, seededStore } from "#/test/store";
 
 /**
  * Rows written per uploaded build, as D1 counts them (`meta.rows_written`, which counts each index
@@ -117,26 +115,18 @@ const frozen = { now: () => 0 };
  */
 const LIMIT = { a: 708, b: 768, c: 758 };
 
-const tally: Tally = { rows: 0, byStatement: new Map() };
-/** The images a build stored, and their bytes: each is stored once per org, under its hash. */
-const images = { puts: 0, bytes: 0 };
-let held: { dispose: () => Promise<void> };
-let ctx: Uploads;
-
-beforeAll(async () => {
+/** The test's own local D1, its writes tallied, and the images it stored; disposed when the test ends. */
+async function world() {
+  const tally: Tally = { rows: 0, byStatement: new Map() };
+  /** The images a build stored, and their bytes: each is stored once per org, under its hash. */
+  const images = { puts: 0, bytes: 0 };
   const local = await d1Db();
-  held = local;
-  const db: Db = drizzle(retryBusy(counting(local.d1, tally)));
-  const user = await signInGithubUser(db, {
-    githubId: 1,
-    login: "ada",
-    name: null,
-    avatarUrl: null,
+  onTestFinished(() => local.dispose());
+  const { db, org, project } = await seededStore<Db>({
+    db: drizzle(retryBusy(counting(local.d1, tally))),
   });
-  const org = await createOrg(db, user.id, "Acme");
-  const project = await createProject(db, user.id, org.id, { name: "web", diffLocation: "server" });
   const scoped = orgBlobs(memoryStore().store, org.id);
-  ctx = {
+  const ctx: Uploads = {
     db,
     projectId: project.id,
     scoped: {
@@ -150,50 +140,49 @@ beforeAll(async () => {
       },
     },
   };
-}, 60_000);
 
-afterAll(() => held?.dispose());
+  async function counted<T>(run: () => Promise<T>) {
+    tally.rows = 0;
+    tally.byStatement.clear();
+    images.puts = 0;
+    images.bytes = 0;
+    const value = await run();
+    const breakdown = [...tally.byStatement].map(([k, v]) => `${k}: ${v}`).join(", ");
+    const stored = { ...images };
+    return { value, rows: tally.rows, byStatement: new Map(tally.byStatement), breakdown, stored };
+  }
 
-async function counted<T>(run: () => Promise<T>) {
-  tally.rows = 0;
-  tally.byStatement.clear();
-  images.puts = 0;
-  images.bytes = 0;
-  const value = await run();
-  const breakdown = [...tally.byStatement].map(([k, v]) => `${k}: ${v}`).join(", ");
-  const stored = { ...images };
-  return { value, rows: tally.rows, byStatement: new Map(tally.byStatement), breakdown, stored };
-}
+  async function measured(spec: Parameters<typeof upload>[1]) {
+    const { value: build, ...rest } = await counted(() => upload(ctx, spec, frozen));
+    return { build, ...rest };
+  }
 
-async function measured(spec: Parameters<typeof upload>[1]) {
-  const { value: build, ...rest } = await counted(() => upload(ctx, spec, frozen));
-  return { build, ...rest };
-}
+  /** Finalise a finished build again, as a retry of an errored one does: everything it holds stands. */
+  async function again(build: Build) {
+    await ctx.db.update(builds).set({ status: "errored" }).where(eq(builds.id, build.id));
+    return counted(() => diffFinalised(ctx, { ...build, status: "errored" }, frozen));
+  }
 
-/** Finalise a finished build again, as a retry of an errored one does: everything it holds stands. */
-async function again(build: Build) {
-  await ctx.db.update(builds).set({ status: "errored" }).where(eq(builds.id, build.id));
-  return counted(() => diffFinalised(ctx, { ...build, status: "errored" }, frozen));
+  /** Builds (a), (b) and (c), each measured. */
+  async function threeBuilds() {
+    const a = await measured({ branch: "main", commit: sha(1), shots: first });
+    const b = await measured({ branch: "main", commit: sha(2), ancestors: [sha(1)], shots: mix });
+    const c = await measured({ branch: "feat", commit: sha(3), mergeBase: sha(1), shots: mix });
+    return { a, b, c };
+  }
+
+  return { again, threeBuilds };
 }
 
 /** The rows written by updates of shot rows: what a run that changes nothing should send none of. */
 const shotUpdates = (byStatement: Map<string, number>) =>
   [...byStatement].filter(([k]) => k.startsWith("update snapshots"));
 
-let finished: { b: Build; c: Build } | undefined;
-
 describe(`rows written per build of ${SHOTS} shots, on a local D1`, () => {
   test("each build writes no more rows than its limit", async () => {
-    const a = await measured({ branch: "main", commit: sha(1), shots: first });
+    const { a, b, c } = await (await world()).threeBuilds();
     expect(a.build.status).toBe("passed");
-    const b = await measured({
-      branch: "main",
-      commit: sha(2),
-      ancestors: [sha(1)],
-      shots: mix,
-    });
     expect(b.build.status).toBe("passed");
-    const c = await measured({ branch: "feat", commit: sha(3), mergeBase: sha(1), shots: mix });
     expect(c.build.status).toBe("changes");
     const stored = (m: typeof a) => `${m.stored.puts} images, ${m.stored.bytes} bytes`;
     process.stderr.write(
@@ -209,18 +198,18 @@ describe(`rows written per build of ${SHOTS} shots, on a local D1`, () => {
     expect(a.rows).toBeLessThanOrEqual(LIMIT.a);
     expect(b.rows).toBeLessThanOrEqual(LIMIT.b);
     expect(c.rows).toBeLessThanOrEqual(LIMIT.c);
-    finished = { b: b.build, c: c.build };
   }, 120_000);
 
   // The own diff, the diff against main, the open change carried from main, the default branch's
   // accept and the stale mark each write a shot only when its value moves.
   test("a build finalised again, with nothing moved, updates no shot row", async () => {
-    if (!finished) throw new Error("the builds above did not finish");
+    const { again, threeBuilds } = await world();
+    const { b, c } = await threeBuilds();
     // A run drops its removed markers and writes them again (`clearMarkers`), so on the default
     // branch the 10 markers, new rows, are accepted again; no shot that was already accepted is.
     const expected = new Map([
-      [finished.b, [["update snapshots (review_state)", 10]]],
-      [finished.c, []],
+      [b.build, [["update snapshots (review_state)", 10]]],
+      [c.build, []],
     ]);
     for (const [build, writes] of expected) {
       const run = await again(build);

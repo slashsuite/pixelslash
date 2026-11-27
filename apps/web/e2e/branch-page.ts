@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { expect, open } from "./fixtures";
+import { expect, expectHydrated, open } from "./fixtures";
 
 /** What the stub judge says of every changed shot; `upload --judge` puts it on PATH. */
 export const JUDGE_SAYS = "A red block appeared on the page";
@@ -25,7 +25,7 @@ export async function expectBranchPage(
   await page.goBack();
   await page.getByTestId("build-row").first().getByTestId("branch-link").click();
   await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/branches/${branch}$`));
-  await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
+  await expectHydrated(page);
 
   await expect(page.getByTestId("summary-changed")).toContainText("3");
   await expect(page.getByTestId("summary-waiting")).toContainText("3");

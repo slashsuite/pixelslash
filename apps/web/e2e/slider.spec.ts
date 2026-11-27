@@ -1,13 +1,14 @@
-import { expect, open, test } from "./fixtures";
+import { expect, expectHydrated, open, test } from "./fixtures";
 import { CHANGED, SHA_MAIN, SHA_WORK, WHITE, uploadBuild } from "./api-upload";
+import { dragOver } from "./draw";
 import { showPanel } from "./snapshot-viewer";
 
 /**
- * The side panel's disclosures and the slider (PS-265): Branch is drawn at Main's scale, the divider follows a drag on the image,
- * and its handle is a keyboard slider.
+ * The side panel's disclosures and the slider (PS-265): Branch is drawn at Main's scale, the divider
+ * starts halfway, follows a drag on the image, and its handle is a keyboard slider.
  */
 
-test("Details and Tools start shut; the slider draws both shots at one scale, drags on the image and takes the keyboard", async ({
+test("Details and Tools start shut; the slider draws both shots at one scale, starts halfway, drags on the image and takes the keyboard", async ({
   page,
   provision,
 }) => {
@@ -22,7 +23,7 @@ test("Details and Tools start shut; the slider draws both shots at one scale, dr
   await open(page, `/projects/${projectId}/builds/${buildId}`);
   await page.getByTestId("snapshot-row").first().getByRole("link").click();
   await expect(page).toHaveURL(/\/snapshots\//);
-  await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
+  await expectHydrated(page);
   await showPanel(page);
   const range = page.getByLabel("Compare position");
   const handle = page.getByRole("slider", { name: "Divider" });
@@ -41,31 +42,24 @@ test("Details and Tools start shut; the slider draws both shots at one scale, dr
     await expect(page.getByTestId("rerun-shot")).toBeVisible();
   });
 
-  await test.step("the slider draws Branch at Main's scale", async () => {
+  await test.step("the slider draws Branch at Main's scale, starts halfway, and a drag on the image moves the divider", async () => {
     await page.getByRole("radio", { name: "Slider" }).click();
-
     await expect(range).toHaveValue("50");
     await expect(handle).toHaveAttribute("aria-valuenow", "50");
 
     // At 50 the branch layer is as wide as the main one, not half of it.
+    // No dogfood shot opens the slider, so no visual check sees a half-width Branch layer.
     const [main, branch] = await Promise.all([
+      // oxlint-disable-next-line no-restricted-properties -- no visual shot shows the slider; this width is the only proof
       page.getByTestId("slider-main").boundingBox(),
+      // oxlint-disable-next-line no-restricted-properties -- no visual shot shows the slider; this width is the only proof
       page.getByTestId("slider-branch").boundingBox(),
     ]);
-    if (!main || !branch) throw new Error("no layer");
-    expect(branch.width).toBeCloseTo(main.width, 0);
-    expect(main.width).toBeGreaterThan(0);
-  });
+    expect(main?.width).toBeGreaterThan(0);
+    expect(branch?.width).toBeCloseTo(main?.width ?? 0, 0);
 
-  await test.step("a drag on the image moves the divider", async () => {
     // A drag on the image moves the divider to the pointer.
-    const frame = await page.getByTestId("slider-frame").boundingBox();
-    if (!frame) throw new Error("no frame");
-    const y = frame.y + frame.height / 2;
-    await page.mouse.move(frame.x + frame.width * 0.5, y);
-    await page.mouse.down();
-    await page.mouse.move(frame.x + frame.width * 0.8, y, { steps: 5 });
-    await page.mouse.up();
+    await dragOver(page, page.getByTestId("slider-frame"), [0.5, 0.5], [0.8, 0.5]);
     dragged = Number(await handle.getAttribute("aria-valuenow"));
     expect(dragged).toBeGreaterThan(70);
     await expect(range).toHaveValue(String(dragged));
@@ -75,10 +69,15 @@ test("Details and Tools start shut; the slider draws both shots at one scale, dr
     // The handle is in the tab order after the toolbar (a few stops on from the range), and the
     // arrows move it.
     await range.focus();
-    for (let stops = 0; stops < 10; stops++) {
-      await page.keyboard.press("Tab");
-      if (await handle.evaluate((el) => el === document.activeElement)) break;
-    }
+    await expect
+      .poll(
+        async () => {
+          await page.keyboard.press("Tab");
+          return handle.evaluate((el) => el === document.activeElement);
+        },
+        { intervals: [0] },
+      )
+      .toBe(true);
     await expect(handle).toBeFocused();
     await page.keyboard.press("ArrowLeft");
     await expect(handle).toHaveAttribute("aria-valuenow", String(dragged - 1));

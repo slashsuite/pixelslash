@@ -6,6 +6,7 @@ import { flagSnapshot, listFlags, snapshotFlags, withdrawFlag } from "./flags";
 import { buildView, reviewSnapshot } from "./review";
 import { members } from "./schema";
 import { signInGithubUser } from "./users";
+import { must } from "#/test/must";
 
 const block = { x: 8, y: 8, w: 12, h: 12, rgb: RED };
 
@@ -113,8 +114,10 @@ describe("detection flags", () => {
       commit: sha(3),
       shots: [{ name: "home", png: shot() }],
     });
-    const [otherShot] = (await buildView(ctx.db, otherCtx.projectId, otherBuild.id)).snapshots;
-    if (!otherShot) throw new Error("no other shot");
+    const otherShot = must(
+      (await buildView(ctx.db, otherCtx.projectId, otherBuild.id)).snapshots[0],
+      "the other org's shot",
+    );
     await flagSnapshot(ctx.db, {
       userId: ctx.userId,
       projectId: otherCtx.projectId,

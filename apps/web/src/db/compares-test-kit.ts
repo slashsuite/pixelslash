@@ -1,23 +1,14 @@
-import { createOrg, createProject } from "./orgs";
 import { builds, snapshots } from "./schema";
-import { testDb } from "./test-db";
-import { signInGithubUser } from "./users";
+import { type TestDb, seededStore } from "#/test/store";
 
 /** Builds and shot rows for the compare-time tests (PS-336). */
 
-export type TestDb = ReturnType<typeof testDb>;
+export type { TestDb };
 export type ShotRow = Partial<typeof snapshots.$inferInsert>;
 
+/** A fresh store with Ada's project `web`, which the builds below go in. */
 export async function setup() {
-  const db = testDb();
-  const ada = await signInGithubUser(db, {
-    githubId: 1,
-    login: "ada",
-    name: null,
-    avatarUrl: null,
-  });
-  const org = await createOrg(db, ada.id, "Acme");
-  const project = await createProject(db, ada.id, org.id, "web");
+  const { db, project } = await seededStore();
   return { db, projectId: project.id };
 }
 

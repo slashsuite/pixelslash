@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
 import { snapshots } from "#/db/schema";
 import { get } from "./test-read";
+import { must } from "#/test/must";
 import { META, call, openBuild, setup, snapshotForm } from "./test-support";
 
 /** Native snapshots (PS-293): android and ios, the device label in the browser column. */
@@ -35,27 +36,18 @@ describe("native snapshots", () => {
     const android = rows.find((r) => r.platform === "android");
     const web = rows.find((r) => r.platform === "linux");
     expect(android).toMatchObject({ browser: "Pixel 8 API 35", viewport: "412x915" });
-    expect(JSON.parse(android?.envFingerprint ?? "")).toEqual(PIXEL.fingerprint);
+    expect(JSON.parse(must(android?.envFingerprint))).toEqual(PIXEL.fingerprint);
     // A web fingerprint is stored exactly as before: three fields, no native keys.
-    expect(JSON.parse(web?.envFingerprint ?? "")).toEqual(META.fingerprint);
-    expect(Object.keys(JSON.parse(web?.envFingerprint ?? ""))).toEqual([
-      "image",
-      "browser",
-      "fonts",
-    ]);
+    const webFingerprint = JSON.parse(must(web?.envFingerprint));
+    expect(webFingerprint).toEqual(META.fingerprint);
+    expect(Object.keys(webFingerprint)).toEqual(["image", "browser", "fonts"]);
   });
 
-  test("a device label is allowed for a native platform only, and a bad one is a 400", async () => {
+  // Which labels and scales are refused is `validate-native.test.ts`'s table; this is the wiring.
+  test("a bad device label is a 400", async () => {
     const { deps, acme } = await setup();
     const id = await openBuild(deps, acme.token);
-    // A web browser stays a token.
-    expect((await put(deps, id, acme.token, { ...META, browser: "my browser" })).status).toBe(400);
-    for (const device of ["<b>", " Pixel", "", "x".repeat(81)]) {
-      const res = await put(deps, id, acme.token, { ...PIXEL, browser: device });
-      expect([device, res.status]).toEqual([device, 400]);
-    }
-    const badScale = { ...PIXEL, fingerprint: { ...PIXEL.fingerprint, scale: "big" } };
-    expect((await put(deps, id, acme.token, badScale)).status).toBe(400);
+    expect((await put(deps, id, acme.token, { ...PIXEL, browser: "<b>" })).status).toBe(400);
   });
 
   test("the read API shows device and scale for a native shot, and null for web", async () => {

@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { expect, open, test } from "./fixtures";
+import { expect, expectHydrated, open, test } from "./fixtures";
 import { SHA_MAIN, SHA_WORK, uploadBuild } from "./api-upload";
 import { png } from "./png";
 import { highlightToggle } from "./snapshot-viewer";
@@ -70,7 +70,7 @@ test("review one changed shot: counters, highlight, modes, overlay, the folding 
     await open(page, `/projects/${projectId}/builds/${buildId}`);
     await page.getByRole("link", { name: /hero/i }).first().click();
     await expect(page).toHaveURL(/\/snapshots\//);
-    await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
+    await expectHydrated(page);
     await expect(page.getByText("change 1 of 1", { exact: true })).toBeVisible();
     await expect(page.getByText("shot 1 of 2", { exact: true })).toBeVisible();
   });

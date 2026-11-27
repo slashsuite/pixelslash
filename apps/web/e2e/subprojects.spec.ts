@@ -41,7 +41,9 @@ test("a subproject is added on its project's settings and shown nested under it"
   const sub = page.getByTestId("subproject-row");
   await expect(sub).toHaveCount(1);
   await expect(sub).toContainText("e2e");
-  await expect(
-    page.getByTestId("project-row").locator("xpath=following-sibling::*[1]"),
-  ).toHaveAttribute("data-testid", "subproject-row");
+  // In document order the subproject's row comes straight after its project's.
+  const rows = page.getByTestId(/^(sub)?project-row$/);
+  await expect(rows).toHaveCount(2);
+  await expect(rows.nth(0)).toHaveAttribute("data-testid", "project-row");
+  await expect(rows.nth(1)).toHaveAttribute("data-testid", "subproject-row");
 });

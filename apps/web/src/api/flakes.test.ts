@@ -4,6 +4,7 @@ import { flakes, snapshots } from "#/db/schema";
 import { issueUserToken } from "#/db/tokens";
 import { signInGithubUser } from "#/db/users";
 import type { ApiFlake } from "./flakes";
+import { must } from "#/test/must";
 import { META, PNG, call, openBuild, setup, snapshotForm } from "./test-support";
 import { parseFlake, parseFlaky } from "./validate";
 
@@ -53,7 +54,7 @@ describe("flakes over the API (ob 1724)", () => {
     expect(flake?.evidence).toHaveLength(1);
     expect(flake?.evidence[0]).toMatchObject({ runs: 3, differed: [2], policy: "skip" });
     expect([...blobs.data.keys()].toSorted()).toEqual(
-      [shot?.imageKey, ...(flake?.evidence[0]?.captures.map((c) => c.key) ?? [])]
+      [shot?.imageKey, ...must(flake?.evidence[0]).captures.map((c) => c.key)]
         .map((k) => `orgs/${acme.org.id}/${k}`)
         .toSorted(),
     );

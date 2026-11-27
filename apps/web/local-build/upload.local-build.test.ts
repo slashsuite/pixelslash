@@ -321,7 +321,7 @@ describe("layout metrics (PS-294)", () => {
     };
     const login = await read("login");
     expect(login.metrics_url).toContain("/images/");
-    const file = await fetch(login.metrics_url ?? "");
+    const file = await fetch(login.metrics_url!);
     expect(file.headers.get("content-type")).toContain("application/json");
     expect(await file.json()).toEqual(BUTTON);
     expect((await read("home")).metrics_url).toContain("/images/");

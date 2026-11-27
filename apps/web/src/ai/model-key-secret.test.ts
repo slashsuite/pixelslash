@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import { setProjectModel } from "#/db/models";
-import { TEST_MODEL_KEY_SECRET } from "#/db/test-db";
+import { TEST_MODEL_KEY_SECRET } from "#/test/store";
 import { context, onlyShot, sha, upload } from "#/diff/test-builds";
 import { RED, shot } from "#/diff/test-shots";
 import type { ModelFetch } from "./model";

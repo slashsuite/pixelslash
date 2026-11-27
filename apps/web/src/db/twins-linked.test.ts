@@ -6,6 +6,7 @@ import { projects } from "./schema";
 import { TwinProjectError, setTwinProject, twinCandidates, twinsOfBuild } from "./twins";
 import { signInGithubUser } from "./users";
 import { type World, shaOf as sha, world } from "./twins-test-support";
+import { must } from "#/test/must";
 
 /** The pairing function (PS-295) on a real schema: a linked twin project, and the link setting. */
 
@@ -44,9 +45,9 @@ describe("twinsOfBuild: a linked twin project", () => {
         source: { kind: "commit", commitSha: sha(9) },
       }),
     ]);
-    expect(
-      twinSourceLabel(twins.linked[0]?.twins[0]?.source ?? { kind: "build", commitSha: null }),
-    ).toBe(`same commit ${sha(9).slice(0, 7)}`);
+    expect(twinSourceLabel(must(twins.linked[0]?.twins[0], "the linked twin").source)).toBe(
+      `same commit ${sha(9).slice(0, 7)}`,
+    );
   });
 
   test("with no build at the commit, falls back to the twin project's baselines", async () => {

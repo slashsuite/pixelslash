@@ -139,7 +139,7 @@ by group; a group is one layer unless a row says otherwise. Counts are from the 
 | `apps/web/e2e` | 23 specs and the sign-in setup, 30 tests with it (`playwright test --list`: 28 on `desktop`, one of them `rss-burst.spec.ts`'s skipped measurement, 1 on `phone`, the setup; 28 files and 55 tests, counted the same way, before the cuts in "E2E specs cut to journeys") | e2e | one journey per feature, in a real browser, its stages in `test.step`. Every spec starts signed in from one `setup` project and builds its org, project and CI token with `provision` (`e2e/fixtures.ts`), a write to the D1; `orgs.spec.ts` is the one test that makes them by clicking, and `admin.spec.ts` (the operator health page: a 404 for the signed out and for an unlisted login, the page for a listed one) is the one that reads the whole D1. `pages.spec.ts` is the page loop, on the phone project only: every page opens with no horizontal scroll. `rss-burst.spec.ts` is a memory check and is outside the gate |
 | `packages/cli/test` | 30 | integration | the `pixelslash` commands run in-process or as a child, against a fake server and real temp dirs. The `*-support.ts` files are helpers |
 | `packages/engine/test` | 50 | integration + unit | store, upload, capture (real Chromium), report and DS judge are integration; `diff*`, `regions`, `fingerprint`, `sentry-scrub`, `route-names`, `change-note`, `config*` are unit |
-| `apps/web/src/db` | 29 | integration | every query against real SQLite with the real migrations (`test-db.ts`, `test-d1.ts`) |
+| `apps/web/src/db` | 29 | integration | every query against real SQLite with the real migrations (`src/test/store.ts`) |
 | `apps/web/src/api` | 15 | integration | the `/api/v1` handler over a real `Db` and blob store, including the `ENDPOINTS` / `docs/cli.md` agreement |
 | `apps/web/src/diff` | 21 | integration | `processBuild` end to end on a real `Db`: baselines, retries, resume, timings. `wasm`, `measure`, `identical-bytes` are unit |
 | `apps/web/src/github`, `storage`, `server`, `preview` | 11 | integration | the GitHub client against a local stand-in, R2-shaped blobs, the connection patch |
@@ -239,6 +239,41 @@ one scale is a browser's layout).
   is that test.
 - **No test ran the production build of the web app without a browser.** `web:test-local-build` does,
   and is the first test to state the isolation rule above as an assertion.
+
+### Lint keeps them that way
+
+`apps/web/.oxlintrc.json` extends the root config and `@hackcove/oxlint-testing`, so `web:lint` refuses
+in a test what this page rules out: a conditional in a test body, a real timer or sleep, a class or a
+computed style read as a look, a query destructured from `render` instead of `screen`, a raw CSS
+locator in a spec, and a Playwright config without the standard shape. A line that has to break a rule
+carries `oxlint-disable-next-line <rule> -- <why>`. Each test owns its store, made by `src/test/store.ts`
+(`testDb`, `d1Db`, `seededStore`); `src/test/must.ts` narrows a read without a branch.
+
+When the config came in, these tests were cut as copies of a lower layer:
+
+| Removed | Still proved by |
+| --- | --- |
+| `api/handler-timings.test.ts` (the file) | `api/validate-timings.test.ts` (pure `parseTimings`); wiring kept in `handler.test.ts` "the CLI's timings sent at finalize are stored..." |
+| `api/handler.test.ts` timings null cases, judge-note cases, bad-input cases but one | `api/validate-timings.test.ts`, `api/validate.test.ts` (`parseSnapshotKey`, `parseDiff`, `parseNewBuild`, the change note); `handler.test.ts` keeps one of each |
+| `api/native.test.ts` device and scale loop | `api/validate-native.test.ts`; one wiring 400 kept |
+| `api/batch.test.ts` bad items but one, and the `MAX_BATCH` cap | `api/validate-batch.test.ts` |
+| `api/known.test.ts` `MAX_KNOWN` | `api/validate-known.test.ts` |
+| `api/ignore.test.ts` malformed rects but one | `api/validate.test.ts` `parseRect`, `parseSnapshotInput` |
+| `api/read-errors.test.ts` served UAs but one | `api/cli-version.test.ts` (`belowMinimum` table) |
+| `api/org-token.test.ts` bad names but one | `api/validate.test.ts` project name table |
+| `api/server-timing.test.ts` real-clock duration checks | `server/server-timing.test.ts` on a fake clock; the API file keeps which parts each endpoint names |
+| `db/busy.test.ts` "busy twice, then free" and "an error that is not a lock is not tried again" | `db/busy.test.ts` `retryBusy` tables under fake timers; "busy for good" kept as the D1 wiring check |
+| `diff/process-ci.test.ts` "a malformed result" and "a stale result" | `diff/ci-result.test.ts` table rows, plus the kept "a result the server refuses errors the shot by name and the build" |
+| `diff/process-open-vs-main.test.ts` "one accept on build 2 settles both builds" | `diff/process-branch.test.ts` "a decision on the carrier is the decision on the build it carries from" |
+| `diff/process-open-vs-main.test.ts` "build 1 accepted first, then build 2 identical" | `diff/process-branch.test.ts` "a shot accepted on build 1 is not pending on build 2..." and `db/approved-earlier.test.ts` |
+| `lib/use-decision.hook.test.tsx` five destination cases | `lib/use-decision.test.ts` (`destinationOf` table); one wiring check kept |
+| `components/stale.test.tsx` "the Stale badge is the one marker" | `components/twins.test.tsx` stale and fresh twin tests |
+| `components/parity-view.test.tsx` physical size, similarity label, metrics sentence, three columns | `lib/parity-view.test.ts` tables and `api/parity.test.ts`; one wiring line kept |
+| `components/org-timings.test.tsx` "the tab says what Total covers" | the constant in `lib/timings.ts`; the tab journey in `e2e/orgs.spec.ts` |
+| `components/build-timings.test.tsx` profile, older CLI and step-word tests | `lib/timings.test.ts`; one wiring check kept |
+| `components/snapshot-viewer.test.tsx` five base-choice cases | `lib/viewer-bases.test.ts` (`basesOf`, `chosenBase`); five wiring tests kept |
+| `ai/summary.test.ts` "a build where nothing changed asks nothing" | `ai/summary-brief.test.ts` "a brief with nothing changed asks nothing and decides nothing", and without a brief `ai/summary-parse.test.ts` "nothing describable means no refs" (`summarizeBuild` asks nothing for a build with nothing describable) |
+| `ai/summary-limit.test.ts` the 9-shot run | the `tooManyChanges` table in the same file, and `ai/summary.test.ts` "one text-only call per build..." |
 
 ### Considered and left
 

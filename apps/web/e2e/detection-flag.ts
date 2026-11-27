@@ -1,5 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 import { dragOver } from "./draw";
+import { expectHydrated } from "./fixtures";
 import { SERVER } from "./ports";
 import { showPanel } from "./snapshot-viewer";
 
@@ -30,7 +31,7 @@ export async function flagFalsePositive(page: Page) {
   await expect(form).toHaveCount(0);
 
   await page.reload();
-  await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
+  await expectHydrated(page);
   await showPanel(page);
   const badge = page.getByTestId("detection-flag");
   await expect(badge).toHaveCount(1);

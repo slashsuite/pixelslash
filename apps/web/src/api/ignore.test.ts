@@ -53,19 +53,8 @@ describe("snapshot ignore areas", () => {
         )
       ).status;
 
-    const box = META.ignore[0];
-    const badIgnore: unknown[] = [
-      "video",
-      [3],
-      [{ ...box, x: -1 }],
-      [{ ...box, y: 1.5 }],
-      [{ ...box, width: 0 }],
-      [{ ...box, height: "9" }],
-      Array.from({ length: 201 }, () => box),
-    ];
-    for (const ignore of badIgnore) {
-      expect(await bad(ignore)).toBe(400);
-    }
+    // Which rects are refused is `validate.test.ts`'s parseRect table; this is the wiring.
+    expect(await bad([{ ...META.ignore[0], x: -1 }])).toBe(400);
     expect(await db.select().from(snapshots)).toHaveLength(0);
     expect(blobs.data.size).toBe(0);
   });

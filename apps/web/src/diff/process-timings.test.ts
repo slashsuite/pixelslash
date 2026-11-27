@@ -50,8 +50,9 @@ describe("server timings", () => {
     expect(build.queueMs).toBeGreaterThanOrEqual(0);
     expect(build.rerun).toBe(false);
     expect(build.finishedAt?.getTime()).toBeGreaterThanOrEqual(before);
+    expect(build.processingStartedAt).not.toBeNull();
     expect(build.finishedAt?.getTime()).toBeGreaterThanOrEqual(
-      build.processingStartedAt?.getTime() ?? Infinity,
+      build.processingStartedAt!.getTime(),
     );
     // No model: nothing was explained or summarised, and the columns say so rather than 0.
     expect(build.explainMs).toBeNull();
@@ -130,8 +131,9 @@ describe("server timings", () => {
     expect(build.aiSummary).not.toBeNull();
     expect(build.explainMs).toBeGreaterThan(0);
     expect(build.summaryMs).toBeGreaterThan(0);
+    expect(build.processingStartedAt).not.toBeNull();
     expect(build.finishedAt?.getTime()).toBeGreaterThanOrEqual(
-      build.processingStartedAt?.getTime() ?? Infinity,
+      build.processingStartedAt!.getTime(),
     );
   });
 

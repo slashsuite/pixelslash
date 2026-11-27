@@ -11,8 +11,9 @@ import {
 } from "./models";
 import { NotFoundError } from "./db";
 import { projectModels } from "./schema-models";
-import { TEST_MODEL_KEY_SECRET as SECRET } from "./test-db";
+import { TEST_MODEL_KEY_SECRET as SECRET } from "#/test/store";
 import { signInGithubUser } from "./users";
+import { must } from "#/test/must";
 
 /** A project's model settings (ob 1473): the key is write-only and tied to its base URL. */
 
@@ -197,10 +198,10 @@ describe("a project's model key at rest", () => {
       expect(await projectModelFor(db, acme.project.id, OTHER)).toBeNull();
       expect(warn).toHaveBeenCalledTimes(2);
       expect(String(warn.mock.calls[1]?.[0])).toContain("cannot be decrypted");
+      const sealed = must((await rowOf(db, acme.project.id))?.apiKey, "the sealed key");
       for (const [line] of warn.mock.calls) {
         const text = String(line);
-        for (const secret of [SECRET, OTHER, "sk-one", (await rowOf(db, acme.project.id))?.apiKey])
-          expect(text).not.toContain(secret ?? "");
+        for (const secret of [SECRET, OTHER, "sk-one", sealed]) expect(text).not.toContain(secret);
       }
     } finally {
       warn.mockRestore();

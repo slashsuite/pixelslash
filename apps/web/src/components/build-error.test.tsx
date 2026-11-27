@@ -3,9 +3,12 @@ import { describe, expect, test, vi } from "vitest";
 import { render, screen } from "#/test/render";
 import { BuildError } from "./build-error";
 
-// The Re-run button's server function reads the Worker's env, which a test has none of; that the
-// button re-runs is `rerun.test.tsx`'s.
-vi.mock("#/server/rerun", () => ({ rerunBuildShots: vi.fn<() => Promise<never>>() }));
+// The Re-run button's server function loads under the env and session seam; that the button
+// re-runs is `rerun.test.tsx`'s.
+// happy-dom's URL cannot find the engine's diff.wasm, which the re-run path imports.
+vi.mock("../../../../packages/engine/src/diff-module.bun.ts", () => import("#/test/diff-module"));
+vi.mock("#/server/env", () => import("#/test/render").then((m) => m.serverEnv));
+vi.mock("#/server/session", () => import("#/test/render").then((m) => m.serverSession));
 
 /**
  * The build page's callout for a build with no verdict: it prints the error the server stored, in

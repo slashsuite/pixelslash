@@ -3,9 +3,10 @@ import { describe, expect, test } from "vitest";
 import { NotFoundError } from "./db";
 import { createOrg, createProject } from "./orgs";
 import { builds, orgs } from "./schema";
-import { testDb } from "./test-db";
+import { type TestDb, seededStore } from "#/test/store";
 import { TIMINGS_WINDOW_MS, orgTimings } from "./timings-stats";
 import { signInGithubUser } from "./users";
+import { must } from "#/test/must";
 
 const now = new Date("2026-10-24T12:00:00Z");
 const profile = (githubId: number, login: string) => ({
@@ -16,17 +17,13 @@ const profile = (githubId: number, login: string) => ({
 });
 
 async function setup() {
-  const db = testDb();
-  const ada = await signInGithubUser(db, profile(1, "ada"));
-  const org = await createOrg(db, ada.id, "Acme");
-  const web = await createProject(db, ada.id, org.id, "web");
-  const docs = await createProject(db, ada.id, org.id, "docs");
-  return { db, ada, org, web, docs };
+  const { db, user, org, project, projects } = await seededStore({ projects: ["web", "docs"] });
+  return { db, ada: user, org, web: project, docs: must(projects[1], "the docs project") };
 }
 
 /** A finished build of the project: `diffMs`, and a total of `total` ms, `ago` ms before `now`. */
 async function finished(
-  db: ReturnType<typeof testDb>,
+  db: TestDb,
   projectId: string,
   {
     diffMs,
@@ -58,7 +55,13 @@ describe("orgTimings", () => {
     expect(result.map((p) => p.name)).toEqual(["docs", "web"]);
     const [emptyDocs, fullWeb] = result;
     expect(emptyDocs).toMatchObject({ projectId: docs.id, builds: 0 });
-    expect(Object.values(emptyDocs?.steps ?? {})).toEqual([null, null, null, null, null]);
+    expect(Object.values(must(emptyDocs, "the docs row").steps)).toEqual([
+      null,
+      null,
+      null,
+      null,
+      null,
+    ]);
     expect(fullWeb?.builds).toBe(10);
     expect(fullWeb?.steps.diff).toEqual({
       p50: 500,

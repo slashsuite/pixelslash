@@ -5,6 +5,7 @@ import { sha, upload } from "#/diff/test-builds";
 import { RED, shot } from "#/diff/test-shots";
 import { verifySignedImagePath } from "#/storage/signed";
 import { get, world } from "./test-read";
+import { must } from "#/test/must";
 
 describe("the read API (ob 1729)", () => {
   test("projects: a personal token sees its user's orgs, a CI token its one project", async () => {
@@ -178,7 +179,7 @@ describe("the read API (ob 1729)", () => {
       ["baseline", about.baselineKey],
       ["diff", about.diffKey],
     ] as const) {
-      const url = new URL(snapshot.images[which] ?? "");
+      const url = new URL(must(snapshot.images[which]));
       expect(url.origin).toBe("http://app.test");
       expect(decodeURIComponent(url.pathname)).toBe(`/images/orgs/${w.orgId}/${key}`);
       const ok = await verifySignedImagePath({

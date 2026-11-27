@@ -1,10 +1,9 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
 import { ABANDONED_AFTER_MS, ABANDONED_REASON, sweepAbandoned } from "./abandoned";
-import { createOrg, createProject } from "./orgs";
 import { builds, snapshots } from "./schema";
-import { testDb } from "./test-db";
-import { signInGithubUser } from "./users";
+import { type TestDb, seededStore, testDb } from "#/test/store";
+import { must } from "#/test/must";
 
 const NOW = new Date("2026-11-06T12:00:00Z");
 const HOUR = 60 * 60 * 1000;
@@ -12,19 +11,32 @@ const ago = (ms: number) => new Date(NOW.getTime() - ms);
 const SIX = ABANDONED_AFTER_MS;
 
 async function setup(beforeQuery?: Parameters<typeof testDb>[0]) {
-  const db = testDb(beforeQuery);
-  const ada = await signInGithubUser(db, {
-    githubId: 1,
-    login: "ada",
-    name: null,
-    avatarUrl: null,
+  const { db, project, projects } = await seededStore({
+    db: testDb(beforeQuery),
+    projects: ["web", "docs"],
   });
-  const org = await createOrg(db, ada.id, "Acme");
-  const web = await createProject(db, ada.id, org.id, "web");
-  const docs = await createProject(db, ada.id, org.id, "docs");
-  return { db, web: web.id, docs: docs.id };
+  return { db, web: project.id, docs: must(projects[1], "the docs project").id };
 }
-type Db = Awaited<ReturnType<typeof setup>>["db"];
+type Db = TestDb;
+
+/**
+ * A store hook that, once armed with a build id, finishes that build as `passed` just before the
+ * next update of builds runs: the run that ends while the sweep is between its read and its write.
+ */
+function finalisesBeforeUpdate() {
+  let armed: string | null = null;
+  const hook: NonNullable<Parameters<typeof testDb>[0]> = (query, exec) => {
+    if (armed === null || !query.startsWith('update "builds"')) return;
+    exec(`update builds set status = 'passed' where id = '${armed}'`);
+    armed = null;
+  };
+  return {
+    hook,
+    arm: (id: string) => {
+      armed = id;
+    },
+  };
+}
 
 /** A build `idleMs` old with the given fields, so the test says only what makes it idle or not. */
 async function build(db: Db, projectId: string, over: Partial<typeof builds.$inferInsert> = {}) {
@@ -112,21 +124,19 @@ describe("sweepAbandoned", () => {
     expect((await read(db, id)).status).toBe("uploading");
   });
 
-  test.each(["passed", "changes", "failed", "errored"] as const)(
-    "a %s build of any age is untouched",
-    async (status) => {
-      const { db, web } = await setup();
-      const id = await build(db, web, {
-        status,
-        error: status === "errored" ? "boom" : null,
-        createdAt: ago(400 * 24 * HOUR),
-      });
-      expect(await sweep(db)).toEqual([]);
-      const row = await read(db, id);
-      expect(row.status).toBe(status);
-      expect(row.error).toBe(status === "errored" ? "boom" : null);
-    },
-  );
+  test.each([
+    ["passed", null],
+    ["changes", null],
+    ["failed", null],
+    ["errored", "boom"],
+  ] as const)("a %s build of any age is untouched", async (status, error) => {
+    const { db, web } = await setup();
+    const id = await build(db, web, { status, error, createdAt: ago(400 * 24 * HOUR) });
+    expect(await sweep(db)).toEqual([]);
+    const row = await read(db, id);
+    expect(row.status).toBe(status);
+    expect(row.error).toBe(error);
+  });
 
   test("limit is honoured, oldest first", async () => {
     const { db, web } = await setup();
@@ -141,15 +151,10 @@ describe("sweepAbandoned", () => {
   test("a build that finalised after it was read is left as it is", async () => {
     // The sweep reads `processing`; the run finishes before the sweep's update. The update holds
     // the status it read, so the verdict stays.
-    let finalises: string | null = null;
-    const { db, web } = await setup((query, exec) => {
-      if (finalises && query.startsWith('update "builds"')) {
-        exec(`update builds set status = 'passed' where id = '${finalises}'`);
-        finalises = null;
-      }
-    });
+    const race = finalisesBeforeUpdate();
+    const { db, web } = await setup(race.hook);
     const id = await build(db, web, { status: "processing" });
-    finalises = id;
+    race.arm(id);
     expect(await sweep(db)).toEqual([]);
     expect((await read(db, id)).status).toBe("passed");
     expect((await read(db, id)).error).toBeNull();

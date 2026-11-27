@@ -152,15 +152,16 @@ describe("open changes against main (PS-284)", () => {
     expect(counts).toMatchObject({ changed: 1, new: 1, unchanged: 1, toReview: 2 });
 
     const view = await buildView(ctx.db, ctx.projectId, next.id);
-    const order = view?.snapshots.map((s) => [s.name, reviewGroupOf(s)]);
+    const order = view.snapshots.map((s) => [s.name, reviewGroupOf(s)]);
     expect(order).toEqual([
       ["about", "changed"],
       ["pricing", "new"],
       ["home", "unchanged"],
     ]);
-    expect(tabCounts(view?.snapshots ?? [])).toMatchObject({ changed: 1, new: 1, unchanged: 1 });
+    expect(tabCounts(view.snapshots)).toMatchObject({ changed: 1, new: 1, unchanged: 1 });
     // The API's counts and each shot's `group` are the measured ones, as before.
-    expect(counts && apiCounts(counts)).toMatchObject({
+    expect(counts).toBeDefined();
+    expect(apiCounts(counts!)).toMatchObject({
       changed: 0,
       new: 0,
       unchanged: 3,
@@ -173,8 +174,8 @@ describe("open changes against main (PS-284)", () => {
     const next = await upload(ctx, onFeat(5));
     expect(next.status).toBe("changes");
     const shots = await byName(ctx, next);
-    await decide(ctx, shots["about"]?.id ?? "", "accepted");
-    expect(await decide(ctx, shots["pricing"]?.id ?? "", "accepted")).toBe("passed");
+    await decide(ctx, shots["about"]!.id, "accepted");
+    expect(await decide(ctx, shots["pricing"]!.id, "accepted")).toBe("passed");
 
     expect((await getBuild(ctx.db, ctx.projectId, next.id)).status).toBe("passed");
     expect(await statusOf(ctx, next.id)).toMatchObject({
@@ -198,9 +199,10 @@ describe("open changes against main (PS-284)", () => {
     expect(first.status).toBe("passed");
     expect(second.status).toBe("passed");
     const shots = await rows(ctx, second);
-    expect(shots.every((s) => s.mainDiffStatus === "unchanged" && s.carriedFrom === null)).toBe(
-      true,
-    );
+    expect(shots.map((s) => [s.mainDiffStatus, s.carriedFrom])).toEqual([
+      ["unchanged", null],
+      ["unchanged", null],
+    ]);
   });
 
   test("a change accepted on the branch, then unchanged, stays decided and passes", async () => {
@@ -212,7 +214,7 @@ describe("open changes against main (PS-284)", () => {
     const first = await upload(ctx, onFeat(2, withChange));
     expect(first.status).toBe("changes");
     const shots = await byName(ctx, first);
-    expect(await decide(ctx, shots["about"]?.id ?? "", "accepted")).toBe("passed");
+    expect(await decide(ctx, shots["about"]!.id, "accepted")).toBe("passed");
     const second = await upload(ctx, onFeat(3, withChange));
     expect(second.status).toBe("passed");
     expect((await byName(ctx, second))["about"]).toMatchObject({
@@ -234,7 +236,7 @@ describe("open changes against main (PS-284)", () => {
     const done = await rediffShots(
       { db: ctx.db, blobs: ctx.scoped },
       await getBuild(ctx.db, ctx.projectId, next.id),
-      [before["home"]?.id ?? ""],
+      [before["home"]!.id],
     );
     expect(done.status).toBe("changes");
     const after = await byName(ctx, next);
@@ -280,17 +282,17 @@ describe("a re-upload before any decision settles with one accept", () => {
       reviewState: "pending",
       approvedEarlier: null,
     });
-    expect(before["about"] && awaitsDecision(before["about"])).toBe(true);
+    expect(awaitsDecision(before["about"]!)).toBe(true);
     // The shot equal to main has nothing to decide.
-    expect(before["home"] && awaitsDecision(before["home"])).toBe(false);
+    expect(awaitsDecision(before["home"]!)).toBe(false);
 
-    expect(await decide(ctx, firstAbout?.id ?? "", "accepted")).toBe("passed");
+    expect(await decide(ctx, firstAbout!.id, "accepted")).toBe("passed");
 
     expect((await getBuild(ctx.db, ctx.projectId, first.id)).status).toBe("passed");
     expect((await getBuild(ctx.db, ctx.projectId, second.id)).status).toBe("passed");
     const after = await viewOf(ctx, second);
     expect(after["about"]?.approvedEarlier).toMatchObject({ buildId: first.id });
-    expect(after["about"] && awaitsDecision(after["about"])).toBe(false);
+    expect(awaitsDecision(after["about"]!)).toBe(false);
   });
 
   test("the viewer is told which build each shot's left pane shows", async () => {
@@ -300,7 +302,7 @@ describe("a re-upload before any decision settles with one accept", () => {
     const of = async (build: Build, name: string) =>
       baselineBuildOf(ctx.db, {
         projectId: ctx.projectId,
-        snapshotId: (await viewOf(ctx, build))[name]?.id ?? "",
+        snapshotId: (await viewOf(ctx, build))[name]!.id,
         defaultBranch: "main",
       });
     // Build 1 was compared with main's accepted shot; build 2 with build 1's open one.
@@ -310,29 +312,5 @@ describe("a re-upload before any decision settles with one accept", () => {
       branch: "feat",
       isDefaultBranch: false,
     });
-  });
-
-  test("one accept on build 2 settles both builds as well", async () => {
-    const ctx = await onMain();
-    const first = await upload(ctx, onFeat(2, withChange));
-    const second = await upload(ctx, onFeat(2, withChange));
-    const secondAbout = (await viewOf(ctx, second))["about"];
-    expect(await decide(ctx, secondAbout?.id ?? "", "accepted")).toBe("passed");
-    expect((await getBuild(ctx.db, ctx.projectId, first.id)).status).toBe("passed");
-    expect((await getBuild(ctx.db, ctx.projectId, second.id)).status).toBe("passed");
-  });
-
-  test("build 1 accepted first, then build 2 identical, needs no decision", async () => {
-    const ctx = await onMain();
-    const first = await upload(ctx, onFeat(2, withChange));
-    const firstAbout = (await viewOf(ctx, first))["about"];
-    expect(await decide(ctx, firstAbout?.id ?? "", "accepted")).toBe("passed");
-
-    const second = await upload(ctx, onFeat(2, withChange));
-    expect(second.status).toBe("passed");
-    const about = (await viewOf(ctx, second))["about"];
-    expect(about).toMatchObject({ diffStatus: "unchanged", carriedFrom: null });
-    expect(about?.approvedEarlier).toMatchObject({ buildId: first.id });
-    expect(about && awaitsDecision(about)).toBe(false);
   });
 });

@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, test } from "vitest";
 import { getPlatformProxy } from "wrangler";
+import { must } from "#/test/must";
 
 /**
  * 0036 adds `projects.parent_project_id` and swaps the (org, name) unique index for one that
@@ -42,7 +43,7 @@ describe("migration 0036", () => {
   test("keeps a project, its build and its shot, and only adds the column and the index", async () => {
     const db = await d1();
     expect(AT).toBeGreaterThan(0);
-    const sql = readFileSync(new URL(FILES[AT] ?? "", MIGRATIONS), "utf8");
+    const sql = readFileSync(new URL(must(FILES[AT], "the migration"), MIGRATIONS), "utf8");
     expect(sql).not.toMatch(/DROP TABLE|CREATE TABLE|RENAME/i);
     await apply(db, FILES.slice(0, AT));
     await db.batch([
@@ -55,7 +56,7 @@ describe("migration 0036", () => {
         "INSERT INTO snapshots (id, build_id, name, platform, browser, viewport, theme, image_key, env_fingerprint) VALUES ('s1', 'b1', 'home', 'linux', 'chromium', '1280x720', 'light', 'k', '{}')",
       ),
     ]);
-    await apply(db, [FILES[AT] ?? ""]);
+    await apply(db, [must(FILES[AT], "the migration")]);
 
     expect([
       await count(db, "projects"),

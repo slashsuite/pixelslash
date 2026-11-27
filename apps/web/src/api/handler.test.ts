@@ -20,6 +20,7 @@ import {
   setup,
   snapshotForm,
 } from "./test-support";
+import { must } from "#/test/must";
 
 describe("upload API", () => {
   test("a build takes snapshots and finalises; the PNG lands under the org's prefix", async () => {
@@ -62,10 +63,11 @@ describe("upload API", () => {
     });
     const [snap] = await db.select().from(snapshots).where(eq(snapshots.buildId, id));
     expect(snap).toMatchObject({ name: "pricing", viewport: "1280x720", tags: ["web"] });
-    expect(snap?.diffOptions).toEqual(META.diff);
-    expect(await snapshotDiffOptions(db, snap?.id ?? "")).toEqual(META.diff);
-    expect(JSON.parse(snap?.envFingerprint ?? "")).toEqual(META.fingerprint);
-    expect([...blobs.data.keys()]).toEqual([`orgs/${acme.org.id}/${snap?.imageKey}`]);
+    const stored = must(snap, "the snapshot row");
+    expect(stored.diffOptions).toEqual(META.diff);
+    expect(await snapshotDiffOptions(db, stored.id)).toEqual(META.diff);
+    expect(JSON.parse(stored.envFingerprint)).toEqual(META.fingerprint);
+    expect([...blobs.data.keys()]).toEqual([`orgs/${acme.org.id}/${stored.imageKey}`]);
     expect(await usageCounts(db)).toEqual({ builds: 1, snapshots: 1 });
   });
 
@@ -92,17 +94,13 @@ describe("upload API", () => {
       const rows = await db.select().from(snapshots).where(eq(snapshots.buildId, id));
       return rows.find((r) => r.name === name)?.changeNote;
     };
+    // How a note is folded, cut or dropped is `validate.test.ts`'s change-note table; this is the wiring.
     const sent = snapshotForm({ ...META, changeNote: "  The button\nturned red. " });
     expect((await call(deps, path, acme.token, sent)).status).toBe(200);
     expect(await noteOf("pricing")).toBe("The button turned red");
-    const long = snapshotForm({ ...META, name: "long", changeNote: "a".repeat(500) });
-    expect((await call(deps, path, acme.token, long)).status).toBe(200);
-    expect(await noteOf("long")).toHaveLength(300);
-    for (const changeNote of [42, "   ", null]) {
-      const form = snapshotForm({ ...META, name: "odd", changeNote });
-      expect((await call(deps, path, acme.token, form)).status).toBe(200);
-      expect(await noteOf("odd")).toBeNull();
-    }
+    const odd = snapshotForm({ ...META, name: "odd", changeNote: 42 });
+    expect((await call(deps, path, acme.token, odd)).status).toBe(200);
+    expect(await noteOf("odd")).toBeNull();
   });
 
   test("a missing, wrong or revoked token is refused before anything is written", async () => {
@@ -155,7 +153,7 @@ describe("upload API", () => {
     expect(pricing?.tags).toEqual(["billing"]);
     expect(blobs.data.size).toBe(2);
     const stored = blobs.data.get(`orgs/${acme.org.id}/${pricing?.imageKey}`);
-    expect(new Uint8Array(stored ?? new ArrayBuffer(0))).toEqual(second);
+    expect(new Uint8Array(must(stored, "the replaced blob"))).toEqual(second);
   });
 
   test("the CLI's timings sent at finalize are stored; without them, or malformed, the column stays null", async () => {
@@ -180,16 +178,10 @@ describe("upload API", () => {
       const [row] = await db.select().from(builds).where(eq(builds.id, id));
       return row?.timings;
     };
+    // What a malformed profile keeps or drops is `validate-timings.test.ts`'s table; this is the wiring.
     expect(await stored({ snapshots: 1, timings })).toEqual(timings);
     expect(await stored({ snapshots: 1 })).toBeNull();
-    expect(await stored({ snapshots: 1, timings: { totalMs: -1, shots: [] } })).toBeNull();
     expect(await stored({ snapshots: 1, timings: "slow" })).toBeNull();
-    expect(
-      await stored({
-        snapshots: 1,
-        timings: { totalMs: 5, shots: [{ name: "x", captureMs: "1" }] },
-      }),
-    ).toBeNull();
   });
 
   test("a finalised build is immutable; finalising again is only a retry", async () => {
@@ -259,35 +251,19 @@ describe("upload API", () => {
     const bad = async (body: BodyInit) =>
       (await call(deps, `PUT ${path}`, acme.token, body)).status;
 
+    // Which values each parser refuses is `validate.test.ts`'s tables; this is one of each, wired.
     expect(await bad(snapshotForm(META, new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9])))).toBe(400);
     expect(await bad(snapshotForm({ ...META, theme: "sepia" }))).toBe(400);
-    expect(await bad(snapshotForm({ ...META, viewport: "wide" }))).toBe(400);
-    expect(await bad(snapshotForm({ ...META, name: "" }))).toBe(400);
-    const diffs: unknown[] = [{ threshold: 2 }, { mergeDistance: 2.5 }, { noiseAmplitude: 2 }];
-    diffs.push({ maxShift: 2 }, 0.2);
-    for (const diff of diffs) expect(await bad(snapshotForm({ ...META, diff }))).toBe(400);
+    expect(await bad(snapshotForm({ ...META, diff: { threshold: 2 } }))).toBe(400);
     expect(await bad("not multipart")).toBe(400);
     expect(await db.select().from(snapshots)).toHaveLength(0);
     expect(blobs.data.size).toBe(0);
 
-    const make = async (body: object | string) =>
-      (
-        await call(
-          deps,
-          `POST /api/v1/builds`,
-          acme.token,
-          typeof body === "string" ? body : JSON.stringify(body),
-        )
-      ).status;
+    const make = async (body: string) =>
+      (await call(deps, `POST /api/v1/builds`, acme.token, body)).status;
     expect(await make("{")).toBe(400);
-    expect(await make({ commitSha: "xyz", branch: "main" })).toBe(400);
-    expect(await make({ commitSha: SHA, branch: "main", ancestorShas: Array(201).fill(SHA) })).toBe(
-      400,
-    );
-    expect(await make({ commitSha: SHA, branch: "main", prNumber: 0 })).toBe(400);
-    expect(await make({ commitSha: SHA, branch: "main", ancestorShas: Array(200).fill(SHA) })).toBe(
-      201,
-    );
+    expect(await make(JSON.stringify({ commitSha: "xyz", branch: "main" }))).toBe(400);
+    expect(await db.select().from(builds)).toHaveLength(1);
   });
 
   test("an oversize PNG is refused unread", async () => {

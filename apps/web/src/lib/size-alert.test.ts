@@ -1,5 +1,12 @@
 import { describe, expect, test } from "vitest";
-import { type Send, type SizeAlertBody, checkDatabaseSize, webhookPost } from "./size-alert";
+import {
+  type Send,
+  type SizeAlertBody,
+  checkDatabaseSize,
+  overAlertLine,
+  shareLabel,
+  webhookPost,
+} from "./size-alert";
 
 const GB = 1e9;
 const NOW = new Date("2026-10-28T12:00:00Z");
@@ -24,6 +31,35 @@ function harness(bytes: number, { webhook = true, fail = false } = {}) {
   });
   return { at, posts, lines, sent };
 }
+
+/** A webhook that answers each call with the next of `statuses`, recording what it was sent. */
+function answering(statuses: number[]) {
+  const calls: [string, Parameters<Send>[1]][] = [];
+  const send: Send = async (url, init) => {
+    calls.push([url, init]);
+    return new Response(null, { status: statuses[calls.length - 1] ?? 500 });
+  };
+  return { send, calls };
+}
+
+describe("the alert line and its words", () => {
+  test.each([
+    [6.9 * GB, false],
+    [7 * GB, false],
+    [7.1 * GB, true],
+    [10 * GB, true],
+  ])("%d bytes is past the line at 70%% of the cap: %s", (bytes, over) => {
+    expect(overAlertLine(bytes)).toBe(over);
+  });
+
+  test.each([
+    [7.1 * GB, "7.1 GB, 71% of the 10 GB cap"],
+    [7.04 * GB, "7 GB, 70% of the 10 GB cap"],
+    [10 * GB, "10 GB, 100% of the 10 GB cap"],
+  ])("%d bytes reads %s", (bytes, label) => {
+    expect(shareLabel(bytes)).toBe(label);
+  });
+});
 
 describe("the database size alert", () => {
   test("7.1 GB alerts once a day, and again the next day", async () => {
@@ -69,16 +105,14 @@ describe("the database size alert", () => {
   });
 
   test("the webhook is a JSON POST, and a status that is not 2xx throws", async () => {
-    const calls: [string, Parameters<Send>[1]][] = [];
-    const send: Send = async (url, init) => {
-      calls.push([url, init]);
-      return new Response(null, { status: calls.length === 1 ? 204 : 500 });
-    };
+    const { send, calls } = answering([204, 500]);
     const post = webhookPost("https://hooks.example.test/x", send);
     const body = { text: "t", bytes: 1, capBytes: 2, share: 0.5 };
     await post(body);
-    expect(calls[0]?.[1]?.method).toBe("POST");
-    expect(JSON.parse(calls[0]?.[1].body ?? "")).toEqual(body);
+    expect(calls).toEqual([
+      ["https://hooks.example.test/x", expect.objectContaining({ method: "POST" })],
+    ]);
+    expect(JSON.parse(String(calls[0]?.[1].body))).toEqual(body);
     await expect(post(body)).rejects.toThrow("HTTP 500");
   });
 });

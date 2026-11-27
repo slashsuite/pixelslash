@@ -24,6 +24,33 @@ async function tick(): Promise<false> {
   return false;
 }
 
+/**
+ * `inner`, answering 15 s after it is called, as one call to a reasoning model on the LAN does,
+ * unless the call's signal stops it first.
+ */
+function slowModel(inner: ModelFetch): ModelFetch {
+  return (url, init) =>
+    new Promise((resolve, reject) => {
+      // oxlint-disable-next-line no-restricted-globals -- runs under vi.useFakeTimers: the test's clock, advanced by tick(), not a wait
+      const answer = setTimeout(() => resolve(inner(url, init)), 15_000);
+      init.signal?.addEventListener("abort", () => {
+        clearTimeout(answer);
+        reject(init.signal?.reason);
+      });
+    });
+}
+
+/** `AbortSignal.timeout` on the faked clock, recording each timeout asked for in `asked`. */
+function fakeTimeoutSignal(asked: number[]) {
+  return vi.spyOn(AbortSignal, "timeout").mockImplementation((ms) => {
+    asked.push(ms);
+    const stop = new AbortController();
+    // oxlint-disable-next-line no-restricted-globals -- runs under vi.useFakeTimers: the test's clock, advanced by tick(), not a wait
+    setTimeout(() => stop.abort(new DOMException("timed out", "TimeoutError")), ms);
+    return stop.signal;
+  });
+}
+
 describe("the explain queue (ob 1875)", () => {
   test("a diff that used the run's budget still leaves the model its own time (ob 1875)", async () => {
     const ctx = await context();
@@ -34,15 +61,7 @@ describe("the explain queue (ob 1875)", () => {
     const now = () => (t += DIFF_BUDGET_MS / 4);
     const queue = memoryQueue();
     const { sent, modelFetch } = stubModel();
-    // A model that takes 15 s, as one call to a reasoning model on the LAN does, unless it is stopped.
-    const slow: ModelFetch = (url, init) =>
-      new Promise((resolve, reject) => {
-        const answer = setTimeout(() => resolve(modelFetch(url, init)), 15_000);
-        init.signal?.addEventListener("abort", () => {
-          clearTimeout(answer);
-          reject(init.signal?.reason);
-        });
-      });
+    const slow = slowModel(modelFetch);
     const build = await upload(
       ctx,
       { branch: "feat/x", commit: sha(2), mergeBase: sha(1), shots: [{ png: twoChanges }] },
@@ -53,12 +72,7 @@ describe("the explain queue (ob 1875)", () => {
     // The calls' timeouts on the test's clock, so 15 s pass without waiting for them.
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const asked: number[] = [];
-    const timeout = vi.spyOn(AbortSignal, "timeout").mockImplementation((ms) => {
-      asked.push(ms);
-      const stop = new AbortController();
-      setTimeout(() => stop.abort(new DOMException("timed out", "TimeoutError")), ms);
-      return stop.signal;
-    });
+    const timeout = fakeTimeoutSignal(asked);
     try {
       const drained = queue.drain(
         consumerDeps({ db: ctx.db, blobs: ctx.scoped, now, modelFetch: slow }),
@@ -178,7 +192,8 @@ describe("the explain queue (ob 1875)", () => {
     const [old] = queue.waiting.splice(0);
     const row = await onlyShot(ctx, build);
     // The re-run's own queueing, a moment later.
-    const again = new Date((row.aiQueuedAt?.getTime() ?? 0) + 1);
+    expect(row.aiQueuedAt).not.toBeNull();
+    const again = new Date(row.aiQueuedAt!.getTime() + 1);
     await ctx.db.update(snapshots).set({ aiQueuedAt: again }).where(eq(snapshots.id, row.id));
     await consumeExplain(consumerDeps({ db: ctx.db, blobs: ctx.scoped, modelFetch }), [
       { body: old?.body, attempts: EXPLAIN_ATTEMPTS, ack: () => undefined, retry: () => undefined },

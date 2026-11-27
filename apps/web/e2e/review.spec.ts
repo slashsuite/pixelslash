@@ -128,7 +128,10 @@ async function capture(page: Page, name: string) {
 
 /** The shot's image is a signed URL that serves, and the same path in another org's prefix does not. */
 async function expectSignedImage(page: Page) {
-  const src = await page.locator("img").first().getAttribute("src");
+  const src = await page
+    .getByRole("img", { name: /^about / })
+    .first()
+    .getAttribute("src");
   expect(src).toMatch(/^\/images\/orgs\/.+\?exp=\d+&sig=.+$/);
   expect((await page.request.get(SERVER + src)).status()).toBe(200);
   expect(
@@ -234,7 +237,7 @@ test("the review screens: j/k walk, overlay from stored regions, accept, reject,
 
   await test.step("j and k walk the build", async () => {
     // j walks to the next shot in the build's order; k comes back.
-    await page.locator("h1").click();
+    await page.getByRole("heading", { level: 1 }).click();
     await page.keyboard.press("j");
     await expect(page.getByTestId("position")).toHaveText("shot 2 of 5");
     await expect(page.getByTestId("sizes")).toContainText("Main 40×40 · Branch 48×40");

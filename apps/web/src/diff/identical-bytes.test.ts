@@ -49,6 +49,20 @@ const branchSpec = (png: typeof white) => ({
   shots: [{ png }],
 });
 
+/**
+ * Make a measured shot's stored hash and size main's, unmeasured, in a build left errored so it is
+ * diffed again: no upload reaches that state (the bytes never change under a hash), so it is written.
+ */
+async function hashedAsMains(ctx: Ctx, shotId: string, buildId: string) {
+  const [main] = await ctx.db.select().from(snapshots).where(eq(snapshots.diffStatus, "new"));
+  if (!main) throw new Error("no main shot");
+  await ctx.db
+    .update(snapshots)
+    .set({ imageSha256: main.imageSha256, imageSize: main.imageSize, diffStatus: null })
+    .where(eq(snapshots.id, shotId));
+  await ctx.db.update(builds).set({ status: "errored" }).where(eq(builds.id, buildId));
+}
+
 describe("identical bytes", () => {
   test("equal hashes: unchanged, diffKey null, no blob read and no overlay written", async () => {
     const ctx = await context();
@@ -123,20 +137,12 @@ describe("identical bytes", () => {
     await upload(ctx, { branch: "main", commit: sha(1), shots: [{ png: white }] });
     const branch = await upload(ctx, branchSpec(reEncoded));
     const measured = await onlyShot(ctx, branch);
-    const overlay = measured.diffKey ?? "";
+    expect(measured.diffKey).toBeTruthy();
+    const overlay = measured.diffKey!;
     expect(await ctx.scoped.get(overlay)).not.toBeNull();
 
     // The shot's hash now says it is main's bytes, and it is measured again.
-    const [main] = await ctx.db.select().from(snapshots).where(eq(snapshots.diffStatus, "new"));
-    await ctx.db
-      .update(snapshots)
-      .set({
-        imageSha256: main?.imageSha256 ?? null,
-        imageSize: main?.imageSize ?? null,
-        diffStatus: null,
-      })
-      .where(eq(snapshots.id, measured.id));
-    await ctx.db.update(builds).set({ status: "errored" }).where(eq(builds.id, branch.id));
+    await hashedAsMains(ctx, measured.id, branch.id);
     const again = await getBuild(ctx.db, ctx.projectId, branch.id);
     await processBuild({ db: ctx.db, blobs: ctx.scoped }, again);
     const row = await onlyShot(ctx, branch);
@@ -149,18 +155,10 @@ describe("identical bytes", () => {
     await upload(ctx, { branch: "main", commit: sha(1), shots: [{ png: white }] });
     const branch = await upload(ctx, branchSpec(reEncoded));
     const measured = await onlyShot(ctx, branch);
-    const overlay = measured.diffKey ?? "";
+    expect(measured.diffKey).toBeTruthy();
+    const overlay = measured.diffKey!;
 
-    const [main] = await ctx.db.select().from(snapshots).where(eq(snapshots.diffStatus, "new"));
-    await ctx.db
-      .update(snapshots)
-      .set({
-        imageSha256: main?.imageSha256 ?? null,
-        imageSize: main?.imageSize ?? null,
-        diffStatus: null,
-      })
-      .where(eq(snapshots.id, measured.id));
-    await ctx.db.update(builds).set({ status: "errored" }).where(eq(builds.id, branch.id));
+    await hashedAsMains(ctx, measured.id, branch.id);
     const failing: BlobStore = {
       ...ctx.scoped,
       delete: async () => {

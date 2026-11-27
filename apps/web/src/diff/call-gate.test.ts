@@ -27,44 +27,69 @@ function started(gate: CallGate, order: string[], name: string) {
   return { finish: held.resolve, done, began: began.promise };
 }
 
-/** The gate's poll timer, counted: a test awaits `afterPolls(n)` to know waiters looked again while a call ran. */
+/**
+ * The gate's poll timer, counted and held: a waiter's sleep ends only when the test calls `tick`, and
+ * a test awaits `polled(n)` to know the waiters have looked `n` times in all. No real time passes.
+ */
 function countedPolls() {
   let polls = 0;
   const waiters: { at: number; resolve: () => void }[] = [];
+  let sleeping: (() => void)[] = [];
   return {
     sleep: () => {
       polls++;
       for (const w of waiters) if (polls >= w.at) w.resolve();
-      return new Promise<void>((resolve) => setTimeout(resolve, 1));
-    },
-    afterPolls: (n: number) => {
       const { promise, resolve } = Promise.withResolvers<void>();
-      waiters.push({ at: polls + n, resolve });
+      sleeping.push(resolve);
+      return promise;
+    },
+    /** End every sleep in progress: each waiter looks again. */
+    tick: () => {
+      const woken = sleeping;
+      sleeping = [];
+      for (const wake of woken) wake();
+    },
+    polled: (n: number) => {
+      const { promise, resolve } = Promise.withResolvers<void>();
+      waiters.push({ at: n, resolve });
+      for (const w of waiters) if (polls >= w.at) w.resolve();
       return promise;
     },
   };
 }
 
+/** A sleep whose first call never returns (a cancelled waiter), and every later one is `sleep`. */
+function firstSleepNeverEnds(sleep: (ms: number) => Promise<void>) {
+  let polls = 0;
+  return (ms: number) => (++polls === 1 ? new Promise<void>(() => {}) : sleep(ms));
+}
+
 describe("callGate", () => {
   test("runs one call at a time, in the order they came", async () => {
     const order: string[] = [];
-    const { sleep, afterPolls } = countedPolls();
+    const { sleep, tick, polled } = countedPolls();
     const gate = callGate(1, LEASE_MS, { sleep });
     const a = started(gate, order, "a");
     const b = started(gate, order, "b");
     const c = started(gate, order, "c");
-    // b and c each look again while a still runs, and neither is let in.
+    // b and c each look while a runs, and neither is let in; then each looks again.
     await a.began;
-    await afterPolls(2);
+    await polled(2);
+    tick();
+    await polled(4);
     expect(order).toEqual(["a"]);
     a.finish();
     await a.done;
+    tick();
     await b.began;
     // c looks again while b runs.
-    await afterPolls(1);
+    await polled(5);
+    tick();
+    await polled(6);
     expect(order).toEqual(["a", "b"]);
     b.finish();
     await b.done;
+    tick();
     await c.began;
     expect(order).toEqual(["a", "b", "c"]);
     c.finish();
@@ -115,12 +140,8 @@ describe("callGate", () => {
 
   test("a waiter cancelled in the queue does not hold up the one behind it", async () => {
     const time = fakeTime();
-    let polls = 0;
-    const gate = callGate(1, LEASE_MS, {
-      now: time.now,
-      // The first caller's second poll never returns: its request was cancelled while it waited.
-      sleep: (ms) => (++polls === 1 ? new Promise(() => {}) : time.sleep(ms)),
-    });
+    // The first waiter's poll never returns: its request was cancelled while it waited.
+    const gate = callGate(1, LEASE_MS, { now: time.now, sleep: firstSleepNeverEnds(time.sleep) });
     const first = Promise.withResolvers<void>();
     const running = gate(() => first.promise);
     await Promise.resolve();

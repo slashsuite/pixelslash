@@ -1,5 +1,5 @@
 import type { Browser, Page, Request } from "@playwright/test";
-import { expect, open, test } from "./fixtures";
+import { expect, expectHydrated, open, test } from "./fixtures";
 import { CHANGED, SHA_MAIN, SHA_WORK, WHITE, uploadBuild } from "./api-upload";
 import { dragOver } from "./draw";
 import { openSection } from "./snapshot-viewer";
@@ -91,7 +91,7 @@ test("a box drawn over the change flips the verdict, exports as config, and stay
     await expect(page.getByTestId("build-status")).toHaveText("changes");
     await page.getByTestId("snapshot-row").first().getByRole("link").click();
     await expect(page).toHaveURL(/\/snapshots\//);
-    await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
+    await expectHydrated(page);
     await openSection(page, "Tools");
     await expect(page.getByTestId("ignore-boxes")).toBeVisible();
     await expect(page.getByTestId("ignore-box")).toHaveCount(0);
@@ -110,7 +110,7 @@ test("a box drawn over the change flips the verdict, exports as config, and stay
       "Saved. Re-diffed 1 shot; the build is passed.",
     );
     // Hatched on both panes, labelled as drawn in the UI.
-    await expect(page.locator('[data-testid="ignore-box"][data-source="UI"]')).toHaveCount(2);
+    await expect(page.getByTestId("ignore-box").filter({ hasText: /^UI$/ })).toHaveCount(2);
     await expect(page.getByTestId("ignore-box-row")).toHaveCount(1);
     await expect(page.getByTestId("ignore-snippet")).toContainText('"chromium-40x40-light"');
     await expect(page.getByTestId("ignore-edge-warning")).toHaveCount(0);

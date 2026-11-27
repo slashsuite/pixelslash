@@ -2,7 +2,7 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { mkdirSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { asc, eq } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, inject, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, inject, test, vi } from "vitest";
 import { builds, snapshots } from "#/db/schema";
 import { buildIdOf, cli, db, removeTemps, seed, serverUrl, tempDir } from "./harness";
 import { WEB } from "./paths";
@@ -61,13 +61,19 @@ async function renderer(): Promise<ChildProcess> {
     },
     stdio: ["ignore", out, out],
   });
-  for (let tries = 0; tries < 80; tries++) {
-    const up = await fetch(`http://127.0.0.1:${port}/health`).catch(() => undefined);
-    if (up?.ok) return child;
-    await new Promise((r) => setTimeout(r, 250));
+  try {
+    await vi.waitFor(
+      async () => {
+        const up = await fetch(`http://127.0.0.1:${port}/health`).catch(() => undefined);
+        if (!up?.ok) throw new Error("the renderer is not up yet");
+      },
+      { timeout: 20_000, interval: 250 },
+    );
+    return child;
+  } catch {
+    child.kill("SIGTERM");
+    throw new Error(`the renderer did not come up: ${readFileSync(workerLog, "utf8")}`);
   }
-  child.kill("SIGTERM");
-  throw new Error(`the renderer did not come up: ${readFileSync(workerLog, "utf8")}`);
 }
 
 function storybookBuild() {
@@ -81,15 +87,22 @@ function storybookBuild() {
 
 /** The build's status once it has left `uploading`, or the last one read when 90 s pass. */
 async function settled(id: string): Promise<{ status: string; error: string | null } | undefined> {
-  for (let tries = 0; tries < 180; tries++) {
-    const [row] = await db()
-      .select({ status: builds.status, error: builds.error })
-      .from(builds)
-      .where(eq(builds.id, id));
-    if (row && row.status !== "uploading") return row;
-    await new Promise((r) => setTimeout(r, 500));
+  let last: { status: string; error: string | null } | undefined;
+  try {
+    return await vi.waitFor(
+      async () => {
+        [last] = await db()
+          .select({ status: builds.status, error: builds.error })
+          .from(builds)
+          .where(eq(builds.id, id));
+        if (!last || last.status === "uploading") throw new Error("the build is still uploading");
+        return last;
+      },
+      { timeout: 90_000, interval: 500 },
+    );
+  } catch {
+    return last;
   }
-  return undefined;
 }
 
 /**
@@ -98,14 +111,20 @@ async function settled(id: string): Promise<{ status: string; error: string | nu
  * in between), so a settled build does not yet mean a logged one.
  */
 async function logged(id: string): Promise<string> {
-  for (let tries = 0; tries < 300; tries++) {
-    // Only whole lines: the last piece may be a line still being written.
-    const lines = readFileSync(workerLog, "utf8").split("\n").slice(0, -1);
-    const line = lines.find((l) => l.startsWith(`render ${id}: `));
-    if (line !== undefined) return line;
-    await new Promise((r) => setTimeout(r, 100));
+  try {
+    return await vi.waitFor(
+      () => {
+        // Only whole lines: the last piece may be a line still being written.
+        const lines = readFileSync(workerLog, "utf8").split("\n").slice(0, -1);
+        const line = lines.find((l) => l.startsWith(`render ${id}: `));
+        if (line === undefined) throw new Error(`no line for ${id} yet`);
+        return line;
+      },
+      { timeout: 30_000, interval: 100 },
+    );
+  } catch {
+    return readFileSync(workerLog, "utf8");
   }
-  return readFileSync(workerLog, "utf8");
 }
 
 beforeAll(async () => {

@@ -1,22 +1,22 @@
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { ABANDONED_AFTER_MS, ABANDONED_REASON, sweepAbandoned } from "#/db/abandoned";
-import { syncEnded } from "./abandoned";
+import { ABANDONED_AFTER_MS, ABANDONED_REASON } from "#/db/abandoned";
+import { setGithubRepo } from "#/db/orgs";
 import { builds, snapshots } from "#/db/schema";
-import { syncCheckRuns } from "#/github/check-run";
+import type { StatusBody } from "#/github/check-run";
+import { fakeGithub } from "#/github/test-github";
+import { syncEnded } from "./abandoned";
 import { call, idOf, newBuild, openBuild, setup, snapshotForm } from "./test-support";
 
-vi.mock("#/db/abandoned", async (original) => {
-  const real = await original<typeof import("#/db/abandoned")>();
-  return { ...real, sweepAbandoned: vi.fn<typeof real.sweepAbandoned>(real.sweepAbandoned) };
-});
-
-vi.mock("#/github/check-run", async (original) => {
-  const real = await original<typeof import("#/github/check-run")>();
-  return { ...real, syncCheckRuns: vi.fn<typeof real.syncCheckRuns>(real.syncCheckRuns) };
-});
-
 afterEach(() => vi.restoreAllMocks());
+
+/** The build page a commit status links. */
+const linkOf = (status: StatusBody) => status.target_url;
+
+/** The sweep's own read (the only query that asks for a build never processed) fails as D1 would. */
+function sweepFails(query: string) {
+  if (/"processing_started_at" is null/.test(query)) throw new Error("d1 is down");
+}
 
 const LONG_AGO = new Date(Date.now() - ABANDONED_AFTER_MS - 60 * 60 * 1000);
 
@@ -45,14 +45,16 @@ describe("creating a build sweeps the project's abandoned ones (PS-324)", () => 
   });
 
   test("a sweep that throws is logged and the build is still created", async () => {
-    const { db, deps, acme } = await setup();
+    const { db, deps, acme } = await setup(sweepFails);
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    vi.mocked(sweepAbandoned).mockRejectedValueOnce(new Error("d1 is down"));
 
     const created = await call(deps, "POST /api/v1/builds", acme.token, newBuild());
     expect(created.status).toBe(201);
     expect((await statusOf(db, await idOf(created)))?.status).toBe("uploading");
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining("d1 is down"));
+    // Drizzle wraps the driver's error as a failed query, as it does a real D1 failure.
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringMatching(/^abandoned-build sweep failed: Failed query: select "id", "status"/),
+    );
   });
 
   test("a build the sweep ended resumes when finalise is sent again (ob 1545)", async () => {
@@ -98,10 +100,23 @@ describe("syncing ended builds' check runs (PS-324)", () => {
         row("solo", "b".repeat(40), 25),
       ]);
 
-    await syncEnded({ db, app: null, token: null, publicUrl: undefined }, ["old", "new", "solo"]);
+    const github = fakeGithub();
+    await setGithubRepo(db, acme.user.id, acme.project.id, "acme/web");
 
-    expect(vi.mocked(syncCheckRuns)).toHaveBeenCalledTimes(1);
-    const [, ids] = vi.mocked(syncCheckRuns).mock.calls[0] ?? [];
-    expect([...(ids ?? [])].toSorted()).toEqual(["new", "solo"]);
+    await syncEnded(
+      { db, app: null, token: github.token(), publicUrl: "https://pixelslash.test" },
+      ["old", "new", "solo"],
+    );
+
+    // Each status links the build it is from: "old" never posted over "new".
+    const linked = github
+      .statusCalls()
+      .map((c) => `${c.path} ${linkOf(JSON.parse(c.raw))}`)
+      .toSorted();
+    const page = `https://pixelslash.test/projects/${acme.project.id}/builds`;
+    expect(linked).toEqual([
+      `/repos/acme/web/statuses/${"a".repeat(40)} ${page}/new`,
+      `/repos/acme/web/statuses/${"b".repeat(40)} ${page}/solo`,
+    ]);
   });
 });

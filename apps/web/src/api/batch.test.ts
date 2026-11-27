@@ -4,8 +4,8 @@ import { MAX_PARAMS } from "#/db/chunks";
 import { markFlaky } from "#/db/flakes";
 import { snapshots } from "#/db/schema";
 import { sha256Bytes } from "#/lib/crypto";
+import { must } from "#/test/must";
 import { META, PNG, call, openBuild, setup, snapshotForm } from "./test-support";
-import { MAX_BATCH } from "./validate-batch";
 
 /**
  * `POST /api/v1/builds/:id/snapshots/batch`: shots whose PNGs the project holds, registered by
@@ -59,6 +59,13 @@ async function strip(res: Response) {
   return rest;
 }
 
+/** A store hook that keeps each multi-row insert's SQL in `into`. */
+function multiRowInserts(into: string[]) {
+  return (query: string) => {
+    if (query.includes(" union all ")) into.push(query);
+  };
+}
+
 describe("the batch endpoint", () => {
   test("stores the same rows and finalises to the same result as per-shot PUTs, changed shots included", async () => {
     const s = await setup();
@@ -68,7 +75,7 @@ describe("the batch endpoint", () => {
     await markFlaky(s.db, {
       userId: s.acme.user.id,
       projectId: s.acme.project.id,
-      snapshotId: held?.id ?? "",
+      snapshotId: must(held).id,
       note: null,
     });
 
@@ -148,9 +155,7 @@ describe("the batch endpoint", () => {
 
   test("a batch bigger than one statement binds is written in several, each within D1's limit", async () => {
     const inserts: string[] = [];
-    const s = await setup((query) => {
-      if (query.includes(" union all ")) inserts.push(query);
-    });
+    const s = await setup(multiRowInserts(inserts));
     await finishedWith(s, 1);
     const build = await openBuild(s.deps, s.acme.token);
     const hash = await hashOf(0);
@@ -186,36 +191,18 @@ describe("the batch endpoint", () => {
     expect(rows[0]).toMatchObject({ tags: ["again"], imageSha256: await hashOf(1) });
   });
 
-  test("one bad item fails the request and writes nothing", async () => {
+  // Which items and sizes are refused is `validate-batch.test.ts`'s table; this is the wiring.
+  test("one bad item fails the request, named, and writes nothing", async () => {
     const s = await setup();
     await finishedWith(s, 2);
     const build = await openBuild(s.deps, s.acme.token);
     const good = { ...metaOf(0), sha256: await hashOf(0) };
-    for (const bad of [
-      { ...metaOf(1), sha256: "not-a-hash" },
-      { ...metaOf(1) },
-      { ...metaOf(1), name: 7, sha256: await hashOf(1) },
-      { ...metaOf(1), flake: { runs: 2 }, sha256: await hashOf(1) },
-      { ...metaOf(1), ci: { engineVersion: "x", results: [] }, sha256: await hashOf(1) },
-    ]) {
-      const reply = await batch(s.deps, build, s.acme.token, { snapshots: [good, bad] });
-      expect(reply.status).toBe(400);
-      // The message names the item, so a client can find the shot in a batch of a thousand.
-      expect(await reply.json()).toEqual({ error: expect.stringContaining("snapshots[1]") });
-    }
-    expect((await batch(s.deps, build, s.acme.token, {})).status).toBe(400);
+    const bad = { ...metaOf(1), sha256: "not-a-hash" };
+    const reply = await batch(s.deps, build, s.acme.token, { snapshots: [good, bad] });
+    expect(reply.status).toBe(400);
+    // The message names the item, so a client can find the shot in a batch of a thousand.
+    expect(await reply.json()).toEqual({ error: expect.stringContaining("snapshots[1]") });
     expect(await rowsOf(s, build)).toEqual([]);
-  });
-
-  test("takes at most MAX_BATCH shots a request", async () => {
-    const s = await setup();
-    const build = await openBuild(s.deps, s.acme.token);
-    const sha256 = "1".repeat(64);
-    const some = (n: number) => ({
-      snapshots: Array.from({ length: n }, (_, i) => ({ ...metaOf(i), sha256 })),
-    });
-    expect((await batch(s.deps, build, s.acme.token, some(MAX_BATCH))).status).toBe(200);
-    expect((await batch(s.deps, build, s.acme.token, some(MAX_BATCH + 1))).status).toBe(400);
   });
 
   test("is an upload endpoint: a token is needed, another org's build is a 404, a finalised build a 409", async () => {

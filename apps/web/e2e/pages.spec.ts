@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { expect, open, test } from "./fixtures";
+import { expect, expectHydrated, open, test } from "./fixtures";
 import { SHA_MAIN, SHA_WORK, uploadBuild } from "./api-upload";
 import { openRunCard } from "./build-workspace";
 import { sql } from "./d1";
@@ -85,7 +85,7 @@ test("every page fits a phone's width, with its folded parts opened", async ({
   await test.step("the snapshot page in every mode and scale", async () => {
     await page.getByTestId("snapshot-row").filter({ hasText: /hero/i }).getByRole("link").click();
     await expect(page).toHaveURL(/\/snapshots\//);
-    await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
+    await expectHydrated(page);
     await expect(page.getByRole("radiogroup", { name: "Compared with" })).toBeVisible();
     await fits(page, "the snapshot page");
     for (const name of ["Overlay", "Slider", "Side by side", "1:1", "Zoom to change", "Fit"]) {

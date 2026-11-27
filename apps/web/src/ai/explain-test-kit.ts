@@ -1,7 +1,7 @@
 import { Buffer } from "node:buffer";
 import { PNG } from "pngjs";
 import { setProjectModel } from "#/db/models";
-import { TEST_MODEL_KEY_SECRET as SECRET } from "#/db/test-db";
+import { TEST_MODEL_KEY_SECRET as SECRET } from "#/test/store";
 import { type Ctx, sha, upload } from "#/diff/test-builds";
 import { RED, shot } from "#/diff/test-shots";
 import type { ModelFetch } from "./model";
@@ -60,6 +60,12 @@ export function stubModel(
   };
   return { sent, sessions, modelFetch };
 }
+
+/** A `reply` for `stubModel` giving the n-th region call the n-th answer, and the last to any after. */
+export const inOrder =
+  (first: string | Error | Response, ...rest: (string | Error | Response)[]) =>
+  (n: number) =>
+    [first, ...rest][n] ?? rest.at(-1) ?? first;
 
 export async function withModel(ctx: Ctx, autoPassNoise: boolean) {
   await setProjectModel(ctx.db, ctx.userId, ctx.projectId, {

@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, test } from "vitest";
 import { getPlatformProxy } from "wrangler";
+import { must } from "#/test/must";
 
 /**
  * 0038 moves the PR comment's key from (project, PR) to (org, repo in lower case, PR): one comment
@@ -49,7 +50,7 @@ describe("migration 0038", () => {
         "INSERT INTO pr_comments (project_id, pr_number, comment_id, created_at) VALUES ('p2', 7, 902, 2000), ('p1', 7, 901, 1000), ('p2', 8, 903, 3000), ('p3', 7, 904, 500)",
       ),
     ]);
-    await apply(db, [FILES[AT] ?? ""]);
+    await apply(db, [must(FILES[AT], "the migration")]);
 
     const rows = await db
       .prepare("SELECT org_id, repo, pr_number, comment_id FROM pr_comments ORDER BY pr_number")

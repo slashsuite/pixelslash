@@ -3,8 +3,13 @@ import { twinLabel, twinSourceLabel, unlinkedLine } from "#/lib/twins";
 import { NotFoundError } from "./db";
 import { twinsOfBuild } from "./twins";
 import { type World, PIXEL, world } from "./twins-test-support";
+import { must } from "#/test/must";
 
 /** The pairing function (PS-295) on a real schema: one project, in its own build and against its baselines. */
+
+/** The linked entry of `platform` at `viewport`. */
+const at = (platform: string, viewport: string) => (e: { platform: string; viewport: string }) =>
+  e.platform === platform && e.viewport === viewport;
 
 let db: World["db"];
 let web: World["web"];
@@ -28,9 +33,13 @@ describe("twinsOfBuild: one project", () => {
       ["android", "Button/primary"],
       ["web", "Button/primary"],
     ]);
-    const webEntry = twins.linked.find((e) => e.platform === "web");
+    const webEntry = must(
+      twins.linked.find((e) => e.platform === "web"),
+      "the web entry",
+    );
+    const twin = must(webEntry.twins[0], "the web entry's twin");
     expect(webEntry).toMatchObject({ device: null, hasMetrics: true, missing: [] });
-    expect(webEntry?.twins).toEqual([
+    expect(webEntry.twins).toEqual([
       expect.objectContaining({
         snapshotId: await idOf(b, "Button/primary", "android"),
         platform: "android",
@@ -41,12 +50,8 @@ describe("twinsOfBuild: one project", () => {
         hasMetrics: false,
       }),
     ]);
-    expect(
-      twinSourceLabel(webEntry?.twins[0]?.source ?? { kind: "baselines", commitSha: null }),
-    ).toBe("same build");
-    expect(twinLabel(webEntry?.twins[0] ?? { platform: "web", device: null })).toBe(
-      `android · ${PIXEL}`,
-    );
+    expect(twinSourceLabel(twin.source)).toBe("same build");
+    expect(twinLabel(twin)).toBe(`android · ${PIXEL}`);
     // The android-only shot has no web twin.
     expect(twins.unlinked.map((e) => unlinkedLine(e))).toEqual([
       "Button/loading dark has no web twin",
@@ -76,7 +81,7 @@ describe("twinsOfBuild: one project", () => {
     ]);
     const twins = await twinsOfBuild(db, b);
     expect(twins.unlinked).toEqual([]);
-    const first = twins.linked.find((e) => e.platform === "web" && e.viewport === "1280x720");
+    const first = twins.linked.find(at("web", "1280x720"));
     expect(first?.twins.map((t) => [t.platform, t.device, t.viewport])).toEqual([
       ["android", PIXEL, "412x915"],
       ["android", "Pixel Tablet API 35", "1280x800"],
@@ -99,16 +104,18 @@ describe("twinsOfBuild: one project", () => {
       { platform: "ios", name: "Other" },
     ]);
     const twins = await twinsOfBuild(db, b);
-    const primaryWeb = twins.unlinked.find((e) => e.platform === "web");
-    expect(primaryWeb?.missing).toEqual(["ios"]);
-    expect(primaryWeb?.twins.map((t) => t.platform)).toEqual(["android"]);
-    expect(unlinkedLine(primaryWeb ?? { name: "", theme: "", missing: [] })).toBe(
-      "Button/primary dark has no ios twin",
+    const primaryWeb = must(
+      twins.unlinked.find((e) => e.platform === "web"),
+      "the web entry",
     );
-    const other = twins.unlinked.find((e) => e.name === "Other");
-    expect(unlinkedLine(other ?? { name: "", theme: "", missing: [] })).toBe(
-      "Other dark has no web or android twin",
+    expect(primaryWeb.missing).toEqual(["ios"]);
+    expect(primaryWeb.twins.map((t) => t.platform)).toEqual(["android"]);
+    expect(unlinkedLine(primaryWeb)).toBe("Button/primary dark has no ios twin");
+    const other = must(
+      twins.unlinked.find((e) => e.name === "Other"),
+      "the Other entry",
     );
+    expect(unlinkedLine(other)).toBe("Other dark has no web or android twin");
   });
 
   test("a build with no native shot returns nothing, and no error", async () => {
@@ -149,9 +156,9 @@ describe("twinsOfBuild: the current baselines", () => {
         source: { kind: "baselines", commitSha: null },
       }),
     ]);
-    expect(
-      twinSourceLabel(twins.linked[0]?.twins[0]?.source ?? { kind: "build", commitSha: null }),
-    ).toBe("baselines");
+    expect(twinSourceLabel(must(twins.linked[0]?.twins[0], "the baseline twin").source)).toBe(
+      "baselines",
+    );
   });
 
   test("takes the newest accepted shot per key, not an older one", async () => {

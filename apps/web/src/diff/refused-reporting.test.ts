@@ -1,13 +1,39 @@
 import { Buffer } from "node:buffer";
-import { beforeEach, describe, expect, test, vi } from "vitest";
-import { reportError } from "#/server/sentry";
+import * as Sentry from "@sentry/cloudflare";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { context, onlyShot, sha, upload } from "./test-builds";
 
-vi.mock("#/server/sentry", () => ({ reportError: vi.fn<typeof reportError>() }));
+/**
+ * What `reportError` hands the SDK: a real client whose `beforeSend` keeps each event and drops it,
+ * so nothing is sent and no app module is mocked.
+ */
+const reported: Sentry.ErrorEvent[] = [];
+const noSend = Sentry.createTransport({ recordDroppedEvent: () => undefined }, () =>
+  Promise.resolve({}),
+);
 
 beforeEach(() => {
-  vi.mocked(reportError).mockClear();
+  reported.length = 0;
+  const client = new Sentry.CloudflareClient({
+    dsn: "https://key@sentry.test/1",
+    integrations: [],
+    stackParser: () => [],
+    transport: () => noSend,
+    beforeSend: (event) => {
+      reported.push(event);
+      return null;
+    },
+  });
+  Sentry.setCurrentClient(client);
+  client.init();
 });
+
+afterEach(() => {
+  Sentry.getCurrentScope().setClient(undefined);
+});
+
+/** Each reported error as its message and tags. */
+const sent = () => reported.map((event) => [event.exception?.values?.[0]?.value, event.tags]);
 
 /** Only the head of a PNG: the limit reads the size and nothing may get as far as decoding it. */
 const tall = (height: number) => {
@@ -41,7 +67,7 @@ describe("what reaches Sentry from a build with an unmeasured shot (PS-328)", ()
     expect(build.error).toContain(`(${held.viewport}, ${held.theme}): ${said}`);
     expect(build.error).not.toContain("re-run");
     expect(held.diffError).toBe(said);
-    expect(reportError).not.toHaveBeenCalled();
+    expect(sent()).toEqual([]);
   });
 
   test("a shot that fails for another reason is reported once, at the shot, and can be re-run", async () => {
@@ -56,7 +82,6 @@ describe("what reaches Sentry from a build with an unmeasured shot (PS-328)", ()
       /^1 of 1 shots could not be measured; re-run them from the build page\./,
     );
     expect(held.diffError).toBe("boom");
-    expect(reportError).toHaveBeenCalledTimes(1);
-    expect(reportError).toHaveBeenCalledWith(boom, { area: "diff", step: "shot" });
+    expect(sent()).toEqual([["boom", { area: "diff", step: "shot" }]]);
   });
 });

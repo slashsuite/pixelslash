@@ -30,7 +30,8 @@ describe("changed regions", () => {
     });
     const held = await onlyShot(ctx, branch);
     expect(held.diffStatus).toBe("changed");
-    const boxes = held.diffResult?.regions.filter((r) => r.kind === "change") ?? [];
+    expect(held.diffResult).not.toBeNull();
+    const boxes = held.diffResult!.regions.filter((r) => r.kind === "change");
     expect(boxes).toHaveLength(2);
     const sorted = boxes.toSorted((a, b) => a.y - b.y);
     expect(sorted[0]).toMatchObject({ x: 10, y: 10, w: 20, h: 10 });

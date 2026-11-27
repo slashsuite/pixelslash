@@ -30,6 +30,26 @@ type Options = {
   toCommit: (commit: CommitRef) => void;
 };
 
+/** Where the reviewer goes once a decision lands. */
+export type Destination =
+  | { to: "shot"; shot: ShotRef }
+  | { to: "commit"; commit: CommitRef }
+  | { to: "build" };
+
+/**
+ * Where a landed decision sends the reviewer: an accept on a build that still takes decisions goes
+ * to the next shot the reply names, else the change set's commit, else the build page. A reject, or
+ * a build failed meanwhile (another reviewer's reject can land between this accept and the reply),
+ * goes to the build page.
+ */
+export function destinationOf(state: DecisionState, reply: DecisionReply): Destination {
+  const stillDecidable = reply.buildStatus === "changes" || reply.buildStatus === "passed";
+  if (state !== "accepted" || !stillDecidable) return { to: "build" };
+  if (reply.next) return { to: "shot", shot: reply.next };
+  if (reply.commit) return { to: "commit", commit: reply.commit };
+  return { to: "build" };
+}
+
 /**
  * Accept or reject the shot on screen. An accept that lands moves the reviewer on to the next shot
  * still awaiting one: in this build first, then in the other builds of the commit's change set (a
@@ -54,12 +74,9 @@ export function useDecision({ reviewable, review, go, toBuild, toCommit }: Optio
       review(state)
         .then(
           (reply) => {
-            // Another reviewer's reject can land between this accept and the reply: the build is failed then.
-            const stillDecidable =
-              reply.buildStatus === "changes" || reply.buildStatus === "passed";
-            if (state !== "accepted" || !stillDecidable) toBuild();
-            else if (reply.next) go(reply.next);
-            else if (reply.commit) toCommit(reply.commit);
+            const where = destinationOf(state, reply);
+            if (where.to === "shot") go(where.shot);
+            else if (where.to === "commit") toCommit(where.commit);
             else toBuild();
           },
           (e: unknown) => setError(e instanceof Error ? e.message : String(e)),

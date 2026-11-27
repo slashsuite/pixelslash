@@ -10,6 +10,7 @@ const [setup, chromium] = base.projects ?? [];
 
 export default defineConfig({
   ...base,
+  use: { ...base.use, trace: "retain-on-failure" },
   projects: [
     { ...setup },
     { ...chromium, name: "site-report", testMatch: /site-report\.shoot\.ts/ },

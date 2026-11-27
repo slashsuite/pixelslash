@@ -68,9 +68,8 @@ describe("a branch build against main", () => {
     expect(main.get("b")).toMatchObject({ mainDiffStatus: "changed", mainGroup: "waiting" });
 
     const since = new Map(branch.snapshots.map((s) => [s.name, s]));
-    expect(groupOf(since.get("b") ?? { diffStatus: null, rebaselineNeeded: false })).toBe(
-      "changed",
-    );
+    expect(since.get("b")).toBeDefined();
+    expect(groupOf(since.get("b")!)).toBe("changed");
     expect(since.get("a")).toMatchObject({ diffStatus: "unchanged" });
     expect(since.get("a")?.approvedEarlier).not.toBeNull();
   });

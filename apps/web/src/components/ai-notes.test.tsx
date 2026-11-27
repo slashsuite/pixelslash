@@ -1,5 +1,6 @@
-import { renderToStaticMarkup } from "react-dom/server";
+// @vitest-environment happy-dom
 import { expect, test } from "vitest";
+import { render, screen } from "#/test/render";
 import { AiExplanation, aiFiltered, type JudgedShot } from "./ai-notes";
 
 /** Only the fields the section reads; the rest of a snapshot row is not its business. */
@@ -13,37 +14,44 @@ const changed = (over: Partial<JudgedShot>): JudgedShot => ({
   ...over,
 });
 
-const text = (snapshot: JudgedShot) =>
-  renderToStaticMarkup(<AiExplanation snapshot={snapshot} />).replace(/<[^>]+>/g, "");
+const section = (snapshot: JudgedShot) => render(<AiExplanation snapshot={snapshot} />);
 
-test("a failed judge says it failed and why, never that there is no judge", () => {
-  const out = text(changed({ aiError: "the model answered 502" }));
-  expect(out).toContain("judge failed: the model answered 502. Review the pixels.");
-  expect(out).not.toContain("no judge");
+test("a failed judge says it failed and why, never that there is no judge", async () => {
+  await section(changed({ aiError: "the model answered 502" }));
+  expect(
+    screen.getByText(/judge failed: the model answered 502\. Review the pixels\./),
+  ).toBeTruthy();
+  expect(screen.queryByText(/no judge/)).toBeNull();
 });
 
-test("a failure that already ends in a full stop does not double it", () => {
-  expect(text(changed({ aiError: "timed out." }))).toContain("judge failed: timed out. Review");
+test("a failure that already ends in a full stop does not double it", async () => {
+  await section(changed({ aiError: "timed out." }));
+  expect(screen.getByText(/judge failed: timed out\. Review/)).toBeTruthy();
 });
 
-test("with no error and no explanation the shot is reviewed as plain pixels", () => {
-  const out = text(changed({}));
-  expect(out).toContain("skip: no judge. Review the pixels.");
-  expect(out).not.toContain("judge failed");
+test("with no error and no explanation the shot is reviewed as plain pixels", async () => {
+  await section(changed({}));
+  expect(screen.getByText(/skip: no judge\. Review the pixels\./)).toBeTruthy();
+  expect(screen.queryByText(/judge failed/)).toBeNull();
 });
 
-test("a shot still waiting on the queue is explaining, whatever an earlier run said", () => {
-  const out = text(changed({ aiPending: true, aiError: "old failure" }));
-  expect(out).toContain("explaining…");
-  expect(out).not.toContain("judge failed");
+test("a shot still waiting on the queue is explaining, whatever an earlier run said", async () => {
+  await section(changed({ aiPending: true, aiError: "old failure" }));
+  expect(screen.getByText(/explaining…/)).toBeTruthy();
+  expect(screen.queryByText(/judge failed/)).toBeNull();
 });
 
-test("only a shot the model auto-passed and no person decided is AI-filtered; with no model none is", () => {
-  const auto = { model: "m", at: 0, regions: [], autoPassed: true };
-  expect(aiFiltered(changed({ aiReview: auto, reviewState: "accepted" }))).toBe(true);
-  expect(aiFiltered(changed({ aiReview: auto, reviewState: "accepted", reviewedBy: "ada" }))).toBe(
+const auto = { model: "m", at: 0, regions: [], autoPassed: true };
+
+test.each<[string, Partial<JudgedShot>, boolean]>([
+  ["auto-passed and no person decided", { aiReview: auto, reviewState: "accepted" }, true],
+  [
+    "auto-passed, then a person decided",
+    { aiReview: auto, reviewState: "accepted", reviewedBy: "ada" },
     false,
-  );
-  expect(aiFiltered(changed({ aiReview: auto, reviewState: "pending" }))).toBe(false);
-  expect(aiFiltered(changed({}))).toBe(false);
+  ],
+  ["auto-pass not applied yet", { aiReview: auto, reviewState: "pending" }, false],
+  ["no model", {}, false],
+])("a shot %s is AI-filtered: %s", (_, over, filtered) => {
+  expect(aiFiltered(changed(over))).toBe(filtered);
 });

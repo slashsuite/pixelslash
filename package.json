@@ -29,11 +29,14 @@
     "wasm:check": "bun scripts/build-wasm.ts --check"
   },
   "devDependencies": {
+    "@hackcove/oxlint-testing": "0.1.0",
     "@moonrepo/cli": "2.6.5",
     "@playwright/test": "catalog:playwright",
     "@types/bun": "catalog:",
     "@types/node": "catalog:",
     "@types/pngjs": "catalog:",
+    "eslint-plugin-playwright": "2.12.2",
+    "eslint-plugin-testing-library": "7.16.2",
     "oxfmt": "0.78.0",
     "oxlint": "1.93.0",
     "oxlint-tsgolint": "7.0.2007",

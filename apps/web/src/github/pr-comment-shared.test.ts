@@ -36,6 +36,55 @@ const ofPr = (png: Uint8Array<ArrayBuffer>, token?: string) => ({
   ...(token && { token }),
 });
 
+/** The project a build belongs to; throws when there is no such build. */
+async function projectOf(w: World, buildId: string) {
+  const row = await w.buildRow(buildId);
+  if (!row) throw new Error(`no build ${buildId}`);
+  return row.projectId;
+}
+
+/** `inner`, but its first comment edit waits for `held`; `patching` resolves when that edit starts. */
+function holdingFirstPatch(inner: GithubApp) {
+  const held = Promise.withResolvers<void>();
+  const patching = Promise.withResolvers<void>();
+  let first = true;
+  const app: GithubApp = {
+    async request(repo, method, path, body) {
+      if (method === "PATCH" && path.includes("/issues/comments/") && first) {
+        first = false;
+        patching.resolve();
+        await held.promise;
+      }
+      return inner.request(repo, method, path, body);
+    },
+  };
+  return { app, held, patching };
+}
+
+/**
+ * `w`'s GitHub, where right after the edit of comment `lostId` (which GitHub lost) another sync
+ * makes the new comment and stores its id first.
+ */
+function racingAfterLostEdit(w: World, lostId: number): GithubApp {
+  const inner = w.github.app({ timeoutMs: 50 });
+  return {
+    async request(repo, method, path, body) {
+      const lostEdit = method === "PATCH" && path.endsWith(`/${lostId}`);
+      try {
+        return await inner.request(repo, method, path, body);
+      } finally {
+        if (lostEdit) {
+          const made = await inner.request(repo, "POST", "/repos/acme/web/issues/7/comments", {
+            body: "theirs",
+          });
+          const commentId = Number(field(made, "id"));
+          await w.db.update(prComments).set({ commentId });
+        }
+      }
+    },
+  };
+}
+
 describe("one PR comment for every project on the repo", () => {
   test("each upload edits the one comment: a section per changed project, then the unchanged ones", async () => {
     const w = await world();
@@ -52,7 +101,7 @@ describe("one PR comment for every project on the repo", () => {
     expect(body).toContain("#### docs: 1 change to review");
     expect(body).toContain(`#### ${w.acme.project.name}: 1 change to review`);
     expect(body).toContain(`[Review the build](${page(w, ours.id)})`);
-    const docsProject = (await w.buildRow(theirs.id))?.projectId ?? "";
+    const docsProject = await projectOf(w, theirs.id);
     expect(body).toContain(`/projects/${docsProject}/builds/${theirs.id})`);
     expect(body).toContain("No visual changes: site.");
     expect(body).not.toContain("#### site");
@@ -96,23 +145,10 @@ describe("one PR comment for every project on the repo", () => {
     const { docs } = await threeProjects(w);
     const ours = await w.finalise(ofPr(CHANGED));
     const theirs = await w.finalise(ofPr(CHANGED, docs));
-    const docsProject = (await w.buildRow(theirs.id))?.projectId ?? "";
+    const docsProject = await projectOf(w, theirs.id);
 
     // Our sync reads the PR, then its edit is held while docs' decision syncs and lands.
-    const inner = w.github.app({ timeoutMs: 50 });
-    const held = Promise.withResolvers<void>();
-    const patching = Promise.withResolvers<void>();
-    let first = true;
-    const slow: GithubApp = {
-      async request(repo, method, path, body) {
-        if (method === "PATCH" && path.includes("/issues/comments/") && first) {
-          first = false;
-          patching.resolve();
-          await held.promise;
-        }
-        return inner.request(repo, method, path, body);
-      },
-    };
+    const { app: slow, held, patching } = holdingFirstPatch(w.github.app({ timeoutMs: 50 }));
     const deps = { db: w.db, token: null, publicUrl: "https://pixelslash.test/" };
     const accepted = await w.decide(ours.id, "accepted");
     const stale = syncCheckRuns({ ...deps, app: slow }, accepted);
@@ -133,7 +169,7 @@ describe("one PR comment for every project on the repo", () => {
     const w = await world();
     const { docs } = await threeProjects(w);
     const theirs = await w.finalise(ofPr(CHANGED, docs));
-    const docsProject = (await w.buildRow(theirs.id))?.projectId ?? "";
+    const docsProject = await projectOf(w, theirs.id);
     await setGithubComment(w.db, w.acme.user.id, docsProject, false);
     await w.finalise(ofPr(CHANGED));
 
@@ -156,8 +192,8 @@ describe("one PR comment for every project on the repo", () => {
   test("another org's project on the same repo keeps its own comment", async () => {
     const w = await world();
     await setGithubRepo(w.db, w.other.user.id, w.other.project.id, "acme/web");
-    for (const token of [undefined, w.other.token])
-      await w.finalise({ commit: sha(1), branch: "main", png: PLAIN, ...(token && { token }) });
+    await w.finalise({ commit: sha(1), branch: "main", png: PLAIN });
+    await w.finalise({ commit: sha(1), branch: "main", png: PLAIN, token: w.other.token });
     await w.finalise(ofPr(CHANGED));
     await w.finalise(ofPr(PLAIN, w.other.token));
 
@@ -173,26 +209,11 @@ describe("one PR comment for every project on the repo", () => {
     const w = await world();
     const built = await w.finalise(ofPr(CHANGED));
     const [lost] = await w.db.select().from(prComments);
-    w.github.deleteComment(lost?.commentId ?? 0);
+    expect(lost).toBeDefined();
+    w.github.deleteComment(lost!.commentId);
 
     // Between our edit's 404 and our forgetting the lost id, another sync makes and stores the new one.
-    const inner = w.github.app({ timeoutMs: 50 });
-    const racing: GithubApp = {
-      async request(repo, method, path, body) {
-        const lostEdit = method === "PATCH" && path.endsWith(`/${lost?.commentId}`);
-        try {
-          return await inner.request(repo, method, path, body);
-        } finally {
-          if (lostEdit) {
-            const made = await inner.request(repo, "POST", "/repos/acme/web/issues/7/comments", {
-              body: "theirs",
-            });
-            const commentId = Number(field(made, "id"));
-            await w.db.update(prComments).set({ commentId });
-          }
-        }
-      },
-    };
+    const racing = racingAfterLostEdit(w, lost!.commentId);
     const deps = { db: w.db, token: null, publicUrl: "https://pixelslash.test/" };
     await syncCheckRuns({ ...deps, app: racing }, [built.id]);
 

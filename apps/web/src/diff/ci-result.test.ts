@@ -43,6 +43,7 @@ describe("checkCiResult", () => {
       /exceed the overlap/,
     ],
     ["another shot's size", upload({ ...real, branchWidth: 65 }), /branch size/],
+    ["a negative count", upload({ ...real, changedPixels: -1 }), /invalid result/],
     [
       "another baseline's size",
       upload({ ...real, mainHeight: 47 }),

@@ -10,8 +10,9 @@ import {
   withdrawInvite,
 } from "./orgs";
 import { builds, snapshots } from "./schema";
-import { testDb } from "./test-db";
+import { testDb } from "#/test/store";
 import { createSession, endSession, sessionUser, signInGithubUser } from "./users";
+import { must } from "#/test/must";
 
 const profile = (githubId: number, login: string) => ({
   githubId,
@@ -137,7 +138,9 @@ describe("the organizations overview", () => {
     await seedBuild(db, { projectId: docs.id, id: "d1", at: 1500 }, [{ diffStatus: "unchanged" }]);
 
     const [overview] = await listOrgs(db, alice.id);
-    const byName = Object.fromEntries((overview?.projects ?? []).map((p) => [p.name, p]));
+    const byName = Object.fromEntries(
+      must(overview, "the overview").projects.map((p) => [p.name, p]),
+    );
 
     expect(byName["web"]?.latest).toMatchObject({
       id: "new",
@@ -162,8 +165,8 @@ describe("the organizations overview", () => {
     expect(before?.members.map((m) => m.login)).toEqual(["alice"]);
     expect(before?.invites).toEqual([expect.objectContaining({ githubLogin: "carol" })]);
 
-    const [pending] = before?.invites ?? [];
-    await withdrawInvite(db, alice.id, org.id, pending?.id ?? "");
+    const pending = must(before?.invites[0], "the pending invite");
+    await withdrawInvite(db, alice.id, org.id, pending.id);
     expect((await listOrgs(db, alice.id))[0]?.invites).toEqual([]);
     // Withdrawn, so signing in does not join the org.
     const carol = await signInGithubUser(db, profile(3, "carol"));
@@ -177,15 +180,11 @@ describe("the organizations overview", () => {
     const orgA = await createOrg(db, alice.id, "A");
     const orgB = await createOrg(db, bob.id, "B");
     await inviteMember(db, alice, orgA.id, "carol");
-    const [pending] = (await listOrgs(db, alice.id))[0]?.invites ?? [];
+    const pending = must((await listOrgs(db, alice.id))[0]?.invites[0], "the pending invite");
 
-    await expect(withdrawInvite(db, bob.id, orgA.id, pending?.id ?? "")).rejects.toThrow(
-      NotFoundError,
-    );
+    await expect(withdrawInvite(db, bob.id, orgA.id, pending.id)).rejects.toThrow(NotFoundError);
     // Bob is a member of B, but the invite belongs to A.
-    await expect(withdrawInvite(db, bob.id, orgB.id, pending?.id ?? "")).rejects.toThrow(
-      NotFoundError,
-    );
+    await expect(withdrawInvite(db, bob.id, orgB.id, pending.id)).rejects.toThrow(NotFoundError);
     expect((await listOrgs(db, alice.id))[0]?.invites).toHaveLength(1);
   });
 });

@@ -50,11 +50,11 @@ describe("a branch build's baseline is the branch's last build", () => {
     // so this shot carries it and the build waits for the same decision.
     expect(secondShot).toMatchObject({
       diffStatus: "unchanged",
-      baselineKey: firstShot?.imageKey,
-      carriedFrom: firstShot?.id,
+      baselineKey: firstShot.imageKey,
+      carriedFrom: firstShot.id,
       reviewState: "pending",
     });
-    expect(secondShot?.diffResult?.changedPixels).toBe(0);
+    expect(secondShot.diffResult?.changedPixels).toBe(0);
     expect(second.status).toBe("changes");
     const counts = (await countBuilds(ctx.db, [second.id])).get(second.id);
     // Carried, and different from main: the build page counts it under Changed (PS-285).
@@ -64,7 +64,7 @@ describe("a branch build's baseline is the branch's last build", () => {
     const third = await upload(ctx, onBranch(2, red));
     expect(await onlyShot(ctx, third)).toMatchObject({
       diffStatus: "unchanged",
-      carriedFrom: firstShot?.id,
+      carriedFrom: firstShot.id,
     });
   });
 
@@ -72,7 +72,7 @@ describe("a branch build's baseline is the branch's last build", () => {
     const { ctx, first } = await mainThenBranch();
     const second = await upload(ctx, onBranch(3, red));
     const secondShot = await onlyShot(ctx, second);
-    expect(await decide(ctx, secondShot?.id ?? "", "accepted")).toBe("passed");
+    expect(await decide(ctx, secondShot.id, "accepted")).toBe("passed");
     expect(await onlyShot(ctx, first)).toMatchObject({ reviewState: "accepted" });
     expect(await status(ctx, first.id)).toBe("passed");
   });
@@ -95,19 +95,19 @@ describe("a branch build's baseline is the branch's last build", () => {
     const { ctx, first } = await mainThenBranch();
     const second = await upload(ctx, onBranch(3, red));
     const third = await upload(ctx, onBranch(4, red));
-    expect(await decide(ctx, (await onlyShot(ctx, third))?.id ?? "", "rejected")).toBe("failed");
+    expect(await decide(ctx, (await onlyShot(ctx, third)).id, "rejected")).toBe("failed");
     expect(await status(ctx, first.id)).toBe("failed");
     expect(await status(ctx, second.id)).toBe("failed");
   });
 
   test("a shot accepted on build 1 is not pending on build 2 when its pixels are unchanged", async () => {
     const { ctx, firstShot } = await mainThenBranch();
-    await decide(ctx, firstShot?.id ?? "", "accepted");
+    await decide(ctx, firstShot.id, "accepted");
     const second = await upload(ctx, onBranch(3, red));
     expect(second.status).toBe("passed");
     expect(await onlyShot(ctx, second)).toMatchObject({
       diffStatus: "unchanged",
-      baselineKey: firstShot?.imageKey,
+      baselineKey: firstShot.imageKey,
       carriedFrom: null,
     });
   });
@@ -126,11 +126,11 @@ describe("a branch build's baseline is the branch's last build", () => {
 
   test("a shot that moved past an accepted one is measured against it", async () => {
     const { ctx, firstShot } = await mainThenBranch();
-    await decide(ctx, firstShot?.id ?? "", "accepted");
+    await decide(ctx, firstShot.id, "accepted");
     const second = await upload(ctx, onBranch(3, redder));
     expect(await onlyShot(ctx, second)).toMatchObject({
       diffStatus: "changed",
-      baselineKey: firstShot?.imageKey,
+      baselineKey: firstShot.imageKey,
     });
   });
 

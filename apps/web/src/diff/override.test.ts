@@ -3,10 +3,10 @@ import { eq } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
 import { getBuild } from "#/db/builds";
 import { NotFoundError } from "#/db/db";
-import { createOrg } from "#/db/orgs";
+import { createOrg, setDiffLocation } from "#/db/orgs";
 import { exportOverrides } from "#/db/override-export";
 import { OverrideError, listOverrides, overrideChanges, saveOverride } from "#/db/overrides";
-import { type DiffOptions, builds, projects, snapshots } from "#/db/schema";
+import { type DiffOptions, builds, snapshots } from "#/db/schema";
 import { diffOverrideChanges } from "#/db/schema-overrides";
 import { signInGithubUser } from "#/db/users";
 import { saveAndRediff } from "./override";
@@ -166,7 +166,11 @@ describe("review-UI diff overrides (ob 1495)", () => {
       [{ threshold: 0.2 }, { threshold: 0.3, minChangedRatio: 0.01 }],
       [null, { threshold: 0.2 }],
     ]);
-    expect(trail.every((c) => c.by === "ada" && c.name === "pricing")).toBe(true);
+    expect(trail.map((c) => [c.by, c.name])).toEqual([
+      ["ada", "pricing"],
+      ["ada", "pricing"],
+      ["ada", "pricing"],
+    ]);
     expect(trail[0]?.variant).toEqual(VARIANT);
   });
 
@@ -193,7 +197,7 @@ describe("review-UI diff overrides (ob 1495)", () => {
 
   test("a CI project refuses an override: its diff is the CLI's", async () => {
     const ctx = await context();
-    await ctx.db.update(projects).set({ diffLocation: "ci" }).where(eq(projects.id, ctx.projectId));
+    await setDiffLocation(ctx.db, ctx.userId, ctx.projectId, "ci");
     await expect(
       saveOverride(ctx.db, ctx.userId, ctx.projectId, {
         ...wholeTest,
@@ -211,7 +215,7 @@ describe("review-UI diff overrides (ob 1495)", () => {
       target: wholeTest,
       options: { minChangedPixels: 0 },
     });
-    await ctx.db.update(projects).set({ diffLocation: "ci" }).where(eq(projects.id, ctx.projectId));
+    await setDiffLocation(ctx.db, ctx.userId, ctx.projectId, "ci");
 
     // Replacing the value is setting one; clearing it is not.
     await expect(
@@ -231,10 +235,7 @@ describe("review-UI diff overrides (ob 1495)", () => {
       by: "ada",
     });
 
-    await ctx.db
-      .update(projects)
-      .set({ diffLocation: "server" })
-      .where(eq(projects.id, ctx.projectId));
+    await setDiffLocation(ctx.db, ctx.userId, ctx.projectId, "server");
     const later = await upload(ctx, {
       branch: "feat/y",
       commit: sha(3),

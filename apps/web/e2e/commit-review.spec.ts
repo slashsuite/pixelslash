@@ -57,7 +57,9 @@ test("a commit's changes across the subprojects are reviewed on one page", async
   await expect(groups).toHaveCount(2);
   await expect(groups.nth(0)).toHaveAttribute("data-project", "storefront");
   await expect(groups.nth(0).getByTestId("commit-group-totals")).toHaveText("no changes");
-  const e2e = page.locator('[data-testid="commit-group"][data-project="e2e"]');
+  const e2e = page
+    .getByTestId("commit-group")
+    .filter({ has: page.getByRole("heading", { level: 2, name: "e2e", exact: true }) });
   await expect(e2e.getByTestId("commit-group-totals")).toHaveText("2 changes · 2 waiting");
 
   // The one that did not run counts nothing and links its last build.
@@ -164,7 +166,9 @@ test("accepting shot after shot walks every subproject of the commit, then the c
 
   // Start on e2e's first change, from the commit's page.
   await open(page, `/projects/${projectId}/commits/${SHA_WORK}`);
-  const e2e = page.locator('[data-testid="commit-group"][data-project="e2e"]');
+  const e2e = page
+    .getByTestId("commit-group")
+    .filter({ has: page.getByRole("heading", { level: 2, name: "e2e", exact: true }) });
   await e2e.getByTestId("commit-row-name").first().click();
   await page.waitForURL(`**/builds/${e2eWork}/snapshots/**`);
   const position = page.getByTestId("review-position");

@@ -4,12 +4,16 @@ import { setGithubRepo } from "#/db/orgs";
 import { decideAll } from "#/db/review";
 import { builds } from "#/db/schema";
 import { sha } from "#/diff/test-builds";
-import { reportError } from "#/server/sentry";
+import * as Sentry from "@sentry/cloudflare";
 import type { StatusBody } from "./check-run";
 import { type Call, TEST_TOKEN } from "./test-github";
 import { CHANGED, PLAIN, world } from "./test-world";
 
-vi.mock("#/server/sentry", () => ({ reportError: vi.fn<typeof reportError>() }));
+// The SDK is not ours: its capture is faked so a test can see what the app reported.
+vi.mock("@sentry/cloudflare", async (original) => ({
+  ...(await original<typeof Sentry>()),
+  captureException: vi.fn<typeof Sentry.captureException>(),
+}));
 
 /** The commit status the App posts on a build's commit (PS-23), against a stand-in for GitHub's API. */
 
@@ -17,7 +21,7 @@ const bodies = (calls: Call[]) => calls.map((c): StatusBody => JSON.parse(c.raw)
 const states = (calls: Call[]) => bodies(calls).map((b) => `${b.state} ${b.description}`);
 
 afterEach(() => {
-  vi.mocked(reportError).mockClear();
+  vi.mocked(Sentry.captureException).mockClear();
   vi.restoreAllMocks();
 });
 
@@ -131,13 +135,14 @@ describe("the PixelSlash commit status from the App", () => {
     expect(w.github.calls.some((c) => c.auth === `Bearer ${TEST_TOKEN}`)).toBe(false);
   });
 
-  test("a project with no repo, or a server with no App, calls GitHub not at all", async () => {
-    for (const setting of [{ repo: null }, { app: false }]) {
-      const w = await world(setting);
-      const main = await w.finalise({ commit: sha(1), branch: "main", png: PLAIN });
-      expect(main.body.status).toBe("passed");
-      expect(w.github.calls).toEqual([]);
-    }
+  test.each([
+    ["a project with no repo", { repo: null }],
+    ["a server with no App", { app: false }],
+  ])("%s calls GitHub not at all", async (_, setting) => {
+    const w = await world(setting);
+    const main = await w.finalise({ commit: sha(1), branch: "main", png: PLAIN });
+    expect(main.body.status).toBe("passed");
+    expect(w.github.calls).toEqual([]);
   });
 
   test("a project moved to another repo posts its status there", async () => {
@@ -160,7 +165,7 @@ describe("the PixelSlash commit status from the App", () => {
     expect(runs.map((c) => `${c.method} ${c.path}`)).toEqual([
       "PATCH /repos/acme/web/check-runs/55",
     ]);
-    expect(JSON.parse(runs[0]?.raw ?? "{}")).toMatchObject({
+    expect(JSON.parse(runs[0]!.raw)).toMatchObject({
       status: "completed",
       conclusion: "neutral",
       output: { title: "Moved to the PixelSlash commit status" },
@@ -195,7 +200,7 @@ describe("the PixelSlash commit status from the App", () => {
       "POST /repos/acme/web/issues/7/comments",
     ]);
     expect(warn.mock.calls.some(([line]) => String(line).includes("commit status"))).toBe(true);
-    expect(reportError).not.toHaveBeenCalled();
+    expect(Sentry.captureException).not.toHaveBeenCalled();
   });
 
   test("any other failure on the status is reported", async () => {
@@ -203,7 +208,9 @@ describe("the PixelSlash commit status from the App", () => {
     const w = await world();
     w.github.failStatuses(422);
     await w.finalise({ commit: sha(1), branch: "main", png: PLAIN });
-    expect(reportError).toHaveBeenCalled();
+    expect(Sentry.captureException).toHaveBeenCalledWith(expect.any(Error), {
+      tags: { area: "github" },
+    });
   });
 
   test.each([

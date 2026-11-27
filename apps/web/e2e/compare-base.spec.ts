@@ -1,4 +1,4 @@
-import { type Provision, expect, open, test } from "./fixtures";
+import { type Provision, expect, expectHydrated, open, test } from "./fixtures";
 import type { Page } from "@playwright/test";
 import { CHANGED, SHA_MAIN, SHA_WORK, WHITE, uploadBuild } from "./api-upload";
 import { highlightToggle } from "./snapshot-viewer";
@@ -43,8 +43,8 @@ async function carriedShot(page: Page, provision: Provision) {
   await open(page, `/projects/${projectId}/builds/${buildId}`);
   await page.getByTestId("group-changed").getByRole("link").first().click();
   await expect(page).toHaveURL(/\/snapshots\//);
-  await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
-  await expect(page.locator("h1")).toHaveAttribute("title", "about");
+  await expectHydrated(page);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveAttribute("title", "about");
 }
 
 test("a carried shot opens on Against main and switches to the earlier build by keyboard", async ({

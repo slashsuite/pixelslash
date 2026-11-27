@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, test } from "vitest";
-import { type Rendered, fireEvent, render } from "#/test/render";
+import { must } from "#/test/must";
+import { fireEvent, render, screen, within } from "#/test/render";
 import type { DiffResult } from "#/db/schema";
 import { CompositionFocus, CompositionPanel, type Composition, findingsLine } from "./composition";
 import { SnapshotViewer, type ViewState } from "./snapshot-viewer";
@@ -58,12 +59,9 @@ const view: ViewState = {
   onBase: () => {},
 };
 
-let host: HTMLElement;
-let user: Rendered["user"];
-
 /** The shot page's pieces in the order the route lays them out: the viewer, then the panel. */
 async function mount(result: DiffResult | null) {
-  const rendered = await render(
+  const { user } = await render(
     <CompositionFocus>
       <SnapshotViewer
         snapshotId="s1"
@@ -81,102 +79,101 @@ async function mount(result: DiffResult | null) {
       <CompositionPanel composition={composition} />
     </CompositionFocus>,
   );
-  ({ container: host, user } = rendered);
+  return user;
 }
 
-const gapBox = () => host.querySelector<HTMLElement>('[data-testid="gap-box"]');
-const specialBox = () => host.querySelector<HTMLElement>('[data-testid="special-box"]');
-const legend = () => host.querySelector('[aria-label="Composition legend"]');
-const toggle = () =>
-  [...host.querySelectorAll("button")].find((b) => b.textContent === "Composition");
+// The boxes are drawn over the image with no role of their own: their test ids name them.
+const gapBox = () => screen.getByTestId("gap-box");
+const specialBox = () => screen.getByTestId("special-box");
+const legend = () => screen.queryByLabelText("Composition legend");
+const toggle = () => screen.getByRole("button", { name: "Composition" });
+/** The gap's row in the list under the shot: the element that carries the focus mark. */
 const gapRow = (): HTMLElement => {
-  const row = host.querySelector('[aria-label="Hack Cove UI gaps"] li')?.firstElementChild;
+  const item = within(screen.getByLabelText("Hack Cove UI gaps")).getAllByRole("listitem")[0];
+  const row = item?.firstElementChild;
   if (!(row instanceof HTMLElement)) throw new Error("no gap row");
   return row;
 };
-/** The box, which the test then points at: a missing one fails here, not in the pointer call. */
-const must = (el: HTMLElement | null): HTMLElement => {
-  if (!el) throw new Error("not on the page");
-  return el;
-};
-
-/** A pointer entering or leaving an element, as a person's mouse does. */
-const pointer = (el: Element, kind: "enter" | "leave") =>
-  kind === "enter" ? user.hover(el) : user.unhover(el);
 
 describe("a shot's composition findings on the shot page", () => {
   test("one gap and one special case are listed under the shot, each with its reason", async () => {
     await mount(measured);
-    const text = host.textContent ?? "";
-    expect(text).toContain("Hack Cove UI gaps on Branch (1)");
-    expect(host.querySelector('[aria-label="Hack Cove UI gaps"]')?.textContent).toContain(
+    expect(screen.getByText("Hack Cove UI gaps on Branch (1)")).toBeTruthy();
+    expect(screen.getByLabelText("Hack Cove UI gaps").textContent).toContain(
       "extra classes on a Hack Cove UI component: mt-7",
     );
-    expect(text).toContain("Special cases on Branch (1)");
-    expect(host.querySelector('[aria-label="Special cases"]')?.textContent).toContain(
+    expect(screen.getByText("Special cases on Branch (1)")).toBeTruthy();
+    expect(screen.getByLabelText("Special cases").textContent).toContain(
       "the brand mark is drawn by hand",
     );
   });
 
   test("the boxes are drawn once each, on the Branch pane, at their share of the measured size", async () => {
     await mount(measured);
-    expect(host.querySelectorAll('[data-testid="gap-box"]')).toHaveLength(1);
-    expect(host.querySelectorAll('[data-testid="special-box"]')).toHaveLength(1);
-    expect(gapBox()?.getAttribute("title")).toBe(
+    expect(screen.getAllByTestId("gap-box")).toHaveLength(1);
+    expect(screen.getAllByTestId("special-box")).toHaveLength(1);
+    expect(gapBox().getAttribute("title")).toBe(
       "#go: extra classes on a Hack Cove UI component: mt-7",
     );
     // 10 of 40 px in from the left and 10 wide: a quarter and a quarter.
-    expect(gapBox()?.style.left).toBe("25%");
-    expect(gapBox()?.style.width).toBe("25%");
-    expect(gapBox()?.style.top).toBe("25%");
-    expect(specialBox()?.style.top).toBe("50%");
+    expect(gapBox().style.left).toBe("25%");
+    expect(gapBox().style.width).toBe("25%");
+    expect(gapBox().style.top).toBe("25%");
+    expect(specialBox().style.top).toBe("50%");
     // Only the Branch pane carries them.
-    const figure = gapBox()?.closest("figure");
-    expect(figure?.textContent).toContain("Branch");
-    expect(host.querySelectorAll("figure")).toHaveLength(2);
-    expect(host.querySelectorAll("figure [data-testid='gap-box']")).toHaveLength(1);
+    const panes = screen.getAllByRole("figure");
+    expect(panes).toHaveLength(2);
+    const branch = must(
+      panes.find((pane) => pane.contains(gapBox())),
+      "the pane with the box",
+    );
+    expect(within(branch).getByText("Branch")).toBeTruthy();
   });
 
   test("a new shot, which nothing measured, has its boxes placed on the image's own size", async () => {
     await mount(null);
     // Nothing measured it, so no box can be placed until the image says how big it is.
-    expect(gapBox()).toBeNull();
-    const img = must(host.querySelector<HTMLImageElement>('img[src="/branch.png"]'));
+    expect(screen.queryByTestId("gap-box")).toBeNull();
+    const img = must(
+      screen.getAllByRole("img").find((el) => el.getAttribute("src") === "/branch.png"),
+      "the Branch image",
+    );
     Object.defineProperty(img, "naturalWidth", { value: 40 });
     Object.defineProperty(img, "naturalHeight", { value: 40 });
     fireEvent.load(img);
-    expect(host.querySelectorAll('[data-testid="gap-box"]')).toHaveLength(1);
-    expect(host.querySelectorAll('[data-testid="special-box"]')).toHaveLength(1);
-    expect(gapBox()?.style.left).toBe("25%");
+    expect(screen.getAllByTestId("gap-box")).toHaveLength(1);
+    expect(screen.getAllByTestId("special-box")).toHaveLength(1);
+    expect(gapBox().style.left).toBe("25%");
   });
 
   test("hovering a box lights its row, and hovering a row lights its box", async () => {
-    await mount(measured);
+    const user = await mount(measured);
     expect(gapRow().hasAttribute("data-focused")).toBe(false);
-    await pointer(must(gapBox()), "enter");
+    await user.hover(gapBox());
     expect(gapRow().getAttribute("data-focused")).toBe("true");
-    await pointer(must(gapBox()), "leave");
+    await user.unhover(gapBox());
     expect(gapRow().hasAttribute("data-focused")).toBe(false);
 
-    const idle = gapBox()?.style.zIndex;
-    await pointer(gapRow(), "enter");
-    expect(gapBox()?.style.zIndex).toBe("1");
+    const idle = gapBox().style.zIndex;
+    await user.hover(gapRow());
+    expect(gapBox().style.zIndex).toBe("1");
     expect(idle).not.toBe("1");
-    await pointer(gapRow(), "leave");
-    expect(gapBox()?.style.zIndex).not.toBe("1");
+    await user.unhover(gapRow());
+    expect(gapBox().style.zIndex).not.toBe("1");
   });
 
   test("the boxes have their own toggle, and a legend that counts both kinds while they are drawn", async () => {
-    await mount(measured);
-    expect(legend()?.textContent).toContain("Not from Hack Cove UI");
-    expect(legend()?.textContent).toContain("Special case");
-    expect(legend()?.textContent?.replace(/\D/g, "")).toBe("11");
-    await user.click(must(toggle() ?? null));
-    expect(gapBox()).toBeNull();
-    expect(specialBox()).toBeNull();
+    const user = await mount(measured);
+    const shown = must(legend(), "the legend");
+    expect(shown.textContent).toContain("Not from Hack Cove UI");
+    expect(shown.textContent).toContain("Special case");
+    expect(shown.textContent?.replace(/\D/g, "")).toBe("11");
+    await user.click(toggle());
+    expect(screen.queryByTestId("gap-box")).toBeNull();
+    expect(screen.queryByTestId("special-box")).toBeNull();
     expect(legend()).toBeNull();
-    await user.click(must(toggle() ?? null));
-    expect(gapBox()).not.toBeNull();
+    await user.click(toggle());
+    expect(screen.queryByTestId("gap-box")).not.toBeNull();
     expect(legend()).not.toBeNull();
   });
 });

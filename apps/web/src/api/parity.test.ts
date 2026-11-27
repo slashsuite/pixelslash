@@ -145,9 +145,8 @@ describe("the parity view read", () => {
     }
     expect(view.web_url).toContain(`/builds/${id}/parity?name=Button%2Fprimary&theme=dark`);
 
-    const web = view.metrics.pairs.find(
-      (p) => p.a.platform === "web" && p.b.platform === "android",
-    );
+    const pairs = new Map(view.metrics.pairs.map((p) => [`${p.a.platform}-${p.b.platform}`, p]));
+    const web = pairs.get("web-android");
     expect(web?.status).toBe("drift");
     expect(web?.mismatches).toHaveLength(1);
     expect(web?.mismatches[0]).toBe("button height 40 web vs 44 android");

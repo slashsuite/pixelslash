@@ -15,6 +15,8 @@ const config: GithubConfig = {
   apiBase: "https://api.github.test",
 };
 
+const STATE_S1 = { [OAUTH_STATE_COOKIE]: "s1" };
+
 const TAMPERED = "Sign-in expired or was tampered with. Try again.";
 
 /** Callback deps over a cookie jar; the calls that must not happen are counted. */
@@ -45,18 +47,14 @@ function callbackDeps(cookies: Record<string, string>, over: Partial<GithubCallb
 
 describe("github callback: the state check", () => {
   const cases = [
-    { name: "a missing code", cookie: "s1", url: "/auth/github/callback?state=s1" },
-    {
-      name: "a missing state cookie",
-      cookie: undefined,
-      url: "/auth/github/callback?code=c&state=s1",
-    },
-    { name: "a missing query state", cookie: "s1", url: "/auth/github/callback?code=c" },
-    { name: "a mismatched state", cookie: "s1", url: "/auth/github/callback?code=c&state=s2" },
+    { name: "a missing code", cookies: STATE_S1, url: "/auth/github/callback?state=s1" },
+    { name: "a missing state cookie", cookies: {}, url: "/auth/github/callback?code=c&state=s1" },
+    { name: "a missing query state", cookies: STATE_S1, url: "/auth/github/callback?code=c" },
+    { name: "a mismatched state", cookies: STATE_S1, url: "/auth/github/callback?code=c&state=s2" },
   ];
 
   test.each(cases)("$name is refused, starts no session and clears the state cookie", async (c) => {
-    const { deps, jar, calls } = callbackDeps(c.cookie ? { [OAUTH_STATE_COOKIE]: c.cookie } : {});
+    const { deps, jar, calls } = callbackDeps(c.cookies);
     const res = await githubCallback(request(c.url), deps);
     expect(res.status).toBe(400);
     expect(await res.text()).toBe(TAMPERED);

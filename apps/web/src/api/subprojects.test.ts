@@ -11,7 +11,7 @@ import {
 } from "#/db/orgs";
 import { setGithubComment } from "#/db/github-comment";
 import { builds, snapshots } from "#/db/schema";
-import { TEST_MODEL_KEY_SECRET } from "#/db/test-db";
+import { TEST_MODEL_KEY_SECRET } from "#/test/store";
 import { issueCiToken, issueUserToken } from "#/db/tokens";
 import { sha } from "#/diff/test-builds";
 import { CHANGED, PLAIN, world } from "#/github/test-world";

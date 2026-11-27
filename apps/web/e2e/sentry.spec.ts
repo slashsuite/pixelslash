@@ -31,6 +31,7 @@ test("a browser error reaches Sentry with release and environment, and no cookie
         attempt += 1;
         const message = `e2e browser error ${attempt} ${TOKEN} data:image/png;base64,${PNG}`;
         await page.evaluate((text) => {
+          // oxlint-disable-next-line no-restricted-globals -- not a wait: a throw from a task is how the page raises an uncaught error, which a throw inside evaluate is not
           setTimeout(() => {
             throw new Error(text);
           });

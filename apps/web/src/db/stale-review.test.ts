@@ -5,6 +5,7 @@ import { countBuilds } from "./build-counts";
 import { snapshots } from "./schema";
 import { markStale } from "./stale-apply";
 import { type World, world } from "./twins-test-support";
+import { must } from "#/test/must";
 
 /**
  * What a reviewer is told about a native shot a web change left stale: it waits for a decision, for
@@ -31,8 +32,8 @@ async function staleNativeBuild() {
 describe("an unchanged native shot of a stale key", () => {
   test("is still pending, awaits a decision for the reason stale, and is counted as one to review", async () => {
     const native = await staleNativeBuild();
-    const [shot] = await db.select().from(snapshots).where(eq(snapshots.buildId, native));
-    if (!shot) throw new Error("the build holds its shot");
+    const [row] = await db.select().from(snapshots).where(eq(snapshots.buildId, native));
+    const shot = must(row, "the build's shot");
     expect(shot.reviewState).toBe("pending");
     expect(awaitsDecision(shot)).toBe(true);
     expect(awaitsReason(shot)).toBe("stale");
