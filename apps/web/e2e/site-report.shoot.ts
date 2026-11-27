@@ -7,13 +7,13 @@ import { highlightToggle, showPanel } from "./snapshot-viewer";
 /**
  * The review app's compare view of one changed shot, saved as the site's `report.png`. The shots are
  * the CLI's own of `fixtures/pages/live.html` (Main) and `local.html` (Branch), so the page shows the
- * run `report.json` describes. `apps/site/scripts/report.ts` runs this through `playwright.site-report.config.ts`
+ * run `report.json` describes. `scripts/site-images/report.ts` runs this through `playwright.site-report.config.ts`
  * and names the files in the env.
  */
 
 const env = (name: string) => {
   const value = process.env[name];
-  if (!value) throw new Error(`${name} is not set: run apps/site/scripts/report.ts`);
+  if (!value) throw new Error(`${name} is not set: run scripts/site-images/report.ts`);
   return value;
 };
 

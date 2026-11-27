@@ -17,11 +17,7 @@ on:
     paths:
       - "packages/engine/src/**"
       - "packages/cli/src/**"
-      - "apps/site/hero/**"
-      - "apps/site/scripts/cli-run.ts"
-      - "apps/site/scripts/hero.ts"
-      - "apps/site/scripts/report.ts"
-      - "apps/site/scripts/site-images.ts"
+      - "scripts/site-images/**"
       # report.png is the review app's compare view, shot from a local e2e build of it.
       - "apps/web/src/**"
       - "apps/web/e2e/site-report.shoot.ts"
@@ -62,7 +58,7 @@ jobs:
       # apps/web/playwright.site-report.config.ts), as ci.yml's `web` job does; nothing is uploaded off
       # the runner.
       - name: Regenerate
-        run: bun apps/site/scripts/site-images.ts --body "$RUNNER_TEMP/body.md"
+        run: bun scripts/site-images/site-images.ts --body "$RUNNER_TEMP/body.md"
       - name: Open or update the pull request
         env:
           GH_TOKEN: ${{ secrets.SITE_IMAGES_TOKEN }}

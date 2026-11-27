@@ -2,70 +2,43 @@ import { describe, expect, test } from "vitest";
 import { movedTo } from "./moved";
 
 const at = (href: string, method = "GET") => movedTo(new URL(href), method);
-const HOSTS = ["https://pixelslash.dev", "https://app.pixelslash.dev"];
+const APEX = "https://pixelslash.dev";
 
 describe("movedTo", () => {
-  test("sends the old site's pages to slashslash.build on either host, query kept", () => {
-    for (const host of HOSTS) {
-      for (const page of ["/how-it-works", "/compare", "/pricing", "/security", "/self-host"]) {
-        const to = `https://slashslash.build/pixelslash${page}`;
-        expect(at(`${host}${page}`)).toBe(to);
-        expect(at(`${host}${page}/`)).toBe(to);
-        expect(at(`${host}${page}?ref=x`)).toBe(`${to}?ref=x`);
-        expect(at(`${host}${page}`, "HEAD")).toBe(to);
-      }
+  test("sends the old site's pages to slashslash.build, query kept", () => {
+    for (const page of ["/how-it-works", "/compare", "/pricing", "/security", "/self-host"]) {
+      const to = `https://slashslash.build/pixelslash${page}`;
+      expect(at(`${APEX}${page}`)).toBe(to);
+      expect(at(`${APEX}${page}/`)).toBe(to);
+      expect(at(`${APEX}${page}?ref=x`)).toBe(`${to}?ref=x`);
+      expect(at(`${APEX}${page}`, "HEAD")).toBe(to);
     }
   });
 
   test("sends the docs, each doc, the search index and the sitemap", () => {
-    for (const host of HOSTS) {
-      expect(at(`${host}/docs`)).toBe("https://slashslash.build/pixelslash/docs");
-      expect(at(`${host}/docs/`)).toBe("https://slashslash.build/pixelslash/docs");
-      expect(at(`${host}/docs/upload`)).toBe("https://slashslash.build/pixelslash/docs/upload");
-      expect(at(`${host}/docs/upload/?a=1`)).toBe(
-        "https://slashslash.build/pixelslash/docs/upload?a=1",
-      );
-      expect(at(`${host}/search-index.json`)).toBe(
-        "https://slashslash.build/pixelslash/search-index.json",
-      );
-      expect(at(`${host}/sitemap.xml`)).toBe("https://slashslash.build/sitemap.xml");
-    }
-  });
-
-  test("sends a page view on the old app host to the same path on pixelslash.dev", () => {
-    expect(at("https://app.pixelslash.dev/orgs?x=1")).toBe("https://pixelslash.dev/orgs?x=1");
-    expect(at("https://app.pixelslash.dev/")).toBe("https://pixelslash.dev/");
-    expect(at("https://app.pixelslash.dev/projects/a/builds/b")).toBe(
-      "https://pixelslash.dev/projects/a/builds/b",
+    expect(at(`${APEX}/docs`)).toBe("https://slashslash.build/pixelslash/docs");
+    expect(at(`${APEX}/docs/`)).toBe("https://slashslash.build/pixelslash/docs");
+    expect(at(`${APEX}/docs/upload`)).toBe("https://slashslash.build/pixelslash/docs/upload");
+    expect(at(`${APEX}/docs/upload/?a=1`)).toBe(
+      "https://slashslash.build/pixelslash/docs/upload?a=1",
     );
-  });
-
-  test("sends a sign-in start on the old host to the apex, so its session cookie lands there", () => {
-    expect(at("https://app.pixelslash.dev/auth/github?next=%2Forgs")).toBe(
-      "https://pixelslash.dev/auth/github?next=%2Forgs",
+    expect(at(`${APEX}/search-index.json`)).toBe(
+      "https://slashslash.build/pixelslash/search-index.json",
     );
-    expect(at("https://app.pixelslash.dev/auth/google")).toBe("https://pixelslash.dev/auth/google");
+    expect(at(`${APEX}/sitemap.xml`)).toBe("https://slashslash.build/sitemap.xml");
   });
 
-  test("leaves the API, the sign-in callbacks and signed images on the old host", () => {
-    expect(at("https://app.pixelslash.dev/api/v1/builds")).toBeNull();
-    expect(at("https://app.pixelslash.dev/auth/github/callback?code=c&state=s")).toBeNull();
-    expect(at("https://app.pixelslash.dev/auth/google/callback")).toBeNull();
-    expect(at("https://app.pixelslash.dev/images/abc.png?sig=1")).toBeNull();
-  });
-
-  test("never redirects a POST, the apex's own pages, or any other host", () => {
-    for (const host of HOSTS) {
-      expect(at(`${host}/api/v1/builds`, "POST")).toBeNull();
-      expect(at(`${host}/docs`, "POST")).toBeNull();
-      expect(at(`${host}/orgs`, "PUT")).toBeNull();
-    }
-    expect(at("https://app.pixelslash.dev/orgs", "POST")).toBeNull();
-    expect(at("https://pixelslash.dev/")).toBeNull();
-    expect(at("https://pixelslash.dev/orgs?x=1")).toBeNull();
-    expect(at("https://pixelslash.dev/docs/a/b")).toBeNull();
+  test("never redirects a POST, the app's own pages, or any other host", () => {
+    expect(at(`${APEX}/api/v1/builds`, "POST")).toBeNull();
+    expect(at(`${APEX}/docs`, "POST")).toBeNull();
+    expect(at(`${APEX}/orgs`, "PUT")).toBeNull();
+    expect(at(`${APEX}/`)).toBeNull();
+    expect(at(`${APEX}/orgs?x=1`)).toBeNull();
+    expect(at(`${APEX}/api/v1/me`)).toBeNull();
+    expect(at(`${APEX}/docs/a/b`)).toBeNull();
+    // The old app host is gone: nothing answers for it any more.
+    expect(at("https://app.pixelslash.dev/orgs")).toBeNull();
     expect(at("http://192.168.0.10:8787/docs")).toBeNull();
-    expect(at("http://192.168.0.10:8787/orgs")).toBeNull();
     expect(at("http://localhost:3000/security")).toBeNull();
   });
 });

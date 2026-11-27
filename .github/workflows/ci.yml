@@ -108,8 +108,6 @@ jobs:
     timeout-minutes: 5
     outputs:
       web: ${{ steps.diff.outputs.web }}
-      site: ${{ steps.diff.outputs.site }}
-      site_e2e: ${{ steps.diff.outputs.site_e2e }}
       self_host: ${{ steps.diff.outputs.self_host }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -125,16 +123,12 @@ jobs:
           if [ "$EVENT" != "pull_request" ]; then
             echo "web=true" >> "$GITHUB_OUTPUT"
             # A release calls this workflow on a tag and its publish needs the result; an npm publish of the
-            # CLI does not ship the site, so a site failure must not stop one.
+            # CLI does not ship the self-host image, so a self-host failure must not stop one.
             case "$REF" in
               refs/tags/*)
-                echo "site=false" >> "$GITHUB_OUTPUT"
-                echo "site_e2e=false" >> "$GITHUB_OUTPUT"
                 echo "self_host=false" >> "$GITHUB_OUTPUT"
                 ;;
               *)
-                echo "site=true" >> "$GITHUB_OUTPUT"
-                echo "site_e2e=true" >> "$GITHUB_OUTPUT"
                 echo "self_host=true" >> "$GITHUB_OUTPUT"
                 ;;
             esac
@@ -147,24 +141,6 @@ jobs:
             echo "web=true" >> "$GITHUB_OUTPUT"
           else
             echo "web=false" >> "$GITHUB_OUTPUT"
-          fi
-          # The site's build inputs (apps/site/moon.yml: the docs it renders), its Playwright globalSetup,
-          # and what decides how it installs.
-          if git diff --name-only "origin/$BASE_REF...HEAD" \
-            | grep -qE '^(apps/site/|docs/|README\.md$|SECURITY\.md$|apps/web/SELF-HOST\.md$|apps/web/github-app/manifest\.json$|scripts/test-tmp-scope\.ts$|package\.json$|\.moon/|tsconfig\.base\.json$|bun\.lock$|bunfig\.toml$|\.tool-versions$|\.github/workflows/ci\.yml$|\.github/actions/)'; then
-            echo "site=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "site=false" >> "$GITHUB_OUTPUT"
-          fi
-          # The e2e needs less than the build: the docs the site renders are checked by the build itself
-          # (a dead internal link or a missing cli.md anchor fails it) and by the site's unit tests, so a
-          # docs-only edit skips the browser run. A spec that quotes a docs sentence is only run on a site
-          # change or on main. Keep this list inside the one above.
-          if git diff --name-only "origin/$BASE_REF...HEAD" \
-            | grep -qE '^(apps/site/|scripts/test-tmp-scope\.ts$|package\.json$|\.moon/|tsconfig\.base\.json$|bun\.lock$|bunfig\.toml$|\.tool-versions$|\.github/workflows/ci\.yml$|\.github/actions/)'; then
-            echo "site_e2e=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "site_e2e=false" >> "$GITHUB_OUTPUT"
           fi
           # The Docker self-host: the web list, plus the image's own files and the workspace list its
           # install reads.
@@ -299,49 +275,9 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
 
-  # apps/site's build always (it fails on a dead internal link), and its Playwright suite (the desktop
-  # project) only when the site itself changed. Not a required check and not run on a tag: a release
-  # publishes the CLI, which does not ship the site.
-  site:
-    needs: changes
-    if: needs.changes.outputs.site == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    # The moon remote cache as in `gate`: a push to main writes (the `moon-cache-write` environment and
-    # its token), so main's build and e2e results reach the cache; every other run only reads. Moon's
-    # graph needs no SDK, so none is installed. MOON_BASE and the full
-    # history: see `gate`.
-    environment: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'moon-cache-write' || '' }}
-    env:
-      MOON_BASE: origin/main
-      MOON_REMOTE_TOKEN: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.MOON_CACHE_WRITE_TOKEN || secrets.MOON_CACHE_READ_TOKEN }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version-file: .tool-versions
-      - run: bun install --frozen-lockfile
-      - name: Install the Playwright browser
-        if: needs.changes.outputs.site_e2e == 'true'
-        uses: ./.github/actions/playwright
-        timeout-minutes: 5
-        with:
-          working-directory: apps/site
-      # Prerenders every page with crawlLinks and failOnError, so a dead internal link or a missing
-      # cli.md anchor fails here.
-      - run: bunx moon run site:build
-      # Desktop project only: the phone (Pixel 7) project is not run in CI.
-      - name: e2e (desktop)
-        if: needs.changes.outputs.site_e2e == 'true'
-        run: bunx moon run site:test-e2e -- --project desktop
-
   # The review app reviews itself: `bun run dogfood:upload` (apps/web) captures its project, build,
   # shot and commit review pages, light and dark, from a local build over the fixed synthetic seed, and uploads them to
-  # the hosted app, through its old host app.pixelslash.dev, which keeps serving the API after the app moved
-  # to pixelslash.dev (so this job works on both sides of that move). The PixelSlash check on a pull request
+  # the hosted app at pixelslash.dev. The PixelSlash check on a pull request
   # is posted by that server's GitHub App from this build; main's builds are the baseline every pull request is compared with. Not a required check,
   # and with no PIXELSLASH_TOKEN (a fork's pull request gets no secrets) it skips and passes. A release (a
   # tag, through workflow_call) and a manual run do not upload. Its own runner, so the fixed ports and
@@ -374,7 +310,7 @@ jobs:
         working-directory: apps/web
         env:
           PIXELSLASH_CI_TOKEN: ${{ secrets.PIXELSLASH_TOKEN }}
-          PIXELSLASH_SERVER: https://app.pixelslash.dev
+          PIXELSLASH_SERVER: https://pixelslash.dev
           EVENT: ${{ github.event_name }}
           PR: ${{ github.event.pull_request.number }}
         run: |

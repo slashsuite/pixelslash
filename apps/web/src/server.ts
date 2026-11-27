@@ -41,7 +41,7 @@ const sizeAlertKey = (day: string) => `ops/size-alert/${day}`;
 
 /**
  * The Worker's entry: TanStack Start's `fetch`, after the 301s of addresses that moved (`movedTo`:
- * the old app host and the old docs site's paths), the explain queue's consumer (ob 1875), which
+ * the old docs site's paths), the explain queue's consumer (ob 1875), which
  * explains each finalised build's changed shots with the project's model off the request, and the
  * hourly sweep: abandoned builds end `errored` first (PS-324, always on), then the database size alert, which only tells, then the retention sweep (PS-239), which does nothing
  * until `PIXELSLASH_RETENTION_DAYS` or `PIXELSLASH_RETENTION_MAIN_DAYS` is set, then the orphaned

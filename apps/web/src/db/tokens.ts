@@ -149,7 +149,7 @@ export async function verifyOrgToken(db: Db, token: string, now = new Date()) {
   return { orgId: row.orgId };
 }
 
-const USER_PREFIX = "psu_";
+export const USER_PREFIX = "psu_";
 
 /** A personal token (ob 1728). The plaintext is returned here and nowhere else; `expiresAt` null never expires. */
 export async function issueUserToken(db: Db, userId: string, name: string, expiresAt: Date | null) {

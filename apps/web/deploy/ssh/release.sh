@@ -6,7 +6,7 @@
 #   PIXELSLASH_LAN_SSH=root@<proxmox host> PIXELSLASH_LAN_CT=<ct id> \
 #     [PIXELSLASH_LAN_SSH_KEY=<identity file>] [PIXELSLASH_SENTRY_DSN=<dsn>] \
 #     [PIXELSLASH_GITHUB_APP_ID=<id>] [PIXELSLASH_GITHUB_APP_KEY=<pem>] \
-#     [PIXELSLASH_PUBLIC_URL=<url>] [PIXELSLASH_DEPLOY_FORCE=1] \
+#     [PIXELSLASH_PUBLIC_URL=<url>] [SMOKE_TOKEN_FILE=<file>] [PIXELSLASH_DEPLOY_FORCE=1] \
 #     apps/web/deploy/ssh/release.sh <sha>
 #
 # The CT never builds (PS-225): the vite build did not fit in its memory beside a running workerd (ob
@@ -35,7 +35,9 @@
 #
 # After the switch, with PIXELSLASH_PUBLIC_URL set, scripts/check-commit.ts fetches that URL until its
 # build-commit meta names the sha, and the release fails if it never does. Unset, it prints the
-# command to run against the CT's own address.
+# command to run against the CT's own address. With SMOKE_TOKEN_FILE (or SMOKE_TOKEN) set too, the
+# deployment's smoke (`web:smoke`, apps/web/smoke/web.smoke.ts) runs against that URL next, and a
+# failing smoke fails the release. The token is the CT's smoke account's (apps/web/smoke/account.ts).
 set -Eeuo pipefail
 
 # The least free space, in KiB, the CT must have where the app lives before a release goes to it.
@@ -130,6 +132,11 @@ exit $status'
   # The page names the commit it was built from (apps/web/build-commit.ts): prove it is this one.
   if [[ -n ${PIXELSLASH_PUBLIC_URL:-} ]]; then
     bun scripts/check-commit.ts "${PIXELSLASH_PUBLIC_URL%/}/" "$sha"
+    if [[ -n ${SMOKE_TOKEN_FILE:-}${SMOKE_TOKEN:-} ]]; then
+      # moon runs the task from apps/web, so a token file named relative to here is made absolute first.
+      [[ -z ${SMOKE_TOKEN_FILE:-} ]] || SMOKE_TOKEN_FILE=$(realpath "$SMOKE_TOKEN_FILE")
+      SMOKE_BASE_URL="$PIXELSLASH_PUBLIC_URL" SMOKE_TOKEN_FILE="${SMOKE_TOKEN_FILE:-}" bun scripts/moon.ts run web:smoke
+    fi
   else
     echo "check it with: bun scripts/check-commit.ts <the CT's URL> $sha" >&2
   fi

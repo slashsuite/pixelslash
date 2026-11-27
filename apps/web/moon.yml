@@ -72,3 +72,10 @@ tasks:
     command: "bun run playwright test -c deploy/docker/playwright.config.ts"
     inputs:
       - "$CI"
+  # The smoke of a deployment: `SMOKE_BASE_URL=https://pixelslash.dev SMOKE_TOKEN_FILE=<file> bunx moon run
+  # web:smoke`, after every deploy (README.md, "Deploy to Cloudflare"; deploy/ssh/release.sh). It reads a
+  # live server, so it is never cached and is not part of `test`.
+  smoke:
+    command: "bun --bun vitest run -c vitest.smoke.config.ts"
+    options:
+      cache: false

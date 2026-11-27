@@ -88,9 +88,8 @@ PixelSlash is in alpha.
 Nothing leaves your machine unless you pass `--upload`, and then only to the server you name.
 `SECURITY.md` has the rest of the threat model and how to report a vulnerability.
 
-`apps/site` was the project site at pixelslash.dev: static pages prerendered from this repo's own
-docs, the capability matrix and a real report. Its pages now live on slashslash.build/pixelslash, and
-it no longer has a domain. See [`apps/site/README.md`](apps/site/README.md).
+The project site is slashslash.build/pixelslash, built from this repo's own docs. `apps/site` keeps only
+the images and data files it reads (see [`apps/site/README.md`](apps/site/README.md)).
 
 ## From source
 

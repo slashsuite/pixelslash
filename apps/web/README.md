@@ -81,7 +81,7 @@ in `.dev.vars.example`). Never in git.
 | `IMAGE_SIGNING_SECRET` | Signs the short-lived image URLs. |
 | `MODEL_KEY_SECRET` | Base64 of 32 random bytes (`openssl rand -base64 32`). Seals each project's model API key at rest with AES-256-GCM (stored as `v1:<iv>:<ciphertext>`). Unset, saving a model key fails with "MODEL_KEY_SECRET is not set" and a stored key is not read, so builds are reviewed as plain pixels. A key saved before this existed is plain text until the project's model settings are next saved. Changing the secret makes the keys sealed under the old one unreadable: enter each key again. |
 
-The `e2e` env in `wrangler.jsonc` carries fixed test values for these; they are not secrets. `env.production` lists none of them: [Deploy to Cloudflare](#deploy-to-cloudflare-apppixelslashdev) sets each with `wrangler secret put`.
+The `e2e` env in `wrangler.jsonc` carries fixed test values for these; they are not secrets. `env.production` lists none of them: [Deploy to Cloudflare](#deploy-to-cloudflare-pixelslashdev) sets each with `wrangler secret put`.
 
 ## Hardening for a deployment strangers sign in to (PS-250)
 
@@ -446,7 +446,7 @@ To start over, stop the server and remove `.wrangler/state`.
 ## Deploy to Cloudflare (pixelslash.dev)
 
 The hosted app (PS-277) is `env.production` in `wrangler.jsonc`: the Worker `pixelslash-web-production` on the
-custom domains `pixelslash.dev` and `app.pixelslash.dev`, D1 `pixelslash` (WEUR), R2 `pixelslash-blobs` and the queue
+custom domain `pixelslash.dev`, D1 `pixelslash` (WEUR), R2 `pixelslash-blobs` and the queue
 `pixelslash-explain`, all in the maintainer's account. It is a named env, built with
 `CLOUDFLARE_ENV=production`, so the top level keeps its placeholder D1 id and no route: `vite dev`, the
 unnamed build, the e2e build and the LAN CT read the same config as before. The Worker's name is
@@ -483,11 +483,26 @@ CLOUDFLARE_ENV=production bun run build                          # writes dist/ 
 bunx wrangler d1 migrations apply pixelslash --remote --env production
 bunx wrangler deploy --var SENTRY_RELEASE:"$(git rev-parse --short HEAD)"
 bun ../../scripts/check-commit.ts https://pixelslash.dev/ "$(git rev-parse HEAD)"
+SMOKE_BASE_URL=https://pixelslash.dev SMOKE_TOKEN_FILE=<file> bunx moon run web:smoke
 ```
 
-The last line proves the deploy is live: every page carries `<meta name="build-commit">`, the commit it
+The check-commit line proves the deploy is live: every page carries `<meta name="build-commit">`, the commit it
 was built from (`build-commit.ts`), and the check fetches the page until it names this one (up to two
 minutes, past the edge's lag), exiting 1 with the sha it saw if it never does.
+
+The last line is the deployment's smoke (`smoke/web.smoke.ts`): the sign-in page serves, an unknown
+path is a 404, and the smoke account's token signs in (`/api/v1/me`) and sees its org's project
+(`/api/v1/projects`). It only reads, so a run adds no row. The account is a synthetic org
+(`is_smoke = 1`, out of every count) made once per deployment, and again to rotate its token:
+
+```bash
+bun smoke/account.ts token > "$TMPDIR/smoke-token"          # keep it in your secret store, not the repo
+SMOKE_TOKEN_FILE="$TMPDIR/smoke-token" bun smoke/account.ts sql > "$TMPDIR/smoke.sql"   # the hash only
+bunx wrangler d1 execute pixelslash --remote --env production --file "$TMPDIR/smoke.sql"
+```
+
+A self-host applies the same SQL to its own D1 (`wrangler d1 execute pixelslash --local` where the
+app runs) and passes its own token.
 
 Build first: `wrangler deploy` ships what `dist/` holds, and a build made without
 `CLOUDFLARE_ENV=production` is the top level's (placeholder D1 id, no route, no custom domain).
@@ -515,31 +530,19 @@ base64 of 32 bytes and, once projects have sealed keys, must not change (see [Se
 client ids; the secrets above are the other half). `GITHUB_APP_ID` is a var too: `5528217`, the App "PixelSlash Review"
 (PS-234, slug `pixelslash-review`), whose key is the `GITHUB_APP_PRIVATE_KEY` secret. While either half of a sign-in is empty it is off (no button, `/auth/<provider>` a 404).
 
-**Do not make a DNS record for `pixelslash.dev` or `app.pixelslash.dev` by hand** (not a CNAME, not an
+**Do not make a DNS record for `pixelslash.dev` by hand** (not a CNAME, not an
 A record, not in the dashboard). `custom_domain: true` makes Cloudflare create the record and the
 certificate during `wrangler deploy`; a record that already exists makes that deploy fail ("hostname
-already has DNS record"), and deleting it is a step on a live zone. The routes name only those two
-hostnames, so a deploy never touches any other record.
+already has DNS record"), and deleting it is a step on a live zone. The routes name only that one
+hostname, so a deploy never touches any other record.
 
-**The apex moved here from the site Worker.** The app was on `app.pixelslash.dev` alone, and the apex
-`pixelslash.dev` was the docs site (`apps/site`, Worker `pixelslash-site`), whose pages now live on
-slashslash.build. The apex is now the app's primary host (`PIXELSLASH_PUBLIC_URL`, the address a check
-run links to), and `apps/site/wrangler.jsonc` has no route, so a deploy of the site cannot take it back.
-The app's entry answers the moves itself (`src/server/moved.ts`) before any route runs, with a 301:
-
-- the old site's paths on either host (`/docs`, `/docs/<slug>`, `/security`, `/self-host`,
-  `/how-it-works`, `/compare`, `/pricing`, `/search-index.json`, `/sitemap.xml`) go to their
-  slashslash.build address, the query kept;
-- a page view on `app.pixelslash.dev` goes to the same path on `pixelslash.dev`. The old host still
-  serves `/api/`, `/images/` and the sign-in callbacks (`/auth/<provider>/callback`) itself, since a
-  redirect to another origin drops the `Authorization` header of a CLI or CI upload, a POST cannot be
-  redirected safely, and a callback needs the state cookie its sign-in set on that host. A sign-in
-  start on the old host goes to the apex, so the session cookie is set there. Keep the old callback
-  URL on each OAuth client until no sign-in started on the old host can still be in flight.
-
-If Cloudflare refuses the app's deploy because the site Worker still holds the apex, remove the
-`pixelslash.dev` custom domain from `pixelslash-site` (Workers, `pixelslash-site`, Domains) and run the
-same deploy again at once.
+**pixelslash.dev is the only host.** The app used to live on `app.pixelslash.dev`, and the apex was the
+docs site, whose pages now live on slashslash.build. The old app host has no route and no DNS record
+any more. Sign-in calls back to pixelslash.dev only, so the old host's callback URLs in the GitHub and
+Google OAuth settings are unused, and are still to be removed there by hand. The app's entry still answers the old docs site's paths
+(`src/server/moved.ts`) before any route runs: `/docs`, `/docs/<slug>`, `/security`, `/self-host`,
+`/how-it-works`, `/compare`, `/pricing`, `/search-index.json` and `/sitemap.xml` 301 to their
+slashslash.build address, the query kept.
 
 ## Run it on the Proxmox server
 
@@ -588,6 +591,8 @@ release's own `deploy/ssh/update.sh` in the CT. The host, the CT and the key com
 variables (`PIXELSLASH_LAN_SSH_KEY` is optional); nothing is hard-coded. It is not run automatically.
 After the switch, with `PIXELSLASH_PUBLIC_URL` set, it runs `scripts/check-commit.ts` on that URL and
 fails unless the page's `build-commit` meta names the sha; unset, it prints that command for you to run.
+With `SMOKE_TOKEN_FILE` (or `SMOKE_TOKEN`) set as well, it then runs the smoke against that URL (see
+[Deploy to Cloudflare](#deploy-to-cloudflare-pixelslashdev)), with the CT's own smoke account's token.
 
 On the CT, `update.sh` unpacks the release into `releases/<sha>` beside the one serving, installs it
 (`bun install --frozen-lockfile --production`) and runs the D1 migrations (additive only), then
