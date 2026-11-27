@@ -13,7 +13,9 @@
 //     with more than a read-only token).
 // And since the logs of a public repository's runs are public:
 //   - no step may let `wrangler d1 export` print to the log, since it prints a presigned link to the
-//     whole dump: its stdout and stderr must go to a file under $RUNNER_TEMP or to /dev/null.
+//     whole dump: its stdout and stderr must go to a file under $RUNNER_TEMP or to /dev/null. The
+//     command's redirects are followed in order, as the shell does, so `2>&1 > file` (which leaves
+//     stderr on the log) fails where `> file 2>&1` passes.
 // Exits 1 if any rule fails.
 import { basename } from "node:path";
 
@@ -43,14 +45,73 @@ function forbiddenRunner(runsOn: unknown): boolean {
 }
 
 const EXPORT = /\bd1\s+export\b/;
-const SINK = String.raw`"?(?:\$RUNNER_TEMP\/|\$\{RUNNER_TEMP\}\/|\/dev\/null)`;
-const BOTH = new RegExp(`&>\\s*${SINK}`);
-const STDOUT = new RegExp(`(?:^|[^2&])>\\s*${SINK}`);
+const SINK = /^["']?(?:\$RUNNER_TEMP\/|\$\{RUNNER_TEMP\}\/|\/dev\/null\b)/;
+// A command list's separators, longest first, so `||` is not read as two pipes.
+// A lone `&` (run in the background) ends a command too; the `&` of `&>`, `>&` and `2>&1` does not.
+const SEPARATOR = /(\|\||&&|\|&|;|\||(?<![>&])&(?![>&]))/;
+// A redirect: `&>`, `&>>`, `>&` or `[n]>`, `[n]>>`, `[n]>&`, then its target. The shell reads n as a
+// descriptor only when it is a whole word up to the `>`: `dump2>f` is the word `dump2` and then `>f`,
+// and `10>f` is descriptor 10, never `>f` after a `10`.
+const REDIRECT = /(&>>?|(?:(?<!\S)(\d+)|(?<!(?<!\S)\d+))>>?(&?))\s*("[^"]*"|'[^']*'|[^\s;|&<>]+)/g;
+// A comment to the end of the line: the shell never reads a redirect in it.
+const COMMENT = /(?:^|\s)#.*$/;
+
+/** Where a file descriptor points: a sink, the log, or anywhere else (a file, a pipe). */
+type Fd = "sink" | "log" | "other";
+
+const target = (word: string): Fd => (SINK.test(word) ? "sink" : "other");
+
+/** Which of stdout (0) and stderr (1) a redirect's number names, if either. */
+function fdIndex(n: string): 0 | 1 | undefined {
+  if (n === "" || n === "1") return 0;
+  return n === "2" ? 1 : undefined;
+}
+
+/** Where `[n]>&word` points its descriptor, given where stdout and stderr point now. */
+function dupTarget(fd: [Fd, Fd], word: string): Fd {
+  if (word === "-") return "sink"; // closed
+  if (word === "1") return fd[0];
+  if (word === "2") return fd[1];
+  return "other";
+}
+
+/** Whether a redirect points both stdout and stderr: `&>word`, `&>>word` and `>&word`. */
+const both = (op: string, n: string, dup: string, word: string): boolean =>
+  op.startsWith("&") || (dup !== "" && n === "" && !/^(?:\d+|-)$/.test(word));
+
+/** Applies one redirect to stdout and stderr. */
+function redirect(fd: [Fd, Fd], match: RegExpMatchArray): void {
+  const [, op = "", n = "", dup = "", word = ""] = match;
+  if (both(op, n, dup, word)) {
+    fd[0] = fd[1] = target(word);
+    return;
+  }
+  const i = fdIndex(n);
+  if (i !== undefined) fd[i] = dup ? dupTarget(fd, word) : target(word);
+}
+
+/** Where stdout and stderr of the command in `segment` end up, its redirects applied left to right. */
+function outputs(segment: string, piped: "" | "|" | "|&"): [Fd, Fd] {
+  // A pipe is connected before the command's own redirects, and `|&` joins stderr to it after them.
+  const fd: [Fd, Fd] = [piped ? "other" : "log", "log"];
+  for (const match of segment.matchAll(REDIRECT)) redirect(fd, match);
+  if (piped === "|&") fd[1] = fd[0];
+  return fd;
+}
 
 /** Whether a shell line runs `d1 export` with its stdout or stderr left on the log. */
 function exportLeaks(line: string): boolean {
   if (!EXPORT.test(line) || line.trimStart().startsWith("#")) return false;
-  return !(BOTH.test(line) || (STDOUT.test(line) && line.includes("2>&1")));
+  // Only after the export: a `#` before it may sit inside quotes.
+  const at = line.search(EXPORT);
+  const parts = (line.slice(0, at) + line.slice(at).replace(COMMENT, "")).split(SEPARATOR);
+  // Even indices are commands, odd ones the separators between them.
+  return parts.some((part, i) => {
+    if (i % 2 || !EXPORT.test(part)) return false;
+    const next = parts[i + 1];
+    const piped = next === "|" || next === "|&" ? next : "";
+    return outputs(part, piped).some((f) => f !== "sink");
+  });
 }
 
 /** The `d1 export` command lines in a job's `run` steps that print to the log. */
