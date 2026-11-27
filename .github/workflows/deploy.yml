@@ -64,10 +64,10 @@ jobs:
           echo "deploying $sha"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
       # The newest CI run of a push on main for that commit. A run not there yet (both workflows start on
-      # the same push), not finished, or an API call that failed is asked again every 30 s. Success goes on;
-      # cancelled or skipped (ci.yml drops a queued main run when a newer push comes) ends green with no
-      # deploy; any other conclusion fails. A push run whose commit is no longer main's tip by then does not
-      # deploy either: the newer push's run deploys that.
+      # the same push), not finished, or an API call that failed is asked again every 30 s. Success goes on.
+      # Cancelled or skipped on a push main has moved past (ci.yml drops a queued main run when a newer push
+      # comes) ends green with no deploy; any other conclusion fails. A push run whose commit is no longer
+      # main's tip by then does not deploy either: the newer push's run deploys that.
       - name: Wait for CI on that commit
         id: wait
         env:
@@ -80,6 +80,12 @@ jobs:
               --jq '.workflow_runs[0] | select(.) | "\(.status) \(.conclusion) \(.html_url)"')"; then
               echo "the runs API did not answer; asking again"
             elif [ -z "$run" ]; then
+              # A push's run may not be there yet. A manual run names a commit that was some push's head, and
+              # its run is long there: a commit inside a push of several never had one of its own.
+              if [ "$EVENT" != "push" ]; then
+                echo "::error::no CI push run on main for $SHA; pick a commit that was the head of a push to main"
+                exit 1
+              fi
               echo "no CI run for $SHA yet"
             else
               read -r status conclusion url <<< "$run"
@@ -88,9 +94,14 @@ jobs:
                 case "$conclusion" in
                   success) break ;;
                   cancelled | skipped)
-                    echo "::notice::CI on $SHA was $conclusion, so it is not deployed"
-                    echo "go=false" >> "$GITHUB_OUTPUT"
-                    exit 0
+                    git fetch --quiet origin main
+                    if [ "$EVENT" = "push" ] && [ "$(git rev-parse origin/main)" != "$SHA" ]; then
+                      echo "::notice::CI on $SHA was $conclusion and main has moved on; the newer push deploys"
+                      echo "go=false" >> "$GITHUB_OUTPUT"
+                      exit 0
+                    fi
+                    echo "::error::CI on $SHA ended $conclusion: $url"
+                    exit 1
                     ;;
                   *)
                     echo "::error::CI on $SHA ended $conclusion: $url"
@@ -135,35 +146,32 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: .tool-versions
-      # A push run approved after main moved on would ship an older commit than the tip: it stops here,
-      # green, and the newer push's run deploys. A manual run deploys the sha it names (a rollback).
+      # A push run approved after main moved on would ship an older commit than the tip: it fails here,
+      # deploying nothing, and the newer push's run deploys. It fails rather than passing so the environment
+      # never records a deployment of a commit that is not live. A manual run deploys the sha it names (a
+      # rollback).
       - name: Still main's tip
-        id: tip
         if: github.event_name == 'push'
         run: |
           git fetch --quiet origin main
           if [ "$(git rev-parse origin/main)" != "$SHA" ]; then
-            echo "::notice::main has moved past $SHA; the newer push deploys"
-            echo "stale=true" >> "$GITHUB_OUTPUT"
+            echo "::error::main has moved past $SHA, so it is not deployed; the newer push's run deploys"
+            exit 1
           fi
-      - if: steps.tip.outputs.stale != 'true'
-        run: bun install --frozen-lockfile
+      - run: bun install --frozen-lockfile
       # Without CLOUDFLARE_ENV=production the build is the top level's (placeholder D1, no route), and
       # wrangler deploy would publish a different Worker.
       - name: Build env.production
-        if: steps.tip.outputs.stale != 'true'
         working-directory: apps/web
         run: CLOUDFLARE_ENV=production bun run build
       # Before the deploy that needs them; the only step that changes the database.
       - name: Apply the D1 migrations
-        if: steps.tip.outputs.stale != 'true'
         working-directory: apps/web
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: bunx wrangler d1 migrations apply pixelslash --remote --env production
       - name: Deploy the Worker
-        if: steps.tip.outputs.stale != 'true'
         working-directory: apps/web
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -171,10 +179,8 @@ jobs:
         run: bunx wrangler deploy --var SENTRY_RELEASE:"$(git rev-parse --short HEAD)"
       # The live page names the commit it was built from (apps/web/build-commit.ts); up to two minutes.
       - name: Check the live commit
-        if: steps.tip.outputs.stale != 'true'
         run: bun scripts/check-commit.ts https://pixelslash.dev/ "$SHA"
       - name: Smoke
-        if: steps.tip.outputs.stale != 'true'
         env:
           MOON_BASE: origin/main
           SMOKE_BASE_URL: https://pixelslash.dev
