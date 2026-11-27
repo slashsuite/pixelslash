@@ -794,7 +794,7 @@ again on its own, so after that first kill a kill counts only against the build 
 
 It is off until the CT's `.dev.vars.e2e` names it. To turn it on, add
 
-```bash
+```text
 RENDER_URL=http://127.0.0.1:3100/jobs
 ```
 

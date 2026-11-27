@@ -163,7 +163,7 @@ differs; the rest are gaps we can close.
   by PNG, through Maestro (cli.md:411).
 - Figma in Chromatic and the Storybook Figma plugin: out of scope (invariant 6, decision 62). Do not
   write about it.
-- Publishing Storybook for others to view, embedding stories, composition and the Storybook MCP:
+- Publishing a built Storybook for others to view, embedding stories, composition and the Storybook MCP:
   we do not host Storybooks.
 - Account pages (profile, email, password, username, delete account), billing and usage reports,
   legal pages, snapshot quotas and plan limits.

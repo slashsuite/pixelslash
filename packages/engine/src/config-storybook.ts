@@ -93,7 +93,7 @@ export function parseStorybook(
   };
 }
 
-/** A Storybook-only config has no app of its own: the Storybook is the base. */
+/** A Storybook-only config has no app of its own: the Storybook's URL is the base. */
 export function baseUrlOf(raw: unknown, sb: StorybookConfig | undefined, fail: Fail): string {
   const baseUrl = raw === undefined && sb ? sb.url : text(raw, "baseUrl", fail);
   if (!URL.canParse(baseUrl)) fail("baseUrl", "must be a URL");

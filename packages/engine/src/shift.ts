@@ -51,7 +51,7 @@ const TILE = 12;
 const MIN_TILE_ENERGY = 2000;
 const MIN_TILES = 4;
 const TILE_TOLERANCE = 0.35;
-/** The smallest per-tile threshold, so a still tile can never agree with a real shift. */
+/** `TILE_TOLERANCE`'s floor per tile, so a still tile can never agree with a real shift. */
 const MIN_TILE_TOLERANCE = 0.1;
 const MIN_AGREEMENT = 0.5;
 /** Of the differing pixels, the share a one-pixel shift of Main may leave and still be an exact move. */

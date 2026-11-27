@@ -211,7 +211,7 @@ function MarkFlakyForm({
 
 /**
  * The side panel's flaky-shot section: the badge, this build's runs side by side, the policy in effect
- * and how to change it; on a shot not marked flaky, the control to mark it flaky by hand.
+ * and how to change it; on a shot with no flaky-shot record, the control to mark it flaky by hand.
  */
 export function FlakePanel({
   projectId,

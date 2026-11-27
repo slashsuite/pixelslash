@@ -23,7 +23,7 @@ export const LENGTH_FIELDS = [
   "gap",
   "font.lineHeight",
 ] as const;
-/** Compared for equality, never within a threshold. */
+/** Compared for equality, with no `tolerance`. */
 export const EXACT_FIELDS = ["font.size", "font.weight"] as const;
 export const COLOR_FIELDS = ["color.fg", "color.bg", "color.border"] as const;
 

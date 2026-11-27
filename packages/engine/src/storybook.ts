@@ -126,7 +126,7 @@ async function readIndex(url: string): Promise<unknown> {
 /**
  * One route per story × combination of globals, read from the running Storybook's `index.json`;
  * a story tagged `ONCE_TAG` is one route, at the globals' defaults. `taken` is the hand-written routes' names: a story that lands on one, or two that land on each
- * other, is a config error. A Storybook with nothing left after include/exclude is one too, since
+ * other, is a config error. A Storybook index with nothing left after include/exclude is one too, since
  * a run that shoots nothing would pass for ever.
  */
 export async function storybookRoutes(sb: StorybookConfig, taken: string[]): Promise<Route[]> {

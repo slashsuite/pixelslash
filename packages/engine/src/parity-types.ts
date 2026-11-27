@@ -45,7 +45,7 @@ export type ParityPair = {
   name: string;
   theme: string;
   sides: [ParitySideInfo, ParitySideInfo];
-  /** The logical-px threshold for lengths: `max(1/scale_a, 1/scale_b)`. */
+  /** The logical-px `tolerance` for lengths: `max(1/scale_a, 1/scale_b)`. */
   tolerance: number;
   mismatches: Mismatch[];
   /** Differences the manifest declares on purpose: compared, differing, and accepted. */
