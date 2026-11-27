@@ -92,7 +92,8 @@ html = f"""<!doctype html>
   .legend {{ display: flex; gap: 12px; font-size: 14px; color: var(--dim); }}
   .legend i {{ font-style: normal; font-size: 14px; }}
   .toggle {{ font-size: 14px; color: var(--dim); display: flex; gap: 6px; align-items: center; cursor: pointer; }}
-  table {{ border-collapse: collapse; width: 100%; table-layout: fixed; }}
+  .scroll {{ overflow-x: auto; }}
+  table {{ border-collapse: collapse; width: 100%; min-width: 960px; table-layout: fixed; }}
   col.c0 {{ width: 40%; }}
   th, td {{ padding: 5px 3px; border-top: 1px solid var(--line); vertical-align: middle; }}
   thead th {{ font-size: 14px; letter-spacing: .04em; text-transform: uppercase; color: var(--dim);
@@ -137,8 +138,8 @@ html = f"""<!doctype html>
   <label class="toggle"><input type="checkbox" id="onlyDiff" checked> only where we're behind</label>
 </div>
 
-<table><colgroup><col class="c0"><col span="{len(TOOLS)}"></colgroup>
-<thead><tr><th></th>{HEAD_HTML}</tr></thead><tbody id="tb"></tbody></table>
+<div class="scroll"><table><colgroup><col class="c0"><col span="{len(TOOLS)}"></colgroup>
+<thead><tr><th></th>{HEAD_HTML}</tr></thead><tbody id="tb"></tbody></table></div>
 
 <h2>Nothing we have is unique</h2>
 <p class="lede">Every capability in the table exists somewhere else. Two are rare rather than unique: a
