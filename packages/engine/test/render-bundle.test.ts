@@ -64,8 +64,12 @@ async function bundle(index: object = INDEX, beacon = ""): Promise<Uint8Array> {
 
 const pinned = { env: { PIXELSLASH_IMAGE_VERSION: "test" }, listFonts: async () => [] };
 
-/** The API as the renderer meets it: the plan and bundle of build b1, baselines for none of its shots. */
-async function api(exclude: string[]) {
+/**
+ * The API as the renderer meets it: the plan and bundle of build b1, baselines for none of its
+ * shots, and each finalise answered with the next of `finalised`.
+ */
+async function api(exclude: string[], finalised: object[] = [{ status: "passed" }]) {
+  let n = 0;
   const gz = await bundle();
   const { plan } = renderPlan({
     storybook: { url: "http://localhost:6006", exclude },
@@ -84,7 +88,7 @@ async function api(exclude: string[]) {
         baselines: keys.map((key) => ({ key, baseline: null, carry: null, accepted: null })),
       });
     }
-    if (c.url.endsWith("/finalize")) return Response.json({ status: "passed" });
+    if (c.url.endsWith("/finalize")) return Response.json(finalised[n++] ?? finalised.at(-1));
     return undefined;
   });
 }
@@ -119,6 +123,25 @@ describe("renderBundle", () => {
     const finalize = fake.calls.find((c) => c.url.endsWith("/finalize"));
     expect(finalize?.body).toMatchObject({ snapshots: 1 });
     expect(await readdir(scratch)).toEqual([]);
+  }, 60_000);
+
+  test("finalises again while the server's diff stops at its ceiling with shots left, until it finishes", async () => {
+    // A wide change: the diff ran out of budget twice with 61 left, then measured the rest.
+    const ceiling = { id: "b1", status: "errored", error: "diff ceiling: 61 left", unmeasured: 61 };
+    const done = { id: "b1", status: "changes", error: null, unmeasured: 0 };
+    const fake = await api(["*--broken"], [ceiling, ceiling, done]);
+    const warned: string[] = [];
+    const outcome = await renderBundle(
+      { buildId: "b1", token: "psr_b1.sig" },
+      { server: "https://ps.example", scratch: await tmp() },
+      { ...pinned, fetch: fake.fetch, sleep: async () => {}, warn: (m) => warned.push(m) },
+    );
+    expect(outcome).toEqual({ ok: true, snapshots: 1 });
+    expect(fake.calls.filter((c) => c.url.endsWith("/finalize"))).toHaveLength(3);
+    expect(fake.calls.some((c) => c.url.endsWith("/render-error"))).toBe(false);
+    expect(warned.filter((m) => /^upload: 61 of \d+ shots still to measure/.test(m))).toHaveLength(
+      2,
+    );
   }, 60_000);
 
   test("a story that fails to render ends the build with a render error naming it", async () => {
