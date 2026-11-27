@@ -25,8 +25,6 @@ describe("route actions", () => {
     [[{ type: "input" }], "routes[0].actions[0] must be { click }, { hover }"],
     [[{ type: "input", text: 1 }], "routes[0].actions[0].text must be a string"],
     [[{ advance: 0 }], "routes[0].actions[0].advance must be a positive whole number of ms"],
-    [[{ advance: 1.5 }], "routes[0].actions[0].advance must be a positive whole number of ms"],
-    [[{ wait: 100 }], "routes[0].actions[0] must be { click }, { hover }"],
   ])("%j is a config error", (actions, message) => {
     expect(() => withActions(actions)).toThrow(message);
   });

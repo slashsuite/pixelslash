@@ -1,4 +1,3 @@
-import type { Page } from "playwright";
 import type { Fail } from "./diff-options.ts";
 
 /**
@@ -67,30 +66,4 @@ export function checkAdvances(
     lists.push([`storybook.actions.${id}`, a]);
   const at = lists.find(([, actions]) => actions?.some((a) => "advance" in a));
   if (at) fail(at[0], "advance needs the paused clock: set stabilise.timers (and clock)");
-}
-
-function describe(a: Action): string {
-  if ("click" in a) return `click ${a.click}`;
-  if ("hover" in a) return `hover ${a.hover}`;
-  if ("type" in a) return `type into ${a.type}`;
-  return `advance ${a.advance}ms`;
-}
-
-/**
- * Run the actions in order on the settled page. A selector must match one element, which
- * Playwright waits for within `timeoutMs`; the clock only moves on an `advance`, never by a wall-clock wait.
- */
-export async function runActions(page: Page, actions: Action[], timeoutMs: number): Promise<void> {
-  for (const a of actions) {
-    try {
-      if ("click" in a) await page.locator(a.click).click({ timeout: timeoutMs });
-      else if ("hover" in a) await page.locator(a.hover).hover({ timeout: timeoutMs });
-      else if ("type" in a)
-        await page.locator(a.type).pressSequentially(a.text, { timeout: timeoutMs });
-      else await page.clock.runFor(a.advance);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message.split("\n")[0] : String(e);
-      throw new Error(`action "${describe(a)}" failed: ${msg}`, { cause: e });
-    }
-  }
 }
