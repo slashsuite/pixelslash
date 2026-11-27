@@ -30,8 +30,7 @@ holds what they inherit:
 | `engine` | `packages/engine` | capture, diff, the DS judge, Figma rasters, the run store, the report |
 | `cli` | `packages/cli` | the `pixelslash` bin: argv, stdout and exit codes, over `@slashsuite/pixelslash-engine` |
 | `web` | `apps/web` | the hosted review app: TanStack Start on Cloudflare Workers, D1 via Drizzle, R2, GitHub sign-in |
-| `site` | `apps/site` | the old docs site, TanStack Start on a Worker, each page prerendered from the repo's own docs (`docs/`, `SECURITY.md`, `apps/web/SELF-HOST.md`); no D1, R2 or sign-in. It has no domain: `apps/site/wrangler.jsonc` has `"routes": []`, so no public address reaches it. Its pages are on slashslash.build/pixelslash. pixelslash.dev is the review app (`apps/web`), which 301s every old path of this site to slashslash.build, except `/`, its own home (`apps/web/src/server/moved.ts`). The gate still builds, prerenders and tests the site (`apps/site/README.md`) |
-| `scripts` | `scripts` | `check-slop.ts`, `check-dashes.ts` and `write-fixtures.ts`; typecheck, lint and the test of `check-dashes.ts` |
+| `scripts` | `scripts` | `check-slop.ts`, `check-dashes.ts`, `write-fixtures.ts` and `site-images/` (the hero and report images slashslash.build reads); typecheck, lint and the test of `check-dashes.ts` |
 | `wasm` | `engines/wasm` | the Rust diff module (`diff.wasm`, committed under `packages/engine/wasm`) and its bench-only native build in `native/`; `cargo fmt --check` and clippy in `lint`, `cargo test` and `wasm:wasm-check` (what `bun run wasm:check` runs) in `test` |
 | `bench` | `bench` | the Argos benchmark: main and held-out corpora, runner, scoring (`bun run bench`, no VM: Argos's verdicts are cached; `bun run bench:check` is the regression guard, and `bun run test` runs it too; see `bench/README.md`). The VM is needed only for `--refresh-argos` |
 | `example` | `examples/playwright-node` | the npm sample, outside the Bun workspace: only `typecheck`, which checks its spec against the helper's shipped declarations (`packages/playwright/types`) through `tsconfig.workspace.json`. `bun run check:example` (CI's `example` job) installs and runs it the npm way |
@@ -41,7 +40,10 @@ pinned commit, and refreshes the pin when one of them changes on `main`:
 `apps/web/github-app/manifest.json`, `apps/site/public/favicon.svg`,
 `apps/site/public/fonts/inter-latin-wght-normal.woff2`, `apps/site/public/fonts/OFL.txt`,
 `apps/site/public/hero/main.png`, `apps/site/public/hero/branch.png`, `apps/site/public/report.png`,
-`apps/site/src/content/hero.json` and `docs/capabilities/data.json`. Changing their content is
+`apps/site/public/docs-images/*.png`, `apps/site/src/content/hero.json`,
+`apps/site/src/content/report.json`, `docs/capabilities/data.json`, `FACTS.md`, `SECURITY.md`,
+`apps/web/SELF-HOST.md` and the docs under `docs/`. `apps/site` is not a project any more (the old
+docs site's code is gone): it holds only these files, kept at the paths that site reads. Changing their content is
 fine; moving, renaming or deleting one breaks that site's next update, so do not, unless the change
 says how the other side follows.
 
@@ -99,7 +101,7 @@ moon fetches the full history and sets `MOON_BASE=origin/main`.
 
 **The remote cache.** moon shares task outputs through an HTTP remote cache (`remote:` in
 `.moon/workspace.yml`). It answers no request without a bearer token, reads included; moon sends the
-value of `MOON_REMOTE_TOKEN`. In CI the `gate`, `web` and `site` jobs read it with the repo secret
+value of `MOON_REMOTE_TOKEN`. In CI the `gate` and `web` jobs read it with the repo secret
 `MOON_CACHE_READ_TOKEN`. Only a push to `main` writes: the `gate` job then enters the `moon-cache-write`
 environment, which only `main` may deploy to and which alone holds `MOON_CACHE_WRITE_TOKEN`, so a branch
 cannot poison the cache. A pull request's uploads are refused (a WARN per task, not a failure). A fork's
@@ -159,12 +161,12 @@ bunx moon run web:test-e2e        # Playwright: a local build on a fresh local D
 **The `visual` job** (`ci.yml`) runs on every pull request that changes the web app and on every push to
 `main`: it builds the review app, captures the eight dogfood shots (project, build, shot and commit review pages, light and
 dark, over the synthetic seed in `apps/web/e2e/dogfood-seed.ts`, so no real data) and uploads them to
-the hosted app (through its old host app.pixelslash.dev, which still serves the API) with the `PIXELSLASH_TOKEN` secret. The PixelSlash check on a PR is posted from that build,
+the hosted app at pixelslash.dev with the `PIXELSLASH_TOKEN` secret. The PixelSlash check on a PR is posted from that build,
 against main's. It is not required, and with no secret (a fork) it skips and passes.
 
-**The site images bot** (`.github/workflows/site-images.yml`) runs `bun apps/site/scripts/site-images.ts` on
+**The site images bot** (`.github/workflows/site-images.yml`) runs `bun scripts/site-images/site-images.ts` on
 `main` when the engine, the CLI, the review app (`apps/web/src`, whose compare view `report.png` shows), the
-hero page, `fixtures/pages` or those scripts change. When an image really
+hero page (`scripts/site-images/page.html`), `fixtures/pages` or those scripts change. When an image really
 changed it force-pushes `bot/site-images` and opens (or updates) a pull request titled `chore(site): regenerate
 the site images`, which may change only `apps/site/public/hero/*.png`, `apps/site/public/report.png`,
 `apps/site/src/content/hero.json` and `apps/site/src/content/report.json`. It acts with the `SITE_IMAGES_TOKEN`
@@ -184,31 +186,14 @@ bunx moon run cli:smoke              # builds packages/cli/dist, then runs it as
 bunx moon run web:test-local-build   # integration: builds the web app, a fresh local D1 in .wrangler/local-build, drives /api/v1 and the CLI
 ```
 
+`web:smoke` (`SMOKE_BASE_URL` and the smoke account's token in the env) is smoke proper: it reads a deployed
+server, after every deploy of pixelslash.dev and of a self-host (`apps/web/README.md`), and is never cached.
 `web:test-local-build` runs in CI's `web` job. Each of its tests seeds its own synthetic (`is_smoke`)
 org; one proves `usageCounts` is unchanged by its uploads, and nothing runs against production
 (`docs/testing.md`). `cli:smoke` keeps its name for now. Run both after a change to the CLI's bundle (`scripts/build-cli.ts`, its dependencies) or to the web
 build, the upload API or the synthetic-org filter (`src/db/synthetic.ts`).
 
-A change to `apps/site`, or to a file it renders (`docs/cli.md`, `apps/web/SELF-HOST.md`,
-`SECURITY.md`, the README's trademark line), runs:
-
-```bash
-bunx moon run site:build
-bunx moon run site:test-e2e       # Playwright on the build, desktop and phone: nav, footer, no dead links (CI: `-- --project desktop`)
-(cd apps/site && bunx wrangler deploy --dry-run --outdir "$TMPDIR/ps-site-dry")
-```
-
-CI runs `site` in two tiers. The build (`bunx moon run site:build`) runs on a pull request that
-touches `apps/site/`, `docs/`, a root file the site renders or installs from (`README.md`, `SECURITY.md`,
-`apps/web/SELF-HOST.md`, `apps/web/github-app/manifest.json`, `package.json`, `.moon/`,
-`tsconfig.base.json`, `bun.lock`, `bunfig.toml`, `.tool-versions`, `scripts/test-tmp-scope.ts`) or `ci.yml`, and on every push to
-`main`. The build prerenders with `crawlLinks` and `failOnError`, and `resolve-links.ts` throws on a missing
-`cli.md` anchor, so a docs-only edit is checked by the build and the site's unit tests, not a browser. The e2e
-(`bunx moon run site:test-e2e -- --project desktop`, the phone project is not run in CI) runs only on the short list:
-`apps/site/`, `scripts/test-tmp-scope.ts`, `package.json`, `.moon/`, `tsconfig.base.json`, `bun.lock`,
-`bunfig.toml`, `.tool-versions` and `ci.yml`, and on every push to `main`. A tag (a release) runs neither. The check is not
-required, so a skipped job blocks nothing; the hand run above is no longer the only run, but the wrangler dry
-run stays yours. The `web` and `site` jobs install no .NET SDK and run only web and site tasks; only `gate` has it.
+The `web` job installs no .NET SDK and runs only web tasks; only `gate` has it.
 
 `apps/web` keeps its schema in `src/db/schema.ts`; `bun run db:generate` (in
 `apps/web`) writes the next additive migration to `apps/web/drizzle/`. All

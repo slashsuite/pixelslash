@@ -113,14 +113,6 @@ Checked against main at dba45b9 on 2026-11-20.
 - `playwright-snapshot-options`: the options of a shot: `ignore` and `redact` selectors, `variant`, `tags`, `metrics`, `fullPage`, `dir` and `timeoutMs`. How to reach it: the `SnapshotOptions` type from `@slashsuite/pixelslash-playwright`. Source: `packages/playwright/src/index.ts:29`.
 - `playwright-keep-native-raf`: an init script that keeps real animation frames when a test pauses the page clock, so the settle still works. How to reach it: `page.addInitScript(keepNativeRaf)` with `keepNativeRaf` from `@slashsuite/pixelslash-playwright`. Source: `packages/playwright/src/index.ts:27`.
 
-## Docs site
-- `docs-site`: the documentation, prerendered from the repository's own docs; this and the lines below are routes of the docs site this repo builds, which has no address of its own, and its pages are published at slashslash.build/pixelslash/docs. How to reach it: `/docs`. Source: `apps/site/src/routes/docs.index.tsx`. Source: `FACTS.md`.
-- `docs-page`: one documentation page per doc. How to reach it: `/docs/$slug`. Source: `apps/site/src/routes/docs.$slug.tsx`.
-- `security-page`: the security policy, rendered from `SECURITY.md`. How to reach it: `/security`. Source: `apps/site/src/routes/security.tsx`. Source: `SECURITY.md`.
-- `self-host-page`: the self-hosting guide, rendered from `apps/web/SELF-HOST.md`. How to reach it: `/self-host`. Source: `apps/site/src/routes/self-host.tsx`.
-- `docs-search`: a static search index the docs search reads. How to reach it: `/search-index.json`. Source: `apps/site/src/routes/search-index[.]json.ts`.
-- `sitemap`: a sitemap of the site's pages. How to reach it: `/sitemap.xml`. Source: `apps/site/src/routes/sitemap[.]xml.ts`.
-
 ## Self-hosting
 - `self-host-docker`: run the review app in Docker, one image and one volume, with real GitHub sign-in and no Cloudflare account. How to reach it: `docker compose up` in `docker/self-host/`. Source: `apps/web/SELF-HOST.md`. Source: `docker/self-host/compose.yaml`.
 - `self-host-cloudflare`: run the review app on your own Cloudflare account (a Worker, D1, R2 and a Queue), as the hosted app runs. How to reach it: the steps in `apps/web/SELF-HOST.md`, "On your own Cloudflare account". Source: `apps/web/SELF-HOST.md`.

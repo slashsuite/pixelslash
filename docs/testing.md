@@ -6,8 +6,8 @@ cannot see.
 
 | Layer | Question | Runs against | Where | Command |
 | --- | --- | --- | --- | --- |
-| **Smoke** | Does the thing we ship start and do its one job? | the built artifact: the bundled CLI | `packages/cli/smoke` | `bunx moon run cli:smoke` |
-| **E2E** | Does a user's happy path work through the real UI or CLI? | a real browser on a local build, local D1, GitHub stubbed | `apps/web/e2e`, `apps/site/e2e` | `bunx moon run web:test-e2e`, `bunx moon run site:test-e2e` |
+| **Smoke** | Does the thing we ship start and do its one job? | the built artifact: the bundled CLI; the deployed web app | `packages/cli/smoke`, `apps/web/smoke` | `bunx moon run cli:smoke`, `SMOKE_BASE_URL=... bunx moon run web:smoke` |
+| **E2E** | Does a user's happy path work through the real UI or CLI? | a real browser on a local build, local D1, GitHub stubbed | `apps/web/e2e` | `bunx moon run web:test-e2e` |
 | **Integration** | Do the parts agree with each other and with the store? | real SQLite (D1's engine), real files, real HTTP on loopback, a real child process, a local build of the web app on a local D1 | `*/test`, `apps/web/src/{db,api,diff,github,storage,server}`, `apps/web/local-build` | `bunx moon run <project>:test`, `bunx moon run web:test-local-build` |
 | **Unit** | Is this function right on the cases that are easy to get wrong? | one module, no I/O | the rest of `*/test` and `apps/web/src/{lib,auth,ai}` | `bunx moon run <project>:test` |
 
@@ -16,7 +16,7 @@ is by what a test touches, not by a folder. The one integration suite outside `t
 local build (below), because it builds the app first.
 
 A check of a local build on local data is integration, whatever its folder is called (Jacobus,
-2026-11-15). Smoke is for the deployed build only; the web app has none yet. A unit test is added only for a gap: logic with branches the
+2026-11-15). Smoke is for the deployed build only: the web app's is `web:smoke`, run after each deploy. A unit test is added only for a gap: logic with branches the
 layers above do not reach.
 
 Real-browser tests run on Chromium only; Firefox and WebKit are never used in testing, at any layer,
@@ -67,7 +67,7 @@ each `moon.yml` lists), and a failure is never cached. A change the run could se
 ### The isolation rule, and the test that proves it
 
 Jacobus's rule (2026-10-19): a run against a synthetic org leaves nothing a real user or a real number
-can see. It governs any synthetic org: the local build's today, a smoke against a deployment later.
+can see. It governs any synthetic org: the local build's today, the deployment smoke's today.
 
 1. **Synthetic, and excluded from every count.** A synthetic org is an `orgs` row with `is_smoke = 1`. Every
    reader that produces a number goes through `real()` (`src/db/synthetic.ts`): `usageCounts`, the
@@ -86,15 +86,19 @@ can see. It governs any synthetic org: the local build's today, a smoke against 
    was counted; flipping it back restores the first reading. The counts are deltas, so the test holds on a
    D1 other tests have written to.
 
-### Not done: a smoke against production (needs a human)
+### The deployment smoke
 
-Nothing here runs against `pixelslash.dev`. No path in the app creates a synthetic org, so there is
-none in production. A production smoke needs steps only Jacobus can take:
+`web:smoke` (`apps/web/smoke/web.smoke.ts`, 3 tests) runs after every deploy against `SMOKE_BASE_URL`:
+pixelslash.dev, and the self-host through `release.sh`. The sign-in page serves, an unknown path is a 404,
+and the smoke account's token signs in and sees its org. It follows the rule above:
 
-1. Set `is_smoke = 1` on a dedicated prod org (a D1 `UPDATE`).
-2. Issue a CI token for that org and store it as a CI secret; point the smoke at the prod URL with it.
-3. Upload on a non-default branch, so retention can delete the builds, and turn retention on: R2 blobs
-   for a smoke build are not removed by anything else.
+1. The account is one synthetic org (`smoke-org`, `is_smoke = 1`), its user, one project and one personal
+   token, all with fixed ids (`src/db/smoke-account.ts`). Applying its SQL again adds no row and replaces
+   the token (`smoke-account.test.ts` proves both).
+2. The smoke only reads: it uploads nothing, so it leaves no build or blob for retention to clean up. The
+   token's `last_used_at` is its one write.
+3. The token is a secret of whoever deploys, passed as `SMOKE_TOKEN` or `SMOKE_TOKEN_FILE`; the database
+   holds only its SHA-256. A run with no token fails rather than skipping the sign-in check.
 
 ## Inventory
 
@@ -107,7 +111,6 @@ by group; a group is one layer unless a row says otherwise. Counts are from the 
 | `packages/cli/smoke` | 1 | smoke | new |
 | `apps/web/local-build` | 3 | integration | the local build over HTTP and the real CLI, each test on its own org (above). Moved out of e2e: `stub-refusal.spec.ts` (no page), `upload.spec.ts` (the page only provisioned, revoked and set the diff location) and the CLI and API half of `layout-metrics.spec.ts` |
 | `apps/web/e2e` | 24 specs and the sign-in setup, 48 tests with it (`playwright test --list`; 34 specs and 68 tests before the cuts below) | e2e | one happy path per feature, in a real browser (the operator health page's 404 for everyone else and the page for a listed login, `admin.spec.ts`; its empty state is a unit test, since the e2e database always has the stub's seed). Every spec starts signed in from one `setup` project and builds its org, project and CI token with `provision` (`e2e/fixtures.ts`), a write to the D1; `orgs.spec.ts` is the one test that makes them by clicking, and `admin.spec.ts`'s figures test is the one that reads the whole D1. `rss-burst.spec.ts` is a memory check and is outside the gate. `layout-metrics.spec.ts` keeps only the side panel; the diff location form is `orgs.spec.ts` |
-| `apps/site/e2e` | 4 | e2e | nav, footer and dead links on the prerendered pages, desktop and phone (named `smoke.spec.ts`; it is an e2e); one header on every page and the theme toggle (`header.spec.ts`); the home page in both themes (`home.spec.ts`); the pricing page fills the column and its one action leads to the self-host guide (`pricing.spec.ts`) |
 | `packages/cli/test` | 30 | integration | the `pixelslash` commands run in-process or as a child, against a fake server and real temp dirs. The `*-support.ts` files are helpers |
 | `packages/engine/test` | 50 | integration + unit | store, upload, capture (real Chromium), report and DS judge are integration; `diff*`, `regions`, `fingerprint`, `sentry-scrub`, `route-names`, `change-note`, `config*` are unit |
 | `apps/web/src/db` | 29 | integration | every query against real SQLite with the real migrations (`test-db.ts`, `test-d1.ts`) |
@@ -116,7 +119,6 @@ by group; a group is one layer unless a row says otherwise. Counts are from the 
 | `apps/web/src/github`, `storage`, `server`, `preview` | 11 | integration | the GitHub client against a local stand-in, R2-shaped blobs, the connection patch |
 | `apps/web/src/lib`, `auth`, `ai` | 36 | unit | pure helpers and the model client against a fake endpoint. `use-review-keys.hook.test.tsx` renders a hook in happy-dom (its `@vitest-environment` line) to type a key in the commit that shows another shot, which no pure function can reach; `use-decision.hook.test.tsx` does the same for the decide-then-move flow, with a stubbed server call |
 | `apps/web/deploy` | 7 | integration | the Docker and SSH scripts, run against temp dirs |
-| `apps/site/src/content` | 3 | integration | the pages are built from the repo's own docs, so a heading or a code block cannot drift |
 | `packages/playwright`, `examples/playwright-node` | 2 | integration | the Playwright integration against an upload stub |
 | `bench/test` | 12 | unit | the benchmark's scoring and runner; `bench:check` is the regression guard (integration: it replays the cached Argos verdicts) |
 
@@ -223,10 +225,7 @@ bunx moon run <project>:test   # integration + unit
 In CI the web e2e runs every spec once on the production build (the diff in workerd, under the LAN's pixel limit). A second run
 on `vite dev` is cut to `e2e/review.spec.ts`: it keeps the dev module graph under an e2e run, and
 that spec makes the server diff and reads its result. The CLI's uploads diff in
-workerd too, on the production build, in the local-build step that follows. The site's e2e runs the `desktop` project only (not the phone one), and only when the site
-itself changed (`apps/site/` or what decides how it installs) or on `main`; a docs-only edit is checked by
-`moon run site:build` (a dead internal link or a missing `cli.md` anchor fails the prerender) and the site's unit
-tests, and a spec that quotes a docs sentence waits for the next site change or the push to `main`.
+workerd too, on the production build, in the local-build step that follows.
 
 The local build's state is `apps/web/.wrangler/local-build` (gitignored), recreated on every run; its scratch is under
 `TMPDIR`, which `scripts/test-tmp-scope.ts` scopes and removes.

@@ -1,6 +1,5 @@
 # Inherited by the projects tagged `ts`: every TypeScript project. Every task hashes the whole repo,
-# not its own project plus a list: the projects import files outside their roots (the site renders
-# docs/ and root *.md, the web app's perf script imports bench/src, the vitest configs load
+# not its own project plus a list: the projects import files outside their roots (the web app's perf script imports bench/src, the vitest configs load
 # scripts/*), and a list that misses one serves a stale green. moon has no `^default` either, so
 # this also covers the engine every project imports. A docs-only change re-runs every TS task; a
 # stale green is worse than a slower run.

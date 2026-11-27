@@ -1,5 +1,5 @@
 /**
- * Shoots the site's `report.png` (`apps/site/scripts/site-images.ts`): the e2e servers and sign-in of
+ * Shoots the site's `report.png` (`scripts/site-images/site-images.ts`): the e2e servers and sign-in of
  * `playwright.config.ts`, running only `e2e/site-report.shoot.ts`. The `.shoot.ts` name keeps the shoot
  * out of the e2e run, whose specs are `*.spec.ts`.
  */
