@@ -1,58 +1,44 @@
 import { SIGNED_OUT, expect, open, test } from "./fixtures";
 
-// Visitors: the toggle before anyone signs in, and no cookie until one is chosen.
-test.use({ storageState: SIGNED_OUT });
+/**
+ * A visitor on a light system picks dark with the toggle, and the choice outlives a reload with the
+ * class already in the server's HTML, so the page never flashes light. Which theme the script in
+ * <head> picks for a cookie and a system is `lib/theme.test.ts`'s.
+ */
 
-test.describe("a visitor who follows the system and has chosen nothing", () => {
-  test.use({ colorScheme: "dark" });
+test.use({ storageState: SIGNED_OUT, colorScheme: "light" });
 
-  test("reaches dark with no cookie", async ({ page }) => {
+const DARK_HTML = /<html[^>]*class="(?:[^"]* )?dark[ "]/;
+
+test("a visitor's theme choice survives a reload, rendered by the server", async ({ page }) => {
+  const html = page.locator("html");
+  const toggle = page.getByRole("button", { name: /^Switch to (dark|light) theme$/ });
+
+  await test.step("a light system starts light", async () => {
     await open(page, "/");
-    await expect(page.locator("html")).toHaveClass(/dark/);
-    expect(await page.context().cookies()).toEqual([]);
-  });
-});
-
-test.describe("a light system", () => {
-  test.use({ colorScheme: "light" });
-
-  test("starts light, and an explicit choice survives a reload with the class server-rendered", async ({
-    page,
-  }) => {
-    await open(page, "/");
-    const toggle = page.getByTestId("theme-toggle");
     await expect(toggle).toBeEnabled();
-    await expect(page.locator("html")).not.toHaveClass(/dark/);
-
-    await toggle.click();
-    await expect(page.locator("html")).toHaveClass(/dark/);
-    // The label names the theme it switches to, so it flips with the page.
-    await expect(toggle).toHaveAccessibleName("Switch to light theme");
-
-    // No flash: the document the server sends already carries the class, before any script runs.
-    const html = await (await page.request.get("/")).text();
-    expect(html).toMatch(/<html[^>]*class="(?:[^"]* )?dark[ "]/);
-
-    await page.reload();
-    await expect(page.locator("html")).toHaveClass(/dark/);
-    await expect(toggle).toHaveAccessibleName("Switch to light theme");
-
-    await toggle.click();
-    await expect(page.locator("html")).not.toHaveClass(/dark/);
-    const light = await (await page.request.get("/")).text();
-    expect(light).not.toMatch(/<html[^>]*class="(?:[^"]* )?dark[ "]/);
+    await expect(html).not.toHaveClass(/dark/);
+    await expect(toggle).toHaveAccessibleName("Switch to dark theme");
+    // No theme cookie until the visitor picks one: the server rendered the page and set none.
+    expect((await page.context().cookies()).map((c) => c.name)).not.toContain("ps_theme");
   });
-});
 
-test("an explicit light choice beats a dark system", async ({ browser }) => {
-  const context = await browser.newContext({ colorScheme: "dark" });
-  const page = await context.newPage();
-  await open(page, "/");
-  const toggle = page.getByTestId("theme-toggle");
-  await expect(toggle).toBeEnabled();
-  await toggle.click();
-  await expect(page.locator("html")).not.toHaveClass(/dark/);
-  await page.reload();
-  await expect(page.locator("html")).not.toHaveClass(/dark/);
-  await context.close();
+  await test.step("the toggle picks dark, and its name flips with the page", async () => {
+    await toggle.click();
+    await expect(html).toHaveClass(/dark/);
+    await expect(toggle).toHaveAccessibleName("Switch to light theme");
+  });
+
+  await test.step("the server renders the choice, so a reload keeps it", async () => {
+    expect(await (await page.request.get("/")).text()).toMatch(DARK_HTML);
+    await page.reload();
+    await expect(html).toHaveClass(/dark/);
+    await expect(toggle).toHaveAccessibleName("Switch to light theme");
+  });
+
+  await test.step("picking light again is rendered light", async () => {
+    await toggle.click();
+    await expect(html).not.toHaveClass(/dark/);
+    expect(await (await page.request.get("/")).text()).not.toMatch(DARK_HTML);
+  });
 });

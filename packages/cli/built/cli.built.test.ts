@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { PNG } from "pngjs";
 
 /**
- * The smoke layer (PS-15): the BUILT CLI, `packages/cli/dist/index.js` (`moon run cli:build`), as a child
+ * Integration on the built artifact (PS-15): the BUILT CLI, `packages/cli/dist/index.js` (`moon run cli:build`), as a child
  * process, the way the npm package runs. Nothing is imported from `src/`: what is proved is that the
  * bundle starts, finds its `diff.wasm`, diffs, and writes a report. The network is localhost only:
  * the page pair is served from this process, and no upload, judge or error sink is configured.
@@ -20,8 +20,8 @@ let site: ReturnType<typeof Bun.serve>;
 
 beforeAll(async () => {
   if (!existsSync(CLI))
-    throw new Error(`${CLI} is missing: run \`moon run cli:smoke\`, which builds it`);
-  work = await mkdtemp(join(tmpdir(), "ps-smoke-cli-"));
+    throw new Error(`${CLI} is missing: run \`moon run cli:test-built\`, which builds it`);
+  work = await mkdtemp(join(tmpdir(), "ps-built-cli-"));
   site = Bun.serve({
     port: 0,
     hostname: "127.0.0.1",
