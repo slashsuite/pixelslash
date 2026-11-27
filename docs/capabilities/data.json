@@ -241,7 +241,7 @@
       "label": "Animations, caret, clock, timers",
       "ps": {
         "v": "y",
-        "note": "all four in `pixelslash capture`, plus a bounded settle; the pair mode only settles, and the Playwright helper leaves clock and timers to the suite",
+        "note": "all four in `pixelslash capture`, plus a bounded settle and route actions that advance the paused clock by a set time; the pair mode only settles, and the Playwright helper leaves clock and timers to the suite",
         "commit": "cad8b76"
       },
       "t": {

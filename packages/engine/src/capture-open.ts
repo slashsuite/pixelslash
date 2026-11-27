@@ -1,6 +1,7 @@
 import type { Browser, BrowserContext, Page } from "playwright";
 import { type Inflight, keepNativeRaf, settleCapture, trackInflight } from "./capture.ts";
 import type { Route, Stabilise, Variant } from "./config.ts";
+import { runActions } from "./config-actions.ts";
 import type { Session } from "./setup.ts";
 import { CaptureError } from "./errors.ts";
 import type { CaptureSteps, SettleSteps } from "./timings.ts";
@@ -61,11 +62,13 @@ export async function openPage(
   // A story's own render signal and the generic settle share one budget.
   const started = Date.now();
   const storyMs = route.storybook ? await storyWait(page, route.name, timeoutMs) : undefined;
-  const settle = await settleCapture(
-    page,
-    Math.max(1, timeoutMs - (Date.now() - started)),
-    inflight,
-  );
+  const left = () => Math.max(1, timeoutMs - (Date.now() - started));
+  const settle = await settleCapture(page, left(), inflight);
+  if (route.actions) {
+    // On the settled page, then settled again: what the actions started (a fetch, an image) is waited for too.
+    await runActions(page, route.actions, left());
+    await settleCapture(page, left(), inflight);
+  }
   return {
     navigateMs: settling - loading,
     settleMs: performance.now() - settling,

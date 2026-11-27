@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PNG } from "pngjs";
-import { parseConfig } from "../src/config.ts";
+import { parseConfig, type Action } from "../src/config.ts";
 import { paintRects } from "../src/paint-rects.ts";
 import { captureSnapshots, toImageRects, type SnapshotManifest } from "../src/snapshot.ts";
 
@@ -50,8 +50,14 @@ function pixel(img: PNG, x: number, y: number): number[] {
   return Array.from(img.data.subarray(o, o + 4));
 }
 
+/** The colour under the actions fixture's menu and under its delayed panel. */
+function at(png: Buffer) {
+  const img = PNG.sync.read(png);
+  return { menu: pixel(img, 100, 130), panel: pixel(img, 340, 130) };
+}
+
 /** One route captured alone, with page timers frozen or running; the PNG bytes. */
-async function shootPage(path: string, timers: boolean): Promise<Buffer> {
+async function shootPage(path: string, timers: boolean, actions?: Action[]): Promise<Buffer> {
   const routes = [
     {
       path,
@@ -62,6 +68,7 @@ async function shootPage(path: string, timers: boolean): Promise<Buffer> {
       diff: {},
       variantDiff: {},
       variantIgnore: {},
+      ...(actions && { actions }),
     },
   ];
   const out = await tmp();
@@ -128,6 +135,33 @@ describe("captureSnapshots", () => {
   test("a page changing on timers captures identically twice when they are frozen", async () => {
     const [a, b] = [await shootPage("/ticker", true), await shootPage("/ticker", true)];
     expect(Buffer.compare(a, b)).toBe(0);
+  }, 60_000);
+
+  test("actions open a menu and a 150 ms timer shows its panel, byte-identical twice", async () => {
+    const menu: Action[] = [{ click: "#open" }];
+    const panel: Action[] = [{ click: "#open" }, { advance: 150 }];
+    const shots = {
+      none: await shootPage("/actions", true),
+      menu: [await shootPage("/actions", true, menu), await shootPage("/actions", true, menu)],
+      panel: [await shootPage("/actions", true, panel), await shootPage("/actions", true, panel)],
+    };
+    for (const [a, b] of [shots.menu, shots.panel]) expect(Buffer.compare(a!, b!)).toBe(0);
+    const [blue, green, white] = [
+      [37, 99, 235, 255],
+      [22, 163, 74, 255],
+      [255, 255, 255, 255],
+    ];
+    expect(at(shots.none)).toEqual({ menu: white, panel: white });
+    // The clock does not move on its own: the panel's timer waits for an advance.
+    expect(at(shots.menu[0]!)).toEqual({ menu: blue, panel: white });
+    expect(at(shots.panel[0]!)).toEqual({ menu: blue, panel: green });
+  }, 60_000);
+
+  test("an advance short of the timer leaves it unfired", async () => {
+    const img = PNG.sync.read(
+      await shootPage("/actions", true, [{ click: "#open" }, { advance: 149 }]),
+    );
+    expect(pixel(img, 340, 130)).toEqual([255, 255, 255, 255]);
   }, 60_000);
 
   // Also the running half: `timers: false` lets a 1 ms timer fire before the settle's two frames.

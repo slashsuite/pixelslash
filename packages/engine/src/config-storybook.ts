@@ -1,3 +1,4 @@
+import { type Action, parseActions } from "./config-actions.ts";
 import type { Mask } from "./config-areas.ts";
 import type { Fail } from "./diff-options.ts";
 import { isHttpUrl } from "./routes.ts";
@@ -10,12 +11,14 @@ export type StorybookConfig = {
   /** Globs over a story's id or title; a story is kept when it matches any include and no exclude. */
   include: string[];
   exclude: string[];
+  /** Story id → the steps run on its settled page before the shot; a story not listed takes none. */
+  actions: Record<string, Action[]>;
   /** The project-wide masks and tags, which every story route carries like a hand-written one. */
   masks: Mask[];
   tags: string[];
 };
 
-const KEYS = ["url", "globals", "include", "exclude"];
+const KEYS = ["url", "globals", "include", "exclude", "actions"];
 
 function text(v: unknown, where: string, fail: Fail): string {
   if (typeof v !== "string" || v === "") fail(where, "must be a non-empty string");
@@ -52,6 +55,18 @@ function parseGlobals(v: unknown, fail: Fail): Record<string, string[]> {
   return globals;
 }
 
+function parseStoryActions(v: unknown, fail: Fail): Record<string, Action[]> {
+  if (v === undefined) return {};
+  if (typeof v !== "object" || v === null || Array.isArray(v))
+    fail("storybook.actions", "must be an object of story id → list of actions");
+  const out: Record<string, Action[]> = {};
+  for (const [id, list] of Object.entries(v)) {
+    const actions = parseActions(list, `storybook.actions.${id}`, fail);
+    if (actions) out[id] = actions;
+  }
+  return out;
+}
+
 /** Validate the `storybook` block and fill its defaults; the project-wide masks and tags ride along. */
 export function parseStorybook(
   v: unknown,
@@ -60,7 +75,7 @@ export function parseStorybook(
 ): StorybookConfig | undefined {
   if (v === undefined) return undefined;
   if (typeof v !== "object" || v === null || Array.isArray(v))
-    fail("storybook", "must be { url, globals?, include?, exclude? }");
+    fail("storybook", "must be { url, globals?, include?, exclude?, actions? }");
   const raw: Record<string, unknown> = { ...v };
   for (const k of Object.keys(raw)) {
     if (!KEYS.includes(k)) fail(`storybook.${k}`, `is not a storybook option (${KEYS.join(", ")})`);
@@ -73,6 +88,7 @@ export function parseStorybook(
     globals: parseGlobals(raw.globals, fail),
     include: include.length === 0 ? ["**"] : include,
     exclude: textList(raw.exclude, "storybook.exclude", fail),
+    actions: parseStoryActions(raw.actions, fail),
     ...global,
   };
 }

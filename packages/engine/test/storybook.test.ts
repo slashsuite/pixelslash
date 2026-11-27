@@ -136,6 +136,18 @@ describe("storybookRoutes", () => {
     expect(route).toMatchObject({ tags: ["sb"], masks: [".clock"] });
   });
 
+  test("storybook.actions ride on the story they name; a story not shot is a config error", async () => {
+    const actions = [{ click: "button" }, { advance: 150 }];
+    const config = sb({ include: ["ui-button--*"], actions: { "ui-button--primary": actions } });
+    const [primary, heading] = await storybookRoutes(config.storybook!, []);
+    expect(primary?.actions).toEqual(actions);
+    expect(heading).not.toHaveProperty("actions");
+    const typo = sb({ include: ["ui-button--*"], actions: { "forms-input--empty": actions } });
+    await expect(storybookRoutes(typo.storybook!, [])).rejects.toThrow(
+      "config: storybook.actions.forms-input--empty names no story that is shot",
+    );
+  });
+
   test("a name taken by a hand-written route, or nothing selected, is a config error", async () => {
     const config = sb({ include: ["*--empty"] });
     await expect(storybookRoutes(config.storybook!, ["forms-input-empty"])).rejects.toThrow(
