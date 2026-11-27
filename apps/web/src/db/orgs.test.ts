@@ -1,5 +1,7 @@
 import { describe, expect, test } from "vitest";
-import { NotFoundError } from "./db";
+import { ForbiddenError, NotFoundError } from "./db";
+import { LastOwnerError, leaveOrg, removeMember, setMemberRole } from "./members";
+import { clearOrgModel, setOrgModel } from "./models";
 import {
   createOrg,
   createProject,
@@ -9,8 +11,9 @@ import {
   listOrgs,
   withdrawInvite,
 } from "./orgs";
+import { issueOrgToken, listOrgTokens, revokeOrgToken } from "./tokens";
 import { builds, snapshots } from "./schema";
-import { testDb } from "#/test/store";
+import { TEST_MODEL_KEY_SECRET, testDb } from "#/test/store";
 import { createSession, endSession, sessionUser, signInGithubUser } from "./users";
 import { must } from "#/test/must";
 
@@ -186,6 +189,142 @@ describe("the organizations overview", () => {
     // Bob is a member of B, but the invite belongs to A.
     await expect(withdrawInvite(db, bob.id, orgB.id, pending.id)).rejects.toThrow(NotFoundError);
     expect((await listOrgs(db, alice.id))[0]?.invites).toHaveLength(1);
+  });
+});
+
+/** Alice made the org, so owns it; Bob joined it by invite, so is a member; Eve is in another org. */
+async function acmeOrg() {
+  const db = testDb();
+  const alice = await signInGithubUser(db, profile(1, "alice"));
+  const org = await createOrg(db, alice.id, "Acme");
+  await inviteMember(db, alice, org.id, "bob");
+  const bob = await signInGithubUser(db, profile(2, "bob"));
+  const eve = await signInGithubUser(db, profile(3, "eve"));
+  await createOrg(db, eve.id, "Elsewhere");
+  return { db, org, alice, bob, eve };
+}
+
+const roles = async (db: ReturnType<typeof testDb>, userId: string) =>
+  Object.fromEntries(
+    must((await listOrgs(db, userId))[0], "the org").members.map((m) => [m.login, m.role]),
+  );
+
+const MODEL = {
+  baseUrl: "https://org.example/v1",
+  model: "org-model",
+  apiKey: "sk-org",
+  autoPassNoise: false,
+  modelKeySecret: TEST_MODEL_KEY_SECRET,
+  modelHosts: { allowPrivate: false, resolve: async () => ["203.0.113.10"] },
+};
+
+describe("roles", () => {
+  test("the creator is the owner, and an invite joins as a member", async () => {
+    const { db, alice } = await acmeOrg();
+    expect(await roles(db, alice.id)).toEqual({ alice: "owner", bob: "member" });
+  });
+
+  test("every owner-only action is refused for a member (403) and for a non-member (404)", async () => {
+    const { db, org, alice, bob, eve } = await acmeOrg();
+    const { id: tokenId } = await issueOrgToken(db, alice.id, org.id, "ci");
+    const ownerOnly = (userId: string) => [
+      removeMember(db, userId, org.id, alice.id),
+      setMemberRole(db, userId, { orgId: org.id, userId: bob.id }, "owner"),
+      issueOrgToken(db, userId, org.id, "mine"),
+      revokeOrgToken(db, userId, tokenId),
+      setOrgModel(db, userId, org.id, MODEL),
+      clearOrgModel(db, userId, org.id),
+    ];
+    for (const refused of ownerOnly(bob.id)) {
+      await expect(refused).rejects.toThrow(ForbiddenError);
+    }
+    for (const refused of ownerOnly(eve.id)) await expect(refused).rejects.toThrow(NotFoundError);
+    // Nothing changed: Alice still owns it, Bob is still a member, the token is live.
+    expect(await roles(db, alice.id)).toEqual({ alice: "owner", bob: "member" });
+    expect((await listOrgTokens(db, alice.id)).map((t) => [t.name, t.revokedAt])).toEqual([
+      ["ci", null],
+    ]);
+    await expect(removeMember(db, bob.id, org.id, alice.id)).rejects.toThrow(
+      "Only an owner of this organization can do that.",
+    );
+  });
+
+  test("any member can invite and withdraw an invite", async () => {
+    const { db, org, bob } = await acmeOrg();
+    await inviteMember(db, bob, org.id, "carol");
+    const pending = must((await listOrgs(db, bob.id))[0]?.invites[0], "Bob's invite");
+    await withdrawInvite(db, bob.id, org.id, pending.id);
+    expect((await listOrgs(db, bob.id))[0]?.invites).toEqual([]);
+  });
+
+  test("an owner removes a member; only the membership goes, the tokens they issued stay", async () => {
+    const { db, org, alice, bob } = await acmeOrg();
+    await setMemberRole(db, alice.id, { orgId: org.id, userId: bob.id }, "owner");
+    await issueOrgToken(db, bob.id, org.id, "bob's ci");
+    await setMemberRole(db, alice.id, { orgId: org.id, userId: bob.id }, "member");
+
+    await removeMember(db, alice.id, org.id, bob.id);
+
+    expect(await roles(db, alice.id)).toEqual({ alice: "owner" });
+    expect(await listOrgs(db, bob.id)).toEqual([]);
+    expect((await listOrgTokens(db, alice.id)).map((t) => [t.name, t.revokedAt])).toEqual([
+      ["bob's ci", null],
+    ]);
+    await expect(removeMember(db, alice.id, org.id, bob.id)).rejects.toThrow(NotFoundError);
+    await expect(
+      setMemberRole(db, alice.id, { orgId: org.id, userId: bob.id }, "owner"),
+    ).rejects.toThrow(NotFoundError);
+  });
+
+  test("an owner makes a member an owner, and either can step the other down", async () => {
+    const { db, org, alice, bob } = await acmeOrg();
+    await setMemberRole(db, alice.id, { orgId: org.id, userId: bob.id }, "owner");
+    expect(await roles(db, alice.id)).toEqual({ alice: "owner", bob: "owner" });
+
+    await setMemberRole(db, bob.id, { orgId: org.id, userId: alice.id }, "member");
+    expect(await roles(db, alice.id)).toEqual({ alice: "member", bob: "owner" });
+    // Stepped down, Alice is refused what only an owner may do.
+    await expect(issueOrgToken(db, alice.id, org.id, "ci")).rejects.toThrow(ForbiddenError);
+  });
+
+  test("the last owner can never be removed, stepped down or leave", async () => {
+    const { db, org, alice, bob } = await acmeOrg();
+    for (const refused of [
+      removeMember(db, alice.id, org.id, alice.id),
+      setMemberRole(db, alice.id, { orgId: org.id, userId: alice.id }, "member"),
+      leaveOrg(db, alice.id, org.id),
+    ])
+      await expect(refused).rejects.toThrow(LastOwnerError);
+    expect(await roles(db, alice.id)).toEqual({ alice: "owner", bob: "member" });
+
+    // With a second owner Alice may step down; then Bob is the last and may not.
+    await setMemberRole(db, alice.id, { orgId: org.id, userId: bob.id }, "owner");
+    await setMemberRole(db, alice.id, { orgId: org.id, userId: alice.id }, "member");
+    await expect(
+      setMemberRole(db, bob.id, { orgId: org.id, userId: bob.id }, "member"),
+    ).rejects.toThrow(LastOwnerError);
+    await expect(leaveOrg(db, bob.id, org.id)).rejects.toThrow(LastOwnerError);
+    expect(await roles(db, bob.id)).toEqual({ alice: "member", bob: "owner" });
+  });
+
+  test("two owners stepping each other down at once leave one owner", async () => {
+    const { db, org, alice, bob } = await acmeOrg();
+    await setMemberRole(db, alice.id, { orgId: org.id, userId: bob.id }, "owner");
+    const both = await Promise.allSettled([
+      setMemberRole(db, alice.id, { orgId: org.id, userId: bob.id }, "member"),
+      setMemberRole(db, bob.id, { orgId: org.id, userId: alice.id }, "member"),
+    ]);
+    expect(both.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    expect(Object.values(await roles(db, alice.id)).filter((r) => r === "owner")).toHaveLength(1);
+  });
+
+  test("any member can leave, and is then out of the org", async () => {
+    const { db, org, alice, bob, eve } = await acmeOrg();
+    await leaveOrg(db, bob.id, org.id);
+    expect(await listOrgs(db, bob.id)).toEqual([]);
+    expect(await roles(db, alice.id)).toEqual({ alice: "owner" });
+    await expect(leaveOrg(db, bob.id, org.id)).rejects.toThrow(NotFoundError);
+    await expect(leaveOrg(db, eve.id, org.id)).rejects.toThrow(NotFoundError);
   });
 });
 

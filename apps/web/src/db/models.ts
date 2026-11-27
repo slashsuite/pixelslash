@@ -10,6 +10,7 @@ import {
   sealKey,
 } from "./model-key";
 import { refuseOnSubproject, topProjectId } from "./effective";
+import { requireOwner } from "./members";
 import { getProject, requireMember } from "./orgs";
 import { members, projects } from "./schema";
 import { orgModels, projectModels } from "./schema-models";
@@ -253,7 +254,7 @@ async function fieldsToStore(
   return { baseUrl, model, autoPassNoise: settings.autoPassNoise, apiKey };
 }
 
-/** Save the project's model; any member may, as any member may issue a token. */
+/** Save the project's model; any member may (the org's own model is an owner's). */
 export async function setProjectModel(
   db: Db,
   userId: string,
@@ -277,14 +278,14 @@ export async function clearProjectModel(db: Db, userId: string, projectId: strin
   await db.delete(projectModels).where(eq(projectModels.projectId, projectId));
 }
 
-/** Save the org's model, used by every project of the org without its own; any member may. */
+/** Save the org's model, used by every project of the org without its own; only an owner may. */
 export async function setOrgModel(
   db: Db,
   userId: string,
   orgId: string,
   settings: ModelSettings,
 ): Promise<void> {
-  await requireMember(db, userId, orgId);
+  await requireOwner(db, userId, orgId);
   const [current] = await db.select().from(orgModels).where(eq(orgModels.orgId, orgId));
   const fields = await fieldsToStore(current ?? null, settings);
   await db
@@ -293,8 +294,8 @@ export async function setOrgModel(
     .onConflictDoUpdate({ target: orgModels.orgId, set: fields });
 }
 
-/** Remove the org's model and key: a project without its own then has none. */
+/** Remove the org's model and key: a project without its own then has none. Only an owner may. */
 export async function clearOrgModel(db: Db, userId: string, orgId: string): Promise<void> {
-  await requireMember(db, userId, orgId);
+  await requireOwner(db, userId, orgId);
   await db.delete(orgModels).where(eq(orgModels.orgId, orgId));
 }

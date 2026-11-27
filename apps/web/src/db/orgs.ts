@@ -20,11 +20,11 @@ import type { User } from "./users";
 export type Org = typeof orgs.$inferSelect;
 export type Project = typeof projects.$inferSelect;
 
-/** The creator is the first member. */
+/** The creator is the first member, and its owner. */
 export async function createOrg(db: Db, userId: string, name: string): Promise<Org> {
   const [org] = await db.insert(orgs).values({ id: crypto.randomUUID(), name }).returning();
   if (!org) throw new Error("org insert returned nothing");
-  await db.insert(members).values({ orgId: org.id, userId });
+  await db.insert(members).values({ orgId: org.id, userId, role: "owner" });
   return org;
 }
 
@@ -49,6 +49,7 @@ export type OrgMember = {
   login: string;
   name: string | null;
   avatarUrl: string | null;
+  role: (typeof members.$inferSelect)["role"];
   joinedAt: Date;
 };
 
@@ -143,6 +144,7 @@ export async function listOrgs(db: Db, userId: string): Promise<OrgOverview[]> {
           login: users.login,
           name: users.name,
           avatarUrl: users.avatarUrl,
+          role: members.role,
           joinedAt: members.createdAt,
         })
         .from(members)
@@ -317,7 +319,7 @@ export async function ensureProject(
   }
 }
 
-/** Which branch auto-accepts (ob 1559). Any member may change it, as any member may issue a token. */
+/** Which branch auto-accepts (ob 1559). Any member may change it. */
 export async function setDefaultBranch(
   db: Db,
   userId: string,

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Page } from "@playwright/test";
 import { expect, expectHydrated, open, test } from "./fixtures";
+import { sql } from "./d1";
 import { createOrg, createProject, openSettings } from "./orgs-page";
 
 /** On a fresh project's settings: issue a CI token, see it once, revoke it, and save the default branch. */
@@ -113,6 +114,50 @@ test("create an org, a project and a CI token by clicking; an empty org says wha
   await open(page, `/orgs?org=${orgId}`);
   await openSettings(page, "storefront");
   await issueToken(page);
+});
+
+const VIEWER = "(SELECT id FROM users WHERE login = 'e2e-octocat')";
+
+/** Two more people in the org, written to the D1: one member and one other owner. */
+function addPeople(orgId: string) {
+  const suffix = randomUUID().slice(0, 8);
+  const people = { member: `ada-${suffix}`, owner: `grace-${suffix}` };
+  sql(
+    [
+      `INSERT INTO users (id, login) VALUES ('${people.member}', '${people.member}'), ('${people.owner}', '${people.owner}')`,
+      `INSERT INTO members (org_id, user_id, role) VALUES ('${orgId}', '${people.member}', 'member'), ('${orgId}', '${people.owner}', 'owner')`,
+    ].join(";\n"),
+  );
+  return people;
+}
+
+/** The members tab as an owner, then as a member: an owner removes a member; a member has no controls on anyone else. */
+test("an owner removes a member, and a member sees no controls on anyone else's row", async ({
+  page,
+  provision,
+}) => {
+  const { orgId } = await provision({ org: "Roles Co" });
+  const people = addPeople(orgId);
+  await open(page, `/orgs?org=${orgId}&tab=members`);
+  const row = (login: string) => page.getByTestId("member-row").filter({ hasText: login });
+  await expect(page.getByTestId("member-row")).toHaveCount(3);
+  await expect(row("e2e-octocat").getByTestId("member-role")).toHaveText("owner");
+  await expect(row(people.member).getByTestId("member-role")).toHaveText("member");
+
+  await row(people.member)
+    .getByRole("button", { name: `Remove ${people.member}` })
+    .click();
+  await expect(page.getByTestId("member-row")).toHaveCount(2);
+  await expect(row(people.member)).toHaveCount(0);
+
+  // Stepped down by another owner: the viewer is now a member.
+  sql(`UPDATE members SET role = 'member' WHERE org_id = '${orgId}' AND user_id = ${VIEWER}`);
+  await page.reload();
+  await expectHydrated(page);
+  await expect(row("e2e-octocat").getByTestId("member-role")).toHaveText("member");
+  await expect(row(people.owner).getByRole("button")).toHaveCount(0);
+  // On their own row a member can only leave.
+  await expect(row("e2e-octocat").getByRole("button")).toHaveText(["Leave"]);
 });
 
 /** The settings page's diff location form: a save survives a reload. What a CI project's upload then does is `local-build/upload.local-build.test.ts`. */

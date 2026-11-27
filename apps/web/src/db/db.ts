@@ -17,3 +17,11 @@ export class NotFoundError extends Error {
     this.name = "NotFoundError";
   }
 }
+
+/** The viewer can see the row but may not do this to it (a member who is not an owner): a 403. */
+export class ForbiddenError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ForbiddenError";
+  }
+}

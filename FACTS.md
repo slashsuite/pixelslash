@@ -1,6 +1,6 @@
 # PixelSlash facts
 
-Checked against main at c84fab4b on 2026-11-27.
+Checked against main at 78658b25 on 2026-11-27.
 
 ## What it is
 PixelSlash shows what changed on a web page between two versions of it, Main and Branch, as a report you open in a browser, and can send those shots to a review app where a person accepts or rejects each change. It is in alpha, and the command line tool is at version 0.8.
@@ -39,6 +39,7 @@ PixelSlash shows what changed on a web page between two versions of it, Main and
 - `server-ai-explanations`: a project can name its own OpenAI-compatible model; the review app then sends it crops of the changed regions only, never a whole shot, to explain each change.
 - `retention-windows`: the review app can delete pull request builds, and default-branch builds, past a window of days you set for each, and images no shot names any more; both windows are off unless set, it never deletes a project's newest default-branch build or a test's current accepted shot, and it deletes nothing until told to.
 - `database-size-alert`: past 70% of the 10 GB database cap the review app logs a warning every hour, marks the size on its admin page and, with a webhook URL set, posts once a day; it deletes nothing.
+- `org-owner-role`: an organization's members are owners or members; only an owner removes a member, changes a role, issues or revokes an org token and sets the org's AI model, any member invites and can leave, and an organization always keeps at least one owner.
 - `api-v1`: the review app has an HTTP API under `/api/v1`, which may still change while PixelSlash is in alpha.
 
 ## Planned

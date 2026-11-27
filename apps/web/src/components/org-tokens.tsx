@@ -33,7 +33,7 @@ export type OrgToken = {
 
 /**
  * The org's CI tokens (ob 1787): one `psorg_` token reaches every project of the org, so a
- * monorepo's CI holds one secret, not one per package. Any member mints and revokes.
+ * monorepo's CI holds one secret, not one per package. Only an owner mints and revokes.
  */
 export function OrgTokensPanel({
   orgId,

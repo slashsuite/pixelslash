@@ -2,6 +2,7 @@ import { Button, EmptyState, FieldDialog, SidebarLayout, Stack, Text } from "@sl
 import { createFileRoute, getRouteApi, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { ModelSettings } from "#/components/model-settings";
+import type { MemberActions } from "#/components/org-member-row";
 import { MembersPanel } from "#/components/org-members";
 import { type OrgToken, OrgTokensPanel } from "#/components/org-tokens";
 import { TimingsPanel } from "#/components/org-timings";
@@ -14,6 +15,7 @@ import type { ModelView } from "#/db/models";
 import type { OrgOverview } from "#/db/orgs";
 import type { ProjectTimings } from "#/db/timings-stats";
 import { getOrgs, invite, newOrg, newProject, withdrawOrgInvite } from "#/server/fns";
+import { leaveOrgFn, removeOrgMember, setOrgMemberRole } from "#/server/member-fns";
 import { getOrgTimings } from "#/server/timings";
 import { titled } from "#/lib/page-title";
 
@@ -68,6 +70,7 @@ function Orgs() {
   const selected = orgs.find((org) => org.id === search.org) ?? orgs[0] ?? null;
   const onInvite = (login: string) =>
     selected ? invite({ data: { orgId: selected.id, login } }).then(refresh) : Promise.resolve();
+  const memberActions = useMemberActions(selected);
 
   return (
     <Page>
@@ -94,6 +97,7 @@ function Orgs() {
             hydrated={hydrated}
             onDialog={setDialog}
             onInvite={onInvite}
+            memberActions={memberActions}
             onWithdraw={(inviteRow) =>
               withdrawOrgInvite({ data: { orgId: selected.id, inviteId: inviteRow.id } }).then(
                 refresh,
@@ -112,6 +116,24 @@ function Orgs() {
       />
     </Page>
   );
+}
+
+/** Remove, re-role and leave for the selected org; each reloads the page's data when it is done. */
+function useMemberActions(org: OrgOverview | null): MemberActions {
+  const router = useRouter();
+  const orgId = org?.id ?? "";
+  const refresh = () => router.invalidate();
+  return {
+    onRemove: (member) => removeOrgMember({ data: { orgId, userId: member.userId } }).then(refresh),
+    onSetRole: (member, role) =>
+      setOrgMemberRole({ data: { orgId, userId: member.userId, role } }).then(refresh),
+    // Out of the org, the page falls back to the first one the viewer still belongs to.
+    onLeave: () =>
+      leaveOrgFn({ data: { orgId } }).then(async () => {
+        await router.navigate({ to: "/orgs", search: {} });
+        await refresh();
+      }),
+  };
 }
 
 /** The one open dialog, if any. New organization works with no org selected; the others need one. */
@@ -150,7 +172,7 @@ function OrgDialogs({
           description="An organization owns projects and the people who review them."
           label="Organization name"
           placeholder="e.g. Acme"
-          hint="You become its first member."
+          hint="You become its first member and its owner."
           emptyReason="Type a name first."
           submit="Create organization"
           busyLabel="Creating…"
@@ -235,6 +257,7 @@ function OrgPanel({
   onDialog,
   onInvite,
   onWithdraw,
+  memberActions,
 }: {
   org: OrgOverview;
   tokens: OrgToken[];
@@ -248,6 +271,7 @@ function OrgPanel({
   onDialog: (kind: DialogKind) => void;
   onInvite: (login: string) => Promise<unknown>;
   onWithdraw: (invite: OrgOverview["invites"][number]) => Promise<unknown>;
+  memberActions: MemberActions;
 }) {
   return (
     <>
@@ -271,6 +295,7 @@ function OrgPanel({
           hydrated={hydrated}
           onInvite={onInvite}
           onWithdraw={onWithdraw}
+          actions={memberActions}
         />
       )}
       {tab === "projects" && (

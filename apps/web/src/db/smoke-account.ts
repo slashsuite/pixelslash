@@ -33,7 +33,7 @@ export async function smokeAccountSql(token: string): Promise<string> {
   return [
     `INSERT INTO users (id, login, name) VALUES ('${s.userId}', '${s.login}', 'PixelSlash smoke') ON CONFLICT(id) DO NOTHING;`,
     `INSERT INTO orgs (id, name, is_smoke) VALUES ('${s.orgId}', '${s.orgName}', 1) ON CONFLICT(id) DO UPDATE SET is_smoke = 1;`,
-    `INSERT INTO members (org_id, user_id) VALUES ('${s.orgId}', '${s.userId}') ON CONFLICT DO NOTHING;`,
+    `INSERT INTO members (org_id, user_id, role) VALUES ('${s.orgId}', '${s.userId}', 'owner') ON CONFLICT(org_id, user_id) DO UPDATE SET role = 'owner';`,
     `INSERT INTO projects (id, org_id, name) VALUES ('${s.projectId}', '${s.orgId}', '${s.projectName}') ON CONFLICT(id) DO NOTHING;`,
     `INSERT INTO user_tokens (id, user_id, name, prefix, hash) VALUES ('${s.tokenId}', '${s.userId}', 'smoke', '${prefix}', '${hash}') ON CONFLICT(id) DO UPDATE SET prefix = excluded.prefix, hash = excluded.hash, revoked_at = NULL, expires_at = NULL;`,
     "",

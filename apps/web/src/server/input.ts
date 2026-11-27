@@ -1,12 +1,16 @@
 import { notFound } from "@tanstack/react-router";
-import { NotFoundError } from "#/db/db";
+import { ForbiddenError, NotFoundError } from "#/db/db";
 
-/** A repository NotFoundError (missing, or another org's) becomes the router's 404. */
+/**
+ * A repository NotFoundError (missing, or another org's) becomes the router's 404. A refusal the
+ * viewer should read (not an owner, the last owner) keeps its message on the way to the client.
+ */
 export async function or404<T>(work: Promise<T>): Promise<T> {
   try {
     return await work;
   } catch (error) {
     if (error instanceof NotFoundError) throw notFound();
+    if (error instanceof ForbiddenError) throw new Error(error.message, { cause: error });
     throw error;
   }
 }

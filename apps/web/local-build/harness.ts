@@ -79,7 +79,7 @@ export async function seed({
   }
   await d.insert(users).values({ id: ids.userId, login: `${kind}-bot-${suffix}` });
   await d.insert(orgs).values({ id: ids.orgId, name: `${kind} ${suffix}`, isSmoke: !real });
-  await d.insert(members).values({ orgId: ids.orgId, userId: ids.userId });
+  await d.insert(members).values({ orgId: ids.orgId, userId: ids.userId, role: "owner" });
   await d
     .insert(projects)
     .values({ id: ids.projectId, orgId: ids.orgId, name: "web", diffLocation: "server" });
