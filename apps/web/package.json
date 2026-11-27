@@ -22,8 +22,8 @@
     "cf-typegen": "wrangler types --strict-vars=false"
   },
   "dependencies": {
-    "@sentry/cloudflare": "11.12.0",
-    "@sentry/react": "11.12.0",
+    "@sentry/cloudflare": "11.17.0",
+    "@sentry/react": "11.17.0",
     "@slashsuite/pixelslash-engine": "workspace:*",
     "@slashsuite/themes": "^0.5.0",
     "@slashsuite/ui-react": "^0.15.2",
@@ -43,7 +43,7 @@
     "@tanstack/router-cli": "catalog:tanstack",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
-    "@testing-library/user-event": "^14.6.12",
+    "@testing-library/user-event": "^14.6.13",
     "@types/node": "catalog:",
     "@types/react": "catalog:react",
     "@types/react-dom": "catalog:react",
