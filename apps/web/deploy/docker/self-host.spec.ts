@@ -221,7 +221,9 @@ test("signs in, takes an upload, diffs it, and keeps it all across a restart", a
     diff_result: { changed_pixels: 100 },
   });
   // That diff ran in the one process: the container runs `start.ts` and the workerd it started,
-  // and nothing else (a `bun -e`, this exec or the image's health check, left out).
+  // and nothing else. A `bun -e` (this exec, or the image's health check) is left out, and so is a
+  // `runc init`: that is how an exec docker is still starting shows in /proc before it runs its
+  // command, and the health check's exec fires every 30 s, which is when this test gets here.
   const running: string[] = JSON.parse(
     docker(
       "exec",
@@ -237,7 +239,7 @@ test("signs in, takes an upload, diffs it, and keeps it all across a restart", a
       console.log(JSON.stringify(cmds));`,
     ),
   );
-  expect(running.filter((cmd) => !/workerd|^bun -e /.test(cmd))).toEqual([
+  expect(running.filter((cmd) => !/workerd|^bun -e |^runc init$/.test(cmd))).toEqual([
     "bun deploy/docker/start.ts",
   ]);
 
