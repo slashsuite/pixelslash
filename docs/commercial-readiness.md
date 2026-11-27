@@ -3,11 +3,11 @@
 What the hosted review app (pixelslash.dev) still lacks before a first paying customer, read from the
 code and config at commit `a1758162` on 2026-11-27. It has three parts: where the hosted product
 still depends on the maintainer's own machines and accounts, what a paying customer expects and
-whether it is here, and how our cost per shot was measured. It ends with an ordered critical path and
+whether it is here, and where the cost measurements are kept. It ends with an ordered critical path and
 the decisions that only the maintainer can make.
 
-Prices are not in this file. Pricing stays private until the pricing page ships; the price lists,
-the cost per 1,000 shots and the proposal are kept with the maintainer's private notes.
+Prices and cost figures are not in this file. Pricing stays private until the pricing page ships;
+the measurements, the price lists and the proposal are in PS-780.
 
 ## 1. Dependencies on the maintainer's machines and accounts
 
@@ -61,56 +61,14 @@ Checked and not a dependency:
 | Single sign-on | Missing | Only GitHub and Google. `apps/web/SELF-HOST.md:29` suggests Cloudflare Access for a self-host. |
 | Audit log | Partial | Only diff overrides and ignore boxes keep a history of who changed what (`apps/web/src/db/schema-overrides.ts:35-66`); a build records who reviewed it, and a flag who set it. |
 
-## 3. How the cost per shot was measured
+## 3. Cost
 
-Our own cost is what Cloudflare bills for the Worker, D1, R2 and the queue, plus the model tokens
-when we pay for the AI review (today the customer does). Both were read from real usage, not
-estimated from the code.
+Our cost per shot and per AI-reviewed shot was measured from real usage, production's analytics and
+the token counts each AI review stores (`apps/web/src/ai/usage.ts`). The measurements, every cost
+figure and the price lists are private: they are in PS-780.
 
-**Production.** The database counts cover every build, 2026-11-14 to 2026-11-27, read with read-only D1
-queries. The request, row and storage counts are Cloudflare's GraphQL analytics for 2026-10-28 to
-2026-11-26, which holds the same builds. The usage is our own projects, so it is a dogfood mix, not a
-customer's.
-
-| Measure | Value |
-| --- | --- |
-| Orgs, projects, builds | 2, 14, 335 |
-| Shots | 20,505 (61 a build on average, 752 at most) |
-| Changed shots | 174 (0.85%); 15,533 unchanged, 3,126 new, 1,672 not compared (removed, or waiting on a re-baseline) |
-| Average shot | 2.50 megapixels |
-| Distinct images stored | 2,549 (R2 keeps one PNG per distinct image per org: `apps/web/src/db/builds.ts:185`) |
-| D1 size | 51.5 MB, about 2.5 KB a shot |
-| D1 rows written | about 8.8 a shot (the tests pin 7 to 7.7 for an upload: `apps/web/src/db/rows-written.test.ts:116`) |
-| D1 rows read | about 132 a shot |
-| R2 stored | about 78 KB a shot, after de-duplication |
-| R2 writes and reads | about 1.0 write and 1.6 reads a shot |
-| Worker requests | about 3.4 a shot; CPU p50 6.9 ms, p99 81 ms; no errors |
-
-**AI review, from the self-host on the maintainer's home network.** Production has run no AI review
-yet. The self-host has: 891,089 shots, 16,860 changed (1.9%), 4,005 AI-reviewed shots, 3.6 changed
-shots a build on average. For the 2,277 reviewed shots whose endpoint reported usage (stored per
-review, `apps/web/src/ai/usage.ts`):
-
-| Measure | Value |
-| --- | --- |
-| Model calls per AI-reviewed shot | 1.04 (one call per `change` region, at most 8: `apps/web/src/ai/explain.ts`) |
-| Input tokens per call | about 790 (a prompt of about 180 tokens and three crops) |
-| Output tokens per call | about 580, reasoning included; the stored answer is cut to 280 characters (`apps/web/src/ai/model.ts`) |
-| Crop size | median 480 by 137 px, 90th percentile 1136 by 379 px |
-| Build summary | one call for a build with fewer than 10 changed shots; about 1,100 input and 1,800 output tokens |
-
-What this says about cost, without prices:
-
-- The cost of storing and diffing a shot is small next to the fixed monthly cost of running the
-  service. A plan should be priced on what it is worth to the customer and on the fixed costs, not
-  on the marginal shot.
-- Changed shots are rare (under 2% here). A meter on changed shots, or on AI-reviewed shots, counts
-  the work that costs model tokens and leaves the unchanged bulk free.
-- D1 caps a database at 10 GB. At about 2.5 KB a shot that is about 4 million shots in one
-  database, so retention (already in the code, empty in production) or a database per tenant is
-  needed before a large customer, not after.
-- Output tokens dominate the AI cost on a reasoning model. A model that answers without reasoning,
-  or a lower output cap than `MODEL_MAX_TOKENS`, cuts it most.
+One limit is not a price and belongs here: D1 caps a database at 10 GB, so retention (already in the
+code, empty in production) or a database per tenant is needed before a large customer, not after.
 
 ## 4. Critical path
 
@@ -148,8 +106,8 @@ the first customer.
 
 ## 5. Decisions for the maintainer
 
-These are the maintainer's to make. Each has a recommendation, kept with the prices in the private
-notes, because a pricing plan is commercial and this repo is public.
+These are the maintainer's to make. Each has a recommendation in PS-780, because a pricing plan is
+commercial and this repo is public.
 
 1. What are the tiers called?
 2. What does a plan include: how many changed shots, and is anything else metered?
