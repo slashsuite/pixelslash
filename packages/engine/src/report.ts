@@ -198,7 +198,7 @@ export function renderPixelReport(input: {
     section { padding: 24px; }
     .row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
     figure { margin: 0; background: #1a1a1a; padding: 8px; }
-    figcaption { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: #aaa; margin-bottom: 6px; }
+    figcaption { font-size: 14px; letter-spacing: .04em; text-transform: uppercase; color: #aaa; margin-bottom: 6px; }
     img { display: block; width: 100%; height: auto; background: #000; }
     .frame { position: relative; }
     ${CROP_CSS}
@@ -303,7 +303,7 @@ export function renderReport(input: {
     header { padding: 16px 24px; border-bottom: 1px solid #333; }
     h1 { font-size: 16px; font-weight: 600; margin: 0; }
     h2 { font-size: 14px; margin: 0 0 12px; }
-    h3 { font-size: 13px; margin: 0 0 4px; }
+    h3 { font-size: 14px; margin: 0 0 4px; }
     p { margin: 8px 0 0; color: #aaa; }
     section { padding: 24px; border-bottom: 1px solid #333; }
     .empty { color: #8c8; }
@@ -312,7 +312,7 @@ export function renderReport(input: {
     .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
     figure { margin: 0; background: #1a1a1a; padding: 8px; }
-    figcaption { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: #aaa; margin-bottom: 6px; }
+    figcaption { font-size: 14px; letter-spacing: .04em; text-transform: uppercase; color: #aaa; margin-bottom: 6px; }
     img { display: block; width: 100%; height: auto; background: #000; }
   </style>
 </head>
