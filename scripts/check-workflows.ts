@@ -8,13 +8,20 @@
 //     and must not be an expression (an expression could resolve to either); a job that calls a
 //     reusable workflow (`uses:`) is held to the same rule on its `with: runs-on:` input, which is
 //     how the UISlash review workflow picks its runner, and
-//   - no workflow may trigger on anything but push, pull_request, workflow_dispatch or workflow_call
+//   - no workflow may trigger on anything but push, pull_request, workflow_dispatch, workflow_call or schedule
 //     (never pull_request_target, workflow_run, issue_comment or any other trigger a fork can drive
 //     with more than a read-only token).
 // Exits 1 if any rule fails.
 import { basename } from "node:path";
 
-const ALLOWED_TRIGGERS = new Set(["push", "pull_request", "workflow_dispatch", "workflow_call"]);
+// `schedule` runs only on the default branch, as the repository's own code, so no fork can drive it.
+const ALLOWED_TRIGGERS = new Set([
+  "push",
+  "pull_request",
+  "workflow_dispatch",
+  "workflow_call",
+  "schedule",
+]);
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);

@@ -1,0 +1,78 @@
+name: Backup
+
+# A daily export of the production D1 database (`pixelslash`, `env.production` in apps/web/wrangler.jsonc)
+# to the private R2 bucket `pixelslash-backups`, as one gzipped SQL dump per run, keyed by the UTC time
+# it was taken: `d1/pixelslash/<YYYY-MM-DD>T<HHMMSS>Z.sql.gz`. The bucket's lifecycle rule deletes a dump
+# after 30 days. It only reads the database; nothing here writes to it. How to restore from a dump, and
+# the restore test (scripts/restore-test.ts), are in apps/web/README.md, "Backups and restore".
+#
+# The job runs in the `backups` environment, which only `main` may use and which alone holds its secrets:
+# CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_D1_TOKEN (reads the export) and CLOUDFLARE_R2_TOKEN (writes the
+# bucket). A pull request never runs this workflow, and could not read those secrets if it did.
+# Actions are pinned to a commit; the tag is in the comment.
+
+on:
+  # 03:41 UTC: off the hour, when traffic is lowest. D1 answers no other query while an export runs.
+  schedule:
+    - cron: "41 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: backups
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: .tool-versions
+      - run: bun install --frozen-lockfile
+      - name: Export D1
+        id: export
+        working-directory: apps/web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          key="d1/pixelslash/$(date -u +%Y-%m-%dT%H%M%SZ).sql.gz"
+          dump="$RUNNER_TEMP/pixelslash.sql"
+          bunx wrangler d1 export pixelslash --remote --env production --output "$dump"
+          # A dump with no table in it is a failed export, not a backup.
+          if ! grep -q '^CREATE TABLE' "$dump"; then
+            echo "::error::the export has no CREATE TABLE; not uploading it"
+            exit 1
+          fi
+          gzip -9 "$dump"
+          gzip -t "$dump.gz"
+          echo "key=$key" >> "$GITHUB_OUTPUT"
+          echo "file=$dump.gz" >> "$GITHUB_OUTPUT"
+      - name: Upload to R2
+        working-directory: apps/web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_R2_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          KEY: ${{ steps.export.outputs.key }}
+          FILE: ${{ steps.export.outputs.file }}
+        run: |
+          bunx wrangler r2 object put "pixelslash-backups/$KEY" --file "$FILE" \
+            --content-type application/gzip --remote
+          # Read the object back: the upload counts only once R2 lists it at the size that was sent.
+          size="$(stat -c %s "$FILE")"
+          listed="$(curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/r2/buckets/pixelslash-backups/objects?prefix=$KEY" \
+            | jq -r --arg k "$KEY" '.result[] | select(.key == $k) | .size')"
+          if [ "$listed" != "$size" ]; then
+            echo "::error::R2 lists $KEY at '${listed:-nothing}', not $size bytes"
+            exit 1
+          fi
+          echo "### Backed up \`$KEY\` ($size bytes)" >> "$GITHUB_STEP_SUMMARY"

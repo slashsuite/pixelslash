@@ -54,7 +54,7 @@ Checked and not a dependency:
 | Legal pages (terms, privacy, data processing) | Missing | No route serves one, and `apps/site` holds only assets. The nearest text is `docs/help/faq.md:5-17`. The old `/pricing` and `/security` paths redirect to slashslash.build (`apps/web/README.md:542-545`). |
 | Support | Partial | `SECURITY.md:5-12` and `docs/help/` cover the CLI. The app has no help or contact link (`apps/web/src/components/shell.tsx:90`). |
 | Status and uptime | Partial | A smoke suite checks a deploy when someone runs it (`apps/web/smoke/web.smoke.ts:31-58`); nothing runs it on a schedule. No status page, no uptime monitor, no public health endpoint. The operator health page `/_admin` exists but no admin is set in production (`apps/web/wrangler.jsonc:181`). A storage alert fires at 70% of the database cap, to a webhook the repo cannot show is set (row 7 above). |
-| Backups | Missing | No export or restore runbook, and no use of D1 point-in-time restore is documented. Retention deletes are permanent (`apps/web/README.md:234`). |
+| Backups | Present | D1 Time Travel (30 days) and a daily export to the private R2 bucket `pixelslash-backups`, kept 30 days (`.github/workflows/backup.yml`); a restore test that imports the newest dump into a scratch database and checks every table's row count (`scripts/restore-test.ts`); the runbook is `apps/web/README.md`, "Backups and restore". The shot PNGs in R2 have no backup. Retention deletes are permanent (`apps/web/README.md:234`). |
 | Abuse limits | Partial | Per-token API and sign-in rate limits on Cloudflare (`API_RATE_LIMIT`, `SIGNIN_RATE_LIMIT` in `apps/web/wrangler.jsonc`); a self-host has none (`SECURITY.md:90-92`). Size caps on a PNG, a metrics file, a Storybook bundle and a brief (`apps/web/src/api/snapshot-form.ts:22,36,67-68`, `apps/web/src/api/render.ts:36`, `apps/web/src/api/validate-brief.ts:9-10`). Model endpoints on private addresses are refused (`apps/web/src/ai/model-host.ts`). No cap on shots per build, builds per day or storage per org. |
 | Account and org deletion, data export | Missing | No delete path for an org or an account. The only export is the diff overrides and ignore boxes (`apps/web/src/db/override-export.ts:56`). |
 | Members and roles | Present | Invites exist (`apps/web/src/db/invites.ts`). A member is an owner or a member (`MEMBER_ROLES`, `apps/web/src/db/schema.ts`); only an owner removes a member, changes a role, issues or revokes an org token and sets the org's model (`requireOwner`, `apps/web/src/db/members.ts`), and an org always keeps an owner. |
@@ -80,8 +80,8 @@ In order. Each item is a draft ticket for the maintainer to open or drop; none i
 2. **Point the CI docs at the org's capture image.** A docs change, no new service. (Row 2.)
 3. **Deploy from CI.** A deploy workflow on a protected environment, so a fix ships without the
    maintainer's shell. (Row 3.)
-4. **Backups and restore.** Turn on and document D1 point-in-time restore, a scheduled export of D1
-   to R2, and a tested restore. (Section 2, Backups.)
+4. **Backups and restore.** Done: D1 point-in-time restore documented, a daily export of D1 to R2,
+   and a tested restore (`apps/web/README.md`, "Backups and restore"). (Section 2, Backups.)
 5. **Monitoring.** A scheduled smoke against pixelslash.dev, an uptime check, a status page, and a
    destination for the storage alert. (Section 2, Status; row 7.)
 6. **Legal pages.** Terms, privacy policy and a data processing addendum, linked from the app and

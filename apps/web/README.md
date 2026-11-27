@@ -595,6 +595,72 @@ Google OAuth settings are unused, and are still to be removed there by hand. The
 `/how-it-works`, `/compare`, `/pricing`, `/search-index.json` and `/sitemap.xml` 301 to their
 slashslash.build address, the query kept.
 
+## Backups and restore
+
+Production's database, D1 `pixelslash` (`env.production`), has two backups: D1's own point-in-time
+restore (Time Travel) and a daily export to R2. Neither covers the R2 blobs (`pixelslash-blobs`, the shot
+PNGs); a restored database points at the blobs as they are now.
+
+### Time Travel: back to a moment in the last 30 days
+
+Time Travel is always on for D1; nothing turns it on, and it keeps 30 days on a paid account (7 on the free
+plan). Read the current bookmark (it only reads):
+
+```bash
+bunx wrangler d1 time-travel info pixelslash --env production
+bunx wrangler d1 time-travel info pixelslash --env production --timestamp 2026-11-27T21:00:00Z   # the bookmark at a time
+```
+
+A restore **overwrites the live database in place**, so everything written after that moment is gone,
+and it is the maintainer's call, never a routine step. Note the current bookmark first (the restore prints
+it too): restoring to it undoes the restore.
+
+```bash
+bunx wrangler d1 time-travel restore pixelslash --env production --timestamp 2026-11-27T21:00:00Z
+bunx wrangler d1 time-travel restore pixelslash --env production --bookmark <bookmark>
+```
+
+### The daily export
+
+`.github/workflows/backup.yml` runs at 03:41 UTC every day, and from **Run workflow** on its Actions page.
+It runs `wrangler d1 export pixelslash --remote --env production`, gzips the dump and puts it in the
+private R2 bucket `pixelslash-backups` as `d1/pixelslash/<YYYY-MM-DD>T<HHMMSS>Z.sql.gz` (the UTC time it
+was taken), then reads the object back and fails unless R2 lists it at the size it sent. The bucket's
+lifecycle rule `expire-30d` deletes a dump after 30 days. D1 answers no other query while an export runs, which is why it runs at night.
+
+The job runs in the GitHub environment `backups`, which only `main` may deploy to and which alone holds its
+three secrets: `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_D1_TOKEN` (D1, for the export) and
+`CLOUDFLARE_R2_TOKEN` (R2 write on the bucket). No pull request can read them.
+
+### Restore from a dump
+
+A dump is never imported into `pixelslash` itself: it goes into a **new** database, which a deploy then
+points `env.production`'s `DB` binding at. The export as written does not import into D1: it writes each
+table's schema and rows together, in creation order, so a table that references one created later fails
+its foreign key, and some `builds` rows are over D1's 100 KB statement limit. `scripts/restore-test.ts
+prepare` rewrites it into an order D1 takes (every table first, parents' rows before their children's, a
+long row inserted short and appended back in pieces); it needs no credentials and changes no data.
+
+```bash
+bunx wrangler r2 object get pixelslash-backups/d1/pixelslash/<key>.sql.gz --file dump.sql.gz --remote
+gunzip dump.sql.gz
+bun ../../scripts/restore-test.ts prepare dump.sql restore.sql
+bunx wrangler d1 create pixelslash-restored --location weur
+bunx wrangler d1 execute pixelslash-restored --remote --file restore.sql
+```
+
+### The restore test
+
+`bun scripts/restore-test.ts` (from the repo root) proves the newest dump restores. It downloads it, prepares
+it as above, imports it into a new scratch database `pixelslash-restore-test`, checks that every table holds
+as many rows as the dump inserts into it, and deletes the scratch database, pass or fail. A row too long
+for one D1 statement goes in as an INSERT and appends, so for each column that happened in it also checks
+the column's total length against the dump's. It prints table names and numbers only, never a row, and
+exits 0 when every check matches. Pass a key to test an older dump.
+It reads the same three names as the workflow's secrets from the environment, and runs wrangler in an empty
+directory with no config, so the scratch database is the only one it can name. Run it after a migration
+that adds a table or a foreign key, and at least once a quarter.
+
 ## Run it on the Proxmox server
 
 The same local server, on a Proxmox host instead of your machine, so the dashboard is up without

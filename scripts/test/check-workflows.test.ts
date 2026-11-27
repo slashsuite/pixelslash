@@ -9,7 +9,8 @@ const call = (input: string) =>
 
 describe("check-workflows", () => {
   test("accepts a hosted runner and the allowed triggers", () => {
-    const on = "  push:\n  pull_request:\n  workflow_dispatch:\n  workflow_call:";
+    const on =
+      '  push:\n  pull_request:\n  workflow_dispatch:\n  workflow_call:\n  schedule:\n    - cron: "0 0 * * *"';
     expect(checkWorkflow("a.yml", wf(on, "ubuntu-latest"))).toEqual([]);
   });
 

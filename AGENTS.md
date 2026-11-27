@@ -68,8 +68,8 @@ the sample in its own npm pull request).
 
 **Workflows stay safe for a public repo.** CI's `gate` job runs `bun scripts/check-workflows.ts
 .github/workflows/*.yml` first: no job on a runner of our own (`runs-on` naming `self-hosted` or
-`proxmox`, or an expression), and no trigger but `push`, `pull_request`, `workflow_dispatch` and
-`workflow_call`.
+`proxmox`, or an expression), and no trigger but `push`, `pull_request`, `workflow_dispatch`,
+`workflow_call` and `schedule` (which runs only on `main`, so no fork can drive it).
 
 A change is green when all of these pass **from the worktree**:
 
