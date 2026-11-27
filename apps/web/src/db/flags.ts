@@ -5,13 +5,13 @@ import { type FlagKind, type IgnoreRect, builds, detectionFlags, snapshots, user
 
 /**
  * Detection flags (ob 1721): a reviewer's word that the diff got a shot wrong. Every call checks
- * the user is a member of the project's org, and that the snapshot is in the project: anything
+ * the user is a member of the project's org, and that the shot is in the project: anything
  * else is the same 404. Nothing here touches review state, the build verdict or the diff.
  */
 
 type FlagInput = { kind: FlagKind; note: string | null; rect: IgnoreRect | null };
 
-/** A flag as the snapshot page shows it; `mine` is the viewer's own, the one they can edit. */
+/** A flag as the shot page shows it; `mine` is the viewer's own, the one they can edit. */
 export type SnapshotFlag = FlagInput & {
   id: string;
   by: string;
@@ -29,7 +29,7 @@ async function snapshotInProject(db: Db, projectId: string, snapshotId: string) 
   if (!row) throw new NotFoundError("snapshot");
 }
 
-/** Create the user's flag on the shot, or replace the one they have: one per user per snapshot. */
+/** Create the user's flag on the shot, or replace the one they have: one per user per shot. */
 export async function flagSnapshot(
   db: Db,
   input: FlagInput & { userId: string; projectId: string; snapshotId: string },

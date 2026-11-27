@@ -10,13 +10,13 @@ const block = { x: 8, y: 8, w: 12, h: 12, rgb: RED };
 const before = () => shot();
 const after = () => shot({ blocks: [block] });
 
-/** The CLI's record of a shot whose run 2 differed (ob 1737): it opens the key's flake. */
+/** The CLI's record of a shot whose run 2 differed (ob 1737): it opens the key's flaky shot. */
 const flake: SentFlake = {
   record: { runs: 3, differed: [2], regions: [], engineVersion: "0.1.0", policy: "review" },
   captures: [{ run: 2, png: shot().buffer }],
 };
 
-/** Main accepted `about` as `before`, then a main build changed it while its key's flake was open. */
+/** Main accepted `about` as `before`, then a main build changed it while its key's flaky shot was open. */
 async function flakyChangeOnMain(ctx: Ctx) {
   await upload(ctx, { branch: "main", commit: sha(1), shots: [{ name: "about", png: before() }] });
   return upload(ctx, {
@@ -33,7 +33,7 @@ describe("a flaky shot on the default branch becomes the baseline once its image
     const changed = await flakyChangeOnMain(ctx);
     expect(changed.status).toBe("changes");
     expect((await onlyShot(ctx, changed)).reviewState).toBe("pending");
-    // The next main build renders the same image while the flake is still open.
+    // The next main build renders the same image while the flaky shot is still open.
     const again = await upload(ctx, {
       branch: "main",
       commit: sha(3),
@@ -141,7 +141,7 @@ describe("a flaky shot on the default branch becomes the baseline once its image
       commit: sha(1),
       shots: [{ name: "about", png: before() }],
     });
-    // The flake on `about` opens on the pull request.
+    // The flaky shot on `about` opens on the pull request.
     const pr = await upload(ctx, {
       branch: "feature",
       commit: sha(2),
@@ -156,7 +156,7 @@ describe("a flaky shot on the default branch becomes the baseline once its image
       userId: ctx.userId,
     });
     // The merge build: `about` holds the accepted image, `contact` the same bytes under a key
-    // nobody accepted them for, and both are labelled with the open flake of their key.
+    // nobody accepted them for, and both are labelled with the open flaky shot of their key.
     const merged = await upload(ctx, {
       branch: "main",
       commit: sha(3),

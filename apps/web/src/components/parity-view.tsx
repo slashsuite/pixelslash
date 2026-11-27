@@ -29,7 +29,7 @@ import { twinSourceLabel } from "#/lib/twins";
 import { hrefTo } from "#/lib/href";
 
 /**
- * The parity view of one snapshot key (PS-298): web, android and ios side by side at one physical
+ * The parity view of one shot key (PS-298): web, android and ios side by side at one physical
  * size, the metrics comparison under them, and a similarity hint per native column. The hint is
  * shown and nothing else: it is no status, check or count.
  */

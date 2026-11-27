@@ -266,7 +266,7 @@ in CI (plain shell steps; the job needs full git history):
   # exit 0 accepted or unchanged · 1 capture or upload failed · 2 usage · 3 server or build error · 4 rejected · 5 still waiting · 7 a pixelslash bug, escalate
 `;
 
-/** `pixelslash init`: a config, the snapshot dirs ignored, and the commands to run next. */
+/** `pixelslash init`: a config, the shot dirs ignored, and the commands to run next. */
 export async function runInit(argv: string[], io: Io, deps: InitDeps = {}): Promise<number> {
   const yes = argv.includes("--yes");
   const force = argv.includes("--force");

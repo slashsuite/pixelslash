@@ -9,7 +9,7 @@ import { buildParityView } from "./parity-view";
 import { requireViewer } from "./session";
 
 /**
- * The parity view of one snapshot key of a build (PS-298): web, android and ios side by side, the
+ * The parity view of one shot key of a build (PS-298): web, android and ios side by side, the
  * metrics comparison and the similarity hint. A read; nothing it computes is stored.
  */
 export const getParityPage = createServerFn()

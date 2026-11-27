@@ -29,7 +29,7 @@ const measurePooled = measureShotWith(pooledMeasure);
  * `pixelslash check` (ob 1732): capture here, measure against the baselines the server would pick
  * for this commit, and write the same report `compare` does. The server is only read: it is asked
  * for its pick (`POST /api/v1/baselines`, which creates nothing) and for the baseline images. No
- * shot, diff or flake leaves the machine, whatever the project's diff location.
+ * shot, diff or flaky shot leaves the machine, whatever the project's diff location.
  */
 
 export type CheckOptions = {
@@ -62,7 +62,7 @@ export type { CheckShot } from "./check-rows.ts";
 export type CheckResult = SnapshotCompareResult & {
   git: GitContext;
   flaky: FlakyShot[];
-  /** The flake report in `branch/`, when a changed shot was captured again. */
+  /** The flaky-shot report in `branch/`, when a changed shot was captured again. */
   flakeReport: string | undefined;
   dirs: { branch: string; main: string; report: string };
   /** Every shot once, in report order, with its files as absolute paths: `--json`'s list. */

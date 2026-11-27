@@ -9,7 +9,7 @@ import { type DiffOptions, type OptionSource, type ResolvedDiff, snapshots, user
 import { diffOverrideChanges, diffOverrides } from "./schema-overrides";
 
 /**
- * Diff options set in the review UI (ob 1495): per test (a snapshot name, every variant) or per
+ * Diff options set in the review UI (ob 1495): per test (a shot name, every variant) or per
  * test and variant, laid over what the uploaded config asked for. The precedence is UI variant >
  * UI test > config (whose own layers, variant > route > project, the CLI merged before upload) >
  * engine default, key by key. Only the server diff reads them: a CI project's results are the
@@ -23,7 +23,7 @@ import { diffOverrideChanges, diffOverrides } from "./schema-overrides";
 /** The options the review screen edits; storage takes any `DiffOptions` key. */
 export const OVERRIDE_KEYS = ["threshold", "minChangedPixels", "minChangedRatio"] as const;
 
-/** The variant part of a snapshot's key; `null` on an override for every variant of the test. */
+/** The variant part of a shot's key; `null` on an override for every variant of the test. */
 export type VariantKey = Omit<SnapshotKey, "name">;
 
 /** What an override is for: a test, or one variant of it. */

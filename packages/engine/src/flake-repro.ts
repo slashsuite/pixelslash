@@ -63,7 +63,7 @@ function bounds(regions: Region[]): IgnoreRect | undefined {
 /** A PNG's size, from its IHDR. */
 const sizeOf = (png: Buffer) => ({ width: png.readUInt32BE(16), height: png.readUInt32BE(20) });
 
-/** Diff every capture against the first, as the upload's flake pass does; the diffs run in the diff pool, in step. */
+/** Diff every capture against the first, as the upload's flaky-shot pass does; the diffs run in the diff pool, in step. */
 export async function measureRepro(shots: Shoot[], options: DiffOptions): Promise<Repro> {
   const [first, ...rest] = shots;
   if (!first) throw new Error("measureRepro needs at least one capture");

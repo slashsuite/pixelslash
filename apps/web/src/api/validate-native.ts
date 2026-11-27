@@ -1,7 +1,7 @@
 import { DEVICE_LABEL, WEB_SERVER_PLATFORM } from "../../../../packages/engine/src/native.ts";
 import { bad } from "./errors";
 
-// Native snapshots (PS-293). The server keeps the device label in the browser column, so a web key
+// Native shots (PS-293). The server keeps the device label in the browser column, so a web key
 // is validated exactly as it always was and only a non-web platform takes a device label.
 
 const TOKEN = /^[\w.-]+$/;

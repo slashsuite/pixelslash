@@ -28,9 +28,9 @@ export type SnapshotCompareResult = {
   added: CompareRow[];
   /** In Main only. */
   removed: CompareRow[];
-  /** Matched snapshots whose two sides were rendered by different environments. */
+  /** Matched shots whose two sides were rendered by different environments. */
   mismatched: CompareRow[];
-  /** Matched snapshots the diff threw on (PS-223): not measured, so in none of the other lists. */
+  /** Matched shots the diff threw on (PS-223): not measured, so in none of the other lists. */
   failed: CompareRow[];
   /** The diff of each matched shot, and the run's total (ob 1791); `check` adds its capture and upload. */
   timings: Timings;
@@ -207,8 +207,8 @@ function refuseOverlap(out: string, dirs: string[]): void {
 }
 
 /**
- * Diff two `capture` snapshot dirs, no design system and no server. Entries match on the identity
- * the server keeps a snapshot under (name + platform + device or browser + viewport + theme). A matched pair goes through
+ * Diff two `capture` shot dirs, no design system and no server. Entries match on the identity
+ * the server keeps a shot under (name + platform + device or browser + viewport + theme). A matched pair goes through
  * the engine's `diffPngs` with the same inputs the server gives it, and a changed one gets a
  * `report.html`. Different fingerprints are warned about by name and still diffed.
  */

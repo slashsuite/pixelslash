@@ -57,7 +57,7 @@ export type WindowHealth = {
   cacheHits: number;
   /** Shots whose model explanation failed (`ai_error`) in those builds. */
   explainFailures: number;
-  /** Snapshots per build and time per snapshot over the whole window (PS-342). */
+  /** Shots per build and time per shot over the whole window (PS-342). */
   figures: WindowFigures;
   /** The newest builds of the window, up to `BUILDS_SHOWN`; `finished` is how many there were. */
   builds: BuildCompares[];

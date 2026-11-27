@@ -38,7 +38,7 @@ async function settled(ctx: ReviewCtx, decided: Decided): Promise<Response> {
   return reply({ status: decided.verdict, build_ids: decided.buildIds });
 }
 
-/** `POST /api/v1/snapshots/:id/review`, `{ state }`: the snapshot's project comes from its row. */
+/** `POST /api/v1/snapshots/:id/review`, `{ state }`: the shot's project comes from its row. */
 export async function reviewShot(ctx: ReviewCtx, [snapshotId = ""]: string[]): Promise<Response> {
   const userId = userOf(ctx.actor);
   const state = stateOf(await jsonBody(ctx.request));

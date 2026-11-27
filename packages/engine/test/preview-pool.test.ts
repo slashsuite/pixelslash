@@ -140,7 +140,7 @@ describe("a story may be shot on a reused preview page, only when the capture as
       expect(loads).toBe(IDS.length);
       for (const shot of shots) expect(shot?.reused).toBeUndefined();
 
-      // A fresh page shoots the same bytes as the reused page and as a plain capture, so the flake
+      // A fresh page shoots the same bytes as the reused page and as a plain capture, so the flaky-shot
       // check (a re-capture against the first shot) never reports a reused shot as different.
       const reused = await pngs(reusedDir, manifest.snapshots);
       const plain = await pngs(freshDir, fresh.manifest.snapshots);

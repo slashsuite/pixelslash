@@ -16,7 +16,7 @@ type Shot = {
   fonts?: string;
 };
 
-/** A snapshot dir as `pixelslash capture` writes it: solid 40x40 shots and a manifest. */
+/** A shot dir as `pixelslash capture` writes it: solid 40x40 shots and a manifest. */
 async function snapshotDir(shots: Shot[]): Promise<string> {
   const dir = await tmp();
   const snapshots = [];
@@ -78,7 +78,7 @@ describe("compare", () => {
     const index = await Bun.file(join(out, "index.html")).text();
     expect(index).toContain("2 changed · 4 unchanged · 2 new · 1 removed");
     expect(index).not.toContain('class="warn"');
-    // Linked: the two changed snapshots, and only them.
+    // Linked: the two changed shots, and only them.
     expect(index).toContain('href="home/chromium-40x40-light/report.html"');
     expect(index).toContain('href="strict/chromium-40x40-light/report.html"');
     expect(index.match(/report\.html/g)).toHaveLength(2);

@@ -46,7 +46,7 @@ export const sessions = sqliteTable("sessions", {
   createdAt: createdAt(),
 });
 
-/** A smoke org's builds and snapshots are synthetic: usage counts exclude them (`real()`). */
+/** A smoke org's builds and shots are synthetic: usage counts exclude them (`real()`). */
 export const orgs = sqliteTable("orgs", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
@@ -374,7 +374,7 @@ export const snapshots = sqliteTable(
      */
     flakyPolicy: text("flaky_policy", { enum: FLAKY_POLICIES }),
     /**
-     * The open flake this shot was labelled with (ob 1724): detected in this run, marked by hand, or
+     * The open flaky shot this shot was labelled with (ob 1724): detected in this run, marked by hand, or
      * already open for its key when it was uploaded. Null when the shot is not flaky. No foreign
      * key, like `carried_from`.
      */
@@ -443,7 +443,7 @@ export type FlagKind = (typeof FLAG_KINDS)[number];
 
 /**
  * A reviewer's word that the diff got a shot wrong (ob 1721): a change it `missed`, or a
- * `false_positive` it flagged. One per user per snapshot. It is not a review decision: it never
+ * `false_positive` it flagged. One per user per shot. It is not a review decision: it never
  * accepts, rejects or re-diffs, and a decision never clears it. What the diff measured is copied in
  * at flag time, so the list stays the detector's work list even if the diff is rerun later.
  */
@@ -479,8 +479,8 @@ export const FLAKE_STATUSES = ["open", "resolved"] as const;
 export type FlakeStatus = (typeof FLAKE_STATUSES)[number];
 
 /**
- * A snapshot key (name + variant) whose captures disagreed within one run, or that a reviewer
- * marked flaky by hand (ob 1724). Not a detection flag: a flag says the diff was wrong, a flake
+ * A shot key (name + variant) whose captures disagreed within one run, or that a reviewer
+ * marked flaky by hand (ob 1724). Not a detection flag: a flag says the diff was wrong, a flaky shot
  * says the page is. One row per key: a detection on another build appends to its evidence, and a
  * detection on a resolved one reopens it.
  */

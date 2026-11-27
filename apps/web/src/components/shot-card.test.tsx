@@ -8,7 +8,7 @@ import { snapshotView } from "#/test/snapshot-view";
 import type { Composition } from "./composition";
 import { ShotCard, measured } from "./shot-card";
 
-// The card's flake badge imports a server function, which loads the Worker's env and session.
+// The card's flaky-shot badge imports a server function, which loads the Worker's env and session.
 vi.mock("#/server/env", () => import("#/test/render").then((m) => m.serverEnv));
 vi.mock("#/server/session", () => import("#/test/render").then((m) => m.serverSession));
 

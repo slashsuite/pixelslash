@@ -33,7 +33,7 @@ break.
 
 ## 1. Priya, frontend lead on a product team
 
-Priya leads six engineers on one React app. The app has a Storybook that is half kept up, and she
+Priya leads six engineers on one React app. The app has Storybook stories that are half kept up, and she
 is on Chromatic today. Her goal is that every pull request shows what
 changed visually, and that nothing merges until someone has looked.
 

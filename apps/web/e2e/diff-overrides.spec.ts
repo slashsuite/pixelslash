@@ -3,7 +3,7 @@ import { CHANGED, SHA_MAIN, SHA_WORK, WHITE, uploadBuild } from "./api-upload";
 import { openSection } from "./snapshot-viewer";
 
 /**
- * Diff thresholds set in the review UI (ob 1495): an override saved from the snapshot screen
+ * Diff thresholds set in the review UI (ob 1495): an override saved from the shot screen
  * re-diffs the open build at once, the screen says where the value came from, and the project's
  * settings export it as config.
  */

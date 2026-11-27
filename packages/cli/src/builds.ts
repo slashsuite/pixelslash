@@ -136,7 +136,7 @@ async function latestId(remote: Remote, flags: RemoteFlags & { branch?: string }
   return str(newest.id);
 }
 
-/** `pixelslash build ID|latest`: one build and its snapshots. `--json` is the API's reply as sent. */
+/** `pixelslash build ID|latest`: one build and its shots. `--json` is the API's reply as sent. */
 export async function runBuild(argv: string[], io: Io, deps: RemoteDeps = {}): Promise<number> {
   const [ref, ...more] = argv;
   if (!ref || ref.startsWith("--")) throw new UsageError("need a build ID or `latest`");

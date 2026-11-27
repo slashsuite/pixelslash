@@ -52,7 +52,7 @@ const ROUTES: Record<string, (body: string) => Response> = {
   "/images/s0.png": () => new Response(solidPng(400, 300, [200, 0, 0, 255])),
 };
 
-/** The reads the loop needs (projects, flakes, baselines and their PNG) and the resolve. */
+/** The reads the loop needs (projects, flaky shots, baselines and their PNG) and the resolve. */
 export function server() {
   const seen: { method: string; path: string }[] = [];
   const fetch = async (url: string, init?: RequestInit) => {

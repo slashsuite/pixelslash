@@ -292,7 +292,7 @@ arrive and are never assembled in memory.
 
 **The burst bound** for the native service is:
 
-```
+```text
 C_put × 1 MB  +  K × 270 MB  +  jobs × 1 KB  +  ~10 MB base
 ```
 

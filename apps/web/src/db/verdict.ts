@@ -38,7 +38,7 @@ async function verdictOfBuild(db: Db, buildId: string): Promise<Verdict> {
 export const VERDICT_STATUSES: Verdict[] = ["changes", "passed", "failed"];
 
 /**
- * Recompute the verdict of a build that already has one (a review decision, an explain settling, a flake).
+ * Recompute the verdict of a build that already has one (a review decision, an explain settling, a flaky shot).
  * It writes only over a verdict: a `processing` or `errored` build is a run's, and a late writer
  * must not turn it into one (PS-392). Returns the verdict it wrote, or null when it wrote nothing
  * because the build is not at a verdict.

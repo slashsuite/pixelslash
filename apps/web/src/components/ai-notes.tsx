@@ -27,7 +27,7 @@ export function useRegionNote(region: DiffRegion): AiRegionNote | undefined {
   );
 }
 
-/** What the judge's section reads of a snapshot; a test builds just these. */
+/** What the judge's section reads of a shot; a test builds just these. */
 export type JudgedShot = Pick<
   SnapshotView,
   "aiReview" | "aiPending" | "aiError" | "diffStatus" | "reviewState" | "reviewedBy"

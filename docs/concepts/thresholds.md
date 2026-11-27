@@ -36,11 +36,11 @@ Two 400 by 100 images, so 40,000 pixels are compared. On Branch:
 - a large blue box, 120 by 40, shifts to a very slightly different blue
 - a small 6 by 6 square turns from near-black to red
 
-```
+```bash
 npx pixelslash --live-png main.png --local-png branch.png
 ```
 
-```
+```text
 pixelslash: 4836 changed pixels
 ```
 
@@ -63,11 +63,11 @@ Reading it row by row:
 
 The line on stdout is the count, not the verdict. All five runs exit 0, and the third prints this:
 
-```
+```bash
 npx pixelslash --live-png main.png --local-png branch.png --threshold 0.2 --min-changed-pixels 50
 ```
 
-```
+```text
 pixelslash: 36 changed pixels
 report: file:///…/report.html
 timing: 1 shot, diff 0.0s, total 0.0s
@@ -75,7 +75,7 @@ timing: 1 shot, diff 0.0s, total 0.0s
 
 The verdict is in `changed` in `manifest.json` and at the top of the report, which also shows the settings you used:
 
-```
+```text
 36 changed pixels
 Diff options: threshold 0.2 · min changed pixels 50
 Not changed: 36 changed pixels are under the floors above.
@@ -106,7 +106,7 @@ The config lives in your repo, so a tolerance gets reviewed and versioned like a
 
 A value that is not a number from 0 to 1 stops the run with exit 2:
 
-```
+```text
 --threshold must be a number from 0 to 1
 ```
 

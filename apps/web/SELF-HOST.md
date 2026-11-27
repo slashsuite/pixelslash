@@ -269,7 +269,7 @@ the Cloudflare section above.
    `/home/pixelslash/pixelslash/apps/web/.dev.vars.e2e` (create the directory; `update.sh` fails without the
    file). `<box>` is the container's address:
 
-   ```
+   ```text
    GITHUB_OAUTH_BASE=http://<box>:4174
    IMAGE_SIGNING_SECRET=<openssl rand -hex 32>
    MODEL_KEY_SECRET=<openssl rand -base64 32>

@@ -177,7 +177,7 @@ export const key = (r: PairResult) => `${r.name} ${r.theme}`;
 export const where = (s: PairResult["sides"][number]) =>
   [s.platform, s.device, s.viewport].filter(Boolean).join(" ");
 
-/** A line per drifting pair; two pairs of one snapshot would read the same, so those say which shots. */
+/** A line per drifting pair; two pairs of one shot would read the same, so those say which shots. */
 export function driftLines(results: PairResult[]): string[] {
   const several = (r: PairResult) => results.filter((o) => key(o) === key(r)).length > 1;
   const lines: string[] = [];

@@ -157,7 +157,7 @@ async function tlsProxy(): Promise<string> {
   return `https://localhost:${typeof address === "object" && address ? address.port : 0}`;
 }
 
-/** A snapshot dir as `capture` writes it, holding one 40×40 shot. */
+/** A shot dir as `capture` writes it, holding one 40×40 shot. */
 async function snapshotDir(shot: Buffer) {
   const dir = await mkdtemp(join(tmpdir(), "ps-self-host-"));
   temps.push(dir);

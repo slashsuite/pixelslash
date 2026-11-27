@@ -40,7 +40,7 @@ const SHM_MIN_BYTES = 1024 * 1024 * 1024;
  * Whether /dev/shm has room for Chromium's shared memory.
  * Playwright launches Chromium with `--disable-dev-shm-usage`, which moves that
  * memory into the temp dir. On a host whose /tmp is a quota'd or busy tmpfs the GPU
- * process then dies mid-screenshot ("Unable to capture screenshot"), a different
+ * process then dies mid-shot ("Unable to capture screenshot"), a different
  * shot each run once several browsers run at once. That flag exists for Docker's
  * 64 MB /dev/shm, so it is dropped only when /dev/shm is big enough.
  */

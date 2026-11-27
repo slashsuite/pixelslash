@@ -8,7 +8,7 @@ A run writes `report.html` and prints its address. It opens as a plain file, wit
 
 The header holds the verdict and what it rests on:
 
-```
+```text
 3091 changed pixels
 1 changed region
 chromium · Main 1280x720 · Branch 1280x720
@@ -28,7 +28,7 @@ A few more lines appear only when they apply:
 
 The three crops show the same part of the page, cut around the changed regions plus 24 pixels and scaled up. A note above them gives the area:
 
-```
+```text
 Changed region 16,125 138x86 (changed regions plus 24px), scaled up. Click a crop for the full image.
 ```
 
@@ -38,7 +38,7 @@ Changed region 16,125 138x86 (changed regions plus 24px), scaled up. Click a cro
 
 Each region gets a line with its place, size and pixel count:
 
-```
+```text
 #1 40,149 90x38 · 3091 changed px · changed
 ```
 
@@ -60,7 +60,7 @@ With `--routes`, or with `compare` on two shot directories, the run also writes 
 
 `compare`'s index groups shots as **Changed**, **New on Branch**, **Removed from Branch**, **Not compared** and **Unchanged**, with a count at the top:
 
-```
+```text
 1 changed · 1 unchanged · 0 new · 0 removed
 ```
 
@@ -70,7 +70,7 @@ If the two sides were rendered by different environments, a warning at the top l
 
 An upload that captured its changed shots again writes `report.html` in the shot directory, titled **PixelSlash upload**:
 
-```
+```text
 1 flaky · 0 changed in every run · 0 not captured again · each changed shot captured 2 more times
 Flaky means the captures of one shot disagreed with each other. It says nothing about whether the change is wanted.
 ```

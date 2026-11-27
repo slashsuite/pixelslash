@@ -275,7 +275,7 @@ describe("upload API", () => {
         body: "x",
         headers: {
           authorization: `Bearer ${acme.token}`,
-          // The cap counts the shot, every flake:<run> re-capture (ob 1724) and a metrics file (PS-294).
+          // The cap counts the shot, every `flake:<run>` re-capture (ob 1724) and a metrics file (PS-294).
           "content-length": String(MAX_FLAKE_RUNS * MAX_PNG_BYTES + METRICS + 1e6),
         },
       }),

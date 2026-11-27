@@ -1,7 +1,7 @@
 import { PLATFORMS, type Platform } from "../../../../packages/engine/src/native.ts";
 import type { StaleCause } from "./stale";
 
-// Twin snapshots (PS-295): the same name and theme on another platform. Pure words and shapes, so
+// Twin shots (PS-295): the same name and theme on another platform. Pure words and shapes, so
 // the db query, the API and the screens say the same thing; `db/twins.ts` is the one that pairs.
 
 export { PLATFORMS, type Platform };

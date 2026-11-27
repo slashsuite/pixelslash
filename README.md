@@ -22,7 +22,7 @@ npx @slashsuite/pixelslash --live-png a.png --local-png b.png --out out
 
 Open `out/report.html`. A run with changes prints how many pixels changed and where the report is:
 
-```
+```text
 pixelslash: 19103 changed pixels
 report: file:///…/out/report.html
 ```

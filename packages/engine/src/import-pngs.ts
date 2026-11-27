@@ -9,9 +9,9 @@ import { checkMetrics } from "./metrics-file.ts";
 import { DEVICE_LABEL, expectedPixels, type NativePlatform } from "./native.ts";
 
 export type ImportOptions = {
-  /** A dir of PNGs, any depth. Each PNG's path under it, without `.png`, is the snapshot's name. */
+  /** A dir of PNGs, any depth. Each PNG's path under it, without `.png`, is the shot's name. */
   dir: string;
-  /** The snapshot dir to write: the PNGs copied in, and `manifest.json`. */
+  /** The shot dir to write: the PNGs copied in, and `manifest.json`. */
   out: string;
   /**
    * The logical size every shot is filed under. Optional for a native import: it is then each PNG's
@@ -19,7 +19,7 @@ export type ImportOptions = {
    */
   viewport?: { width: number; height: number };
   theme: "light" | "dark";
-  /** What took the shots, e.g. `cypress 13`. Only snapshots with equal renderers are compared. */
+  /** What took the shots, e.g. `cypress 13`. Only shots with equal renderers are compared. */
   renderer: string;
   /**
    * `android` or `ios` for shots from Maestro (PS-293), with the `device` label and the device pixel
@@ -175,7 +175,7 @@ function withMetrics(entry: SnapshotEntry, metricsFiles: string[]): SnapshotEntr
   return metricsFiles.includes(metrics) ? { ...entry, metrics } : entry;
 }
 
-/** The PNGs, and each one's metrics file, copied into the snapshot dir. */
+/** The PNGs, and each one's metrics file, copied into the shot dir. */
 async function copyShots(dir: string, out: string, snapshots: SnapshotEntry[]) {
   for (const e of snapshots) {
     for (const f of e.metrics ? [e.file, e.metrics] : [e.file]) {
@@ -186,9 +186,9 @@ async function copyShots(dir: string, out: string, snapshots: SnapshotEntry[]) {
 }
 
 /**
- * Turn a dir of PNGs from any screenshot tool into a snapshot dir `upload` accepts: the PNGs
+ * Turn a dir of PNGs from any capture tool into a shot dir `upload` accepts: the PNGs
  * copied in and a version 1 manifest. Nothing is measured from the shots, so every entry takes the
- * one `viewport` and `theme` given (they are half of a snapshot's identity), the engine's default
+ * one `viewport` and `theme` given (they are half of a shot's identity), the engine's default
  * diff options and no ignore areas, and a fingerprint that says the renderer was not ours.
  */
 export async function importPngs(options: ImportOptions): Promise<ImportResult> {

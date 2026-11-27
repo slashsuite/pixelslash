@@ -54,7 +54,7 @@ export function ShotThumb({ shot, src }: { shot: SnapshotView; src: string | und
     return (
       <div className={`${THUMB_BOX} relative`} style={THUMB_STYLE} data-testid="shot-thumb">
         <img src={src} alt="" loading="lazy" className="size-full object-cover object-top" />
-        {/* Fixed colours, not the theme's: the badge sits on a screenshot, which has its own theme. */}
+        {/* Fixed colours, not the theme's: the badge sits on a shot, which has its own theme. */}
         <span
           className="absolute right-1.5 top-1.5 rounded bg-[rgba(15,23,42,0.85)] px-1.5 py-0.5 text-xs font-medium text-[#fff]"
           data-testid="shot-thumb-badge"

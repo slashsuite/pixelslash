@@ -10,7 +10,7 @@ This page uses a small site with three pages, `main/` and `branch/`, in `~/my-si
 
 `main/about.html` has a dark mode, for later:
 
-```
+```bash
 cat > main/about.html <<'HTML'
 <!doctype html>
 <html lang="en">
@@ -32,7 +32,7 @@ HTML
 
 `main/dashboard.html` has a clock that changes all the time, a session token and a plan:
 
-```
+```bash
 cat > main/dashboard.html <<'HTML'
 <!doctype html>
 <html lang="en">
@@ -61,7 +61,7 @@ HTML
 
 Copy both to Branch, change a word in each, and turn the home page's button green if it is not already:
 
-```
+```bash
 cp main/about.html main/dashboard.html branch/
 sed -i 's/small pages/small, tidy pages/' branch/about.html
 sed -i 's/Plan: free/Plan: team/' branch/dashboard.html
@@ -72,12 +72,12 @@ sed -i 's/#2563eb/#16a34a/' branch/index.html
 
 `--routes` takes a file with one path per line, and `--live` and `--local` become origins:
 
-```
+```bash
 printf '/\n/about\n/dashboard\n' > routes.txt
 npx pixelslash --live http://localhost:4101 --local http://localhost:4102 --routes routes.txt --out .pixelslash
 ```
 
-```
+```text
 pixelslash: 3625 changed pixels
 report: file:///…/my-site/.pixelslash/index.html
 timing: 3 shots, capture 1.8s, diff 0.1s, total 1.9s
@@ -95,11 +95,11 @@ Follow `/dashboard`. This run counts 186 pixels on it, and 134 of those are the 
 
 `--ignore x,y,w,h` leaves a rectangle out of the diff. It applies to one pair, so name the page itself. With `--routes` it is a usage error (`--ignore applies to a single pair, not --routes`, exit 2):
 
-```
+```bash
 npx pixelslash --live http://localhost:4101/dashboard --local http://localhost:4102/dashboard --ignore 40,109,260,25 --out .pixelslash-ignore
 ```
 
-```
+```text
 pixelslash: 134 changed pixels
 report: file:///…/my-site/.pixelslash-ignore/report.html
 timing: 1 shot, capture 0.7s, diff 0.0s, total 0.7s
@@ -113,11 +113,11 @@ The clock is gone from the count, and the real change, the plan, is still there.
 
 For more than a pair of URLs, write a config:
 
-```
+```bash
 npx pixelslash init --url http://localhost:4101 --routes /,/about,/dashboard --viewports 1280x720,375x812 --themes light,dark --yes
 ```
 
-```
+```text
 wrote pixelslash.config.ts
 .gitignore: added pixelslash-snapshots/ .pixelslash/
 ```
@@ -146,12 +146,12 @@ baseUrl: process.env.BASE_URL ?? "http://localhost:4101",
 
 Capture Main, then Branch:
 
-```
+```bash
 npx pixelslash capture --out snapshots/main
 BASE_URL=http://localhost:4102 npx pixelslash capture --out snapshots/branch
 ```
 
-```
+```text
 warning: capturing outside the pinned PixelSlash image; local fonts skew rendering. Fingerprint recorded as bare.
 pixelslash: 12 snapshots
 fingerprint: {"image":"bare","browser":"chromium 156.0.8078.4","fonts":"sha256:3d5233441c23835446e52afc8f746b743eb35219a7ff85478ef358fb999cb433"}
@@ -163,11 +163,11 @@ The warning is fair: both sides came from this machine's fonts, which is fine fo
 
 Compare the two directories:
 
-```
+```bash
 npx pixelslash compare snapshots/main snapshots/branch --out report
 ```
 
-```
+```text
 timing: 12 shots, diff 0.1s, total 0.2s
 pixelslash: 12 changed, 0 unchanged, 0 new, 0 removed
 changed:

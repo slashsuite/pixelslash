@@ -15,18 +15,18 @@ Everything on this page runs on a server you run yourself. [Self-hosting](../../
 
 Point the CLI at your server, with a token from your CI's secret store:
 
-```
+```bash
 export PIXELSLASH_SERVER=https://<your server>
 export PIXELSLASH_TOKEN="$PIXELSLASH_CI_TOKEN"
 ```
 
 Upload Main's shots first, as the baseline. The default branch's new shots are accepted automatically:
 
-```
+```bash
 npx pixelslash upload snapshots/main --branch main --wait --timeout 2m
 ```
 
-```
+```text
 pixelslash: uploaded 12 snapshots
 build: a606f702-… (5f2ce7e on main)
 report: file:///…/my-site/snapshots/main/report.html
@@ -37,11 +37,11 @@ passed: 0 waiting · 12 accepted · 0 rejected
 
 Then the branch. This one had changes nobody had looked at yet, so the wait ran out. Two lines are left out of this output, a warning and the report's path:
 
-```
+```bash
 BASE_URL=http://localhost:4102 npx pixelslash upload snapshots/branch --branch my-change --base main --wait --timeout 20s
 ```
 
-```
+```text
 pixelslash: uploaded 12 snapshots
 build: 5845a320-… (07412f9 on my-change)
 timing: 12 shots, diff 0.3s, upload 16.5s, total 16.5s
@@ -59,19 +59,19 @@ Exit 5. Keep `BASE_URL` set on this command: a retry shoots the changed shot aga
 
 `status --wait` picks up the same build, from the `build.json` that `upload` left in the directory:
 
-```
+```bash
 npx pixelslash status --dir snapshots/branch --wait --timeout 1m
 ```
 
 If they were rejected, it exits 4:
 
-```
+```text
 failed: 0 waiting · 0 accepted · 12 rejected
 ```
 
 If they were accepted, it exits 0:
 
-```
+```text
 passed: 0 waiting · 12 accepted · 0 rejected
 ```
 

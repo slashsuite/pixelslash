@@ -21,10 +21,10 @@ import type { Io } from "./run.ts";
 import type { Watch } from "./watch.ts";
 
 /**
- * The local fix loop over MCP (ob 1735): check, capture, reproduce a flake, suggest an ignore,
+ * The local fix loop over MCP (ob 1735): check, capture, reproduce a flaky shot, suggest an ignore,
  * resolve. Each tool is its `--json` CLI twin's function, and its first text is that twin's JSON.
  * Shots are taken here and stay here; the server is only read, except by `resolve_flake`, which
- * marks a flake resolved only when this machine's run was stable. No tool writes the config.
+ * marks a flaky shot resolved only when this machine's run was stable. No tool writes the config.
  */
 
 type Args = Record<string, unknown>;

@@ -8,13 +8,13 @@ A diff is only worth reading when the change came from your code. Pin what rende
 
 If the job runs the CLI from npm, pin the exact version:
 
-```
+```bash
 npm i -D -E @slashsuite/pixelslash@0.8.0
 ```
 
 `-E` writes `"@slashsuite/pixelslash": "0.8.0"` to `package.json`, with no `^`. Check what you got with `npm ls`:
 
-```
+```console
 $ npm ls @slashsuite/pixelslash
 my-site@1.0.0 …
 └── @slashsuite/pixelslash@0.8.0
@@ -26,12 +26,12 @@ Read the version from there. `npx pixelslash --version` prints the engine's vers
 
 A tag can be moved. A digest cannot. Get the digest once, from the tag:
 
-```
+```bash
 docker pull ghcr.io/madangryscientist/pixelslash-capture:0.7.0
 docker inspect --format '{{index .RepoDigests 0}}' ghcr.io/madangryscientist/pixelslash-capture:0.7.0
 ```
 
-```
+```text
 ghcr.io/madangryscientist/pixelslash-capture@sha256:d8b33a8e9fac68f41d04e5295cdf7b57ab22affca73f081f2b18241d2e633fff
 ```
 
@@ -41,32 +41,32 @@ Then name the image by that digest in your CI file. It only changes when you cha
 
 Each manifest has a fingerprint of what rendered it. The image does not know its own digest, so you pass it in. Without it:
 
-```
+```bash
 IMAGE=ghcr.io/madangryscientist/pixelslash-capture@sha256:d8b33a8e9fac68f41d04e5295cdf7b57ab22affca73f081f2b18241d2e633fff
 docker run --rm --network host -v "$PWD:/work" "$IMAGE" capture --out snapshots/no-digest
 ```
 
-```
+```text
 fingerprint: {"image":"version:0.7.0","browser":"chromium 156.0.8078.4","fonts":"sha256:b94a854b9906469b346d4f39cae49b20342e1abc9501e597fed6b1c44d5a0bbb"}
 ```
 
 With it:
 
-```
+```bash
 docker run --rm --network host -v "$PWD:/work" -e PIXELSLASH_IMAGE_DIGEST="$IMAGE" "$IMAGE" capture --out snapshots/digest
 ```
 
-```
+```text
 fingerprint: {"image":"ghcr.io/madangryscientist/pixelslash-capture@sha256:d8b33a8e9fac68f41d04e5295cdf7b57ab22affca73f081f2b18241d2e633fff","browser":"chromium 156.0.8078.4","fonts":"sha256:b94a854b9906469b346d4f39cae49b20342e1abc9501e597fed6b1c44d5a0bbb"}
 ```
 
 Pass it on both sides. Two runs with different values do not match, even from the same image:
 
-```
+```bash
 docker run --rm -v "$PWD:/work" "$IMAGE" compare snapshots/no-digest snapshots/digest --out report-mixed
 ```
 
-```
+```text
 warning: index (chromium 1280x720): rendered by a different image; diffing anyway
 timing: 1 shot, diff 0.0s, total 0.0s
 pixelslash: 0 changed, 1 unchanged, 0 new, 0 removed

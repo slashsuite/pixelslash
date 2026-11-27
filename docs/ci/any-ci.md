@@ -89,7 +89,7 @@ The two `python3` lines stand for "start your app": `site/` is a static page her
 
 ## Run it
 
-```
+```bash
 git fetch origin main:refs/remotes/origin/main
 BASE_REF=origin/main sh ci/visual-check.sh
 ```
@@ -100,7 +100,7 @@ BASE_REF=origin/main sh ci/visual-check.sh
 
 A pull request that turned a button green ended like this, as the plain shell ran on a GitHub Actions runner:
 
-```
+```text
 timing: 1 shot, diff 0.0s, total 0.1s
 visual gate: differences found, read the report
 pixelslash: 1 changed, 0 unchanged, 0 new, 0 removed
@@ -115,7 +115,7 @@ The job exits 1. With nothing different, the counts line is `pixelslash: 0 chang
 
 The pinned image is what makes two runs comparable across machines. If you cannot run it, install the CLI and capture with the machine's own browser, with both sides on one machine:
 
-```
+```bash
 npm i -D @slashsuite/pixelslash
 npx pixelslash install-browser
 BASE_URL=http://localhost:4101 npx pixelslash capture --out snapshots/main

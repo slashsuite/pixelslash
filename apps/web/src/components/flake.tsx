@@ -23,15 +23,15 @@ import { type FlakeView, markShotFlaky } from "#/server/flakes";
 import { hrefTo } from "#/lib/href";
 
 /**
- * Flakes on the page (ob 1724). The policy is the shot's own config (`"flaky"` on a route, a
+ * Flaky shots on the page (ob 1724). The policy is the shot's own config (`"flaky"` on a route, a
  * `pixelslash-flaky-*` tag on a story); the server only reads what an upload sent, so the policy
  * control here copies a config line and changes nothing on the server.
  */
 
-/** The `flakes` list's anchor for one flake. */
+/** The `flakes` list's anchor for one flaky shot. */
 export const flakeAnchor = (flakeId: string) => `flake-${flakeId}`;
 
-/** "flaky", or "skipped: flaky" when its `skip` policy let the build pass by it; links to the flake. */
+/** "flaky", or "skipped: flaky" when its `skip` policy let the build pass by it; links to the flaky shot. */
 export function FlakyBadge({
   projectId,
   flakeId,
@@ -210,8 +210,8 @@ function MarkFlakyForm({
 }
 
 /**
- * The side panel's flake section: the badge, this build's runs side by side, the policy in effect
- * and how to change it; on a shot with no flake, the control to mark it flaky by hand.
+ * The side panel's flaky-shot section: the badge, this build's runs side by side, the policy in effect
+ * and how to change it; on a shot with no flaky-shot record, the control to mark it flaky by hand.
  */
 export function FlakePanel({
   projectId,

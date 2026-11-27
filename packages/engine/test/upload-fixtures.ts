@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-/** Shared by the upload tests: temp git repos and snapshot dirs, removed by `cleanup`. */
+/** Shared by the upload tests: temp git repos and shot dirs, removed by `cleanup`. */
 const dirs: string[] = [];
 export const cleanup = () => Promise.all(dirs.map((d) => rm(d, { recursive: true, force: true })));
 

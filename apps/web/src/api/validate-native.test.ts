@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { BadRequest } from "./errors";
 import { fingerprint, platformAndBrowser } from "./validate-native";
 
-/** Native snapshots (PS-293): which platform, browser and fingerprint values a snapshot key takes. */
+/** Native shots (PS-293): which platform, browser and fingerprint values a shot key takes. */
 
 const WEB_FINGERPRINT = { image: "img", browser: "chromium", fonts: "f" };
 

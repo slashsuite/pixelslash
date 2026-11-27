@@ -112,7 +112,7 @@ The two `python3` lines stand for "start your app": put your own start command i
 
 Each capture step:
 
-```
+```text
 pixelslash: 1 snapshots
 timing: 1 shot, capture 0.8s, total 1.2s
 fingerprint: {"image":"ghcr.io/madangryscientist/pixelslash-capture@sha256:d8b33a8e9fac68f41d04e5295cdf7b57ab22affca73f081f2b18241d2e633fff","browser":"chromium 156.0.8078.4","fonts":"sha256:b94a854b9906469b346d4f39cae49b20342e1abc9501e597fed6b1c44d5a0bbb"}
@@ -121,7 +121,7 @@ manifest: /work/snapshots/main/manifest.json
 
 The compare step, with nothing different, passes: the script prints `compare`'s lines and exits 0.
 
-```
+```text
 timing: 1 shot, diff 0.0s, total 0.0s
 pixelslash: 0 changed, 1 unchanged, 0 new, 0 removed
 report: file://<run dir>/pixelslash-report/index.html
@@ -129,7 +129,7 @@ report: file://<run dir>/pixelslash-report/index.html
 
 On a pull request that turned a button green, the same step fails, and the script adds its own line, `visual gate: differences found, read the report`, to the end:
 
-```
+```text
 timing: 1 shot, diff 0.0s, total 0.0s
 pixelslash: 1 changed, 0 unchanged, 0 new, 0 removed
 changed:

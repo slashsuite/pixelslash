@@ -21,7 +21,7 @@ import { elapsed, timed } from "./timings.ts";
 import type { UnmatchedTally } from "./unmatched.ts";
 
 /**
- * One shot read off a settled page, fresh or pooled: the screenshot, its crop, its masks and what
+ * One shot read off a settled page, fresh or pooled: the image, its crop, its masks and what
  * is measured on the page after it.
  */
 
@@ -52,7 +52,7 @@ export type Shot = {
   route: Route;
   variant: Variant;
   stabilise: Stabilise;
-  /** Ignore areas to resolve at screenshot time; the pixels are left as they are. */
+  /** Ignore areas to resolve at shot time; the pixels are left as they are. */
   ignore: Ignore[];
   /** What the config's `setup` left signed in, if it has one. */
   session: Session | undefined;
@@ -95,7 +95,7 @@ async function measure(page: Page, shot: Shot, png: Buffer, origin?: Crop["origi
     }));
   // Read like the boxes above: the settled page, after the shot, before anything is let run.
   const metrics = shot.metrics ? ((await measureMetrics(page)) ?? undefined) : undefined;
-  // After the screenshot and the measurements, so nothing the scan lets run can reach the PNG.
+  // After the shot and the measurements, so nothing the scan lets run can reach the PNG.
   // axe waits on timers, which `timers` has paused for good: let the page clock run again first.
   if (shot.a11y && stabilise.timers) await page.clock.resume();
   const a11y = shot.a11y ? await scanA11y(page) : undefined;

@@ -62,7 +62,7 @@ const twinsSection = (groups: Shot[][]) =>
         unlinked: [],
       };
 
-/** The snapshot record of a shot, with the signed URL of its metrics file when it has one. */
+/** The API record of a shot, with the signed URL of its metrics file when it has one. */
 const snapshotReply = (s: Shot) => ({
   api_version: 1,
   snapshot: {
@@ -76,7 +76,7 @@ const snapshotReply = (s: Shot) => ({
 
 /**
  * The fake API with build `b2` carrying a `twins` section for these shots (each linked to every
- * other), their snapshot records and signed metrics URLs. `shots: []` is a build with no twins.
+ * other), their API records and signed metrics URLs. `shots: []` is a build with no twins.
  */
 export function parityApi(shots: Shot[], extraLinked: Shot[][] = []) {
   const api = fakeApi();
@@ -127,7 +127,7 @@ export const staleTwin = (over: Record<string, unknown> = {}) => ({
 
 /**
  * The fake API for `parity --release`: project `p1`'s stale list, and, as its accepted baseline
- * pairs, the twin pairs of `shots` (their snapshot records and metrics files as `parityApi` serves).
+ * pairs, the twin pairs of `shots` (their API records and metrics files as `parityApi` serves).
  */
 export function releaseApi(shots: Shot[], stale: unknown[] = [], extraLinked: Shot[][] = []) {
   const api = parityApi(shots, extraLinked);

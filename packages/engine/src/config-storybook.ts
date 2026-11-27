@@ -6,7 +6,7 @@ import { isHttpUrl } from "./routes.ts";
 /** The `storybook` source: every story in `<url>/index.json` × every combination of `globals`. */
 export type StorybookConfig = {
   url: string;
-  /** Global name → the values to shoot it at; the cartesian product of them is one snapshot per story each. */
+  /** Global name → the values to shoot it at; the cartesian product of them is one shot per story each. */
   globals: Record<string, string[]>;
   /** Globs over a story's id or title; a story is kept when it matches any include and no exclude. */
   include: string[];
@@ -93,7 +93,7 @@ export function parseStorybook(
   };
 }
 
-/** A Storybook-only config has no app of its own: the Storybook is the base. */
+/** A Storybook-only config has no app of its own: the Storybook's URL is the base. */
 export function baseUrlOf(raw: unknown, sb: StorybookConfig | undefined, fail: Fail): string {
   const baseUrl = raw === undefined && sb ? sb.url : text(raw, "baseUrl", fail);
   if (!URL.canParse(baseUrl)) fail("baseUrl", "must be a URL");

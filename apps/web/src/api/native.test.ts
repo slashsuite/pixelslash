@@ -5,7 +5,7 @@ import { get } from "./test-read";
 import { must } from "#/test/must";
 import { META, call, openBuild, setup, snapshotForm } from "./test-support";
 
-/** Native snapshots (PS-293): android and ios, the device label in the browser column. */
+/** Native shots (PS-293): android and ios, the device label in the browser column. */
 
 const PIXEL = {
   ...META,

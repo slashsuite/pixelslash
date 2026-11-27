@@ -7,7 +7,7 @@ import { parseConfig, loadConfig } from "../src/config.ts";
 import { CaptureError, UsageError } from "../src/errors.ts";
 import { captureSnapshots } from "../src/snapshot.ts";
 
-/** The session cookie's value: it must not turn up anywhere in the snapshot dir. */
+/** The session cookie's value: it must not turn up anywhere in the shot dir. */
 const SECRET = "s3cret-session-7f2a";
 const page = (body: string, colour: string) =>
   new Response(
@@ -75,7 +75,7 @@ const configWith = (setup: string | undefined) =>
 
 const pinned = { env: { PIXELSLASH_IMAGE_VERSION: "test" }, listFonts: async () => [] };
 
-/** Every byte the snapshot dir holds, as one string. */
+/** Every byte the shot dir holds, as one string. */
 async function everything(dir: string): Promise<string> {
   const files = await readdir(dir, { recursive: true });
   const parts = await Promise.all(
@@ -87,7 +87,7 @@ async function everything(dir: string): Promise<string> {
   return parts.join("\n");
 }
 
-/** Capture /private with `setup`; the first pixel and everything the snapshot dir holds. */
+/** Capture /private with `setup`; the first pixel and everything the shot dir holds. */
 async function signedInShot(
   setup: string,
   env: NodeJS.ProcessEnv = {},

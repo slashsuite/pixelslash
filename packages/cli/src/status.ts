@@ -14,7 +14,7 @@ export const STATUS_USAGE = `pixelslash status [--build ID | --commit SHA | --br
 Default build: the one \`upload\` recorded in DIR (default pixelslash-snapshots), else the current commit's newest.
 Exit 0 accepted or nothing changed, ${REJECTED_EXIT} rejected, ${WAITING_EXIT} still waiting, ${REMOTE_EXIT} the server did not answer, the build errored or its status is unknown to this pixelslash, 2 usage.`;
 
-/** What `upload` leaves in the snapshot dir, so `status` finds the build it made. */
+/** What `upload` leaves in the shot dir, so `status` finds the build it made. */
 export const BUILD_FILE = "build.json";
 
 export type StatusDeps = RemoteDeps & {

@@ -26,7 +26,7 @@ PNG mode (`--live-png` / `--local-png`) needs no browser.
 
 ### From a checkout
 
-```
+```bash
 bun install
 bun run pixelslash -- install-browser   # once, for URL capture (Playwright's chromium-headless-shell; `firefox`, `webkit` or `all` add the others)
 bun run pixelslash -- <args below>
@@ -44,7 +44,7 @@ pixelslash --live-png main.png --local-png branch.png --out out
 
 It prints the number of changed pixels and the path of `out/report.html`; open that file in a browser. The full form, with every flag:
 
-```
+```bash
 bun run pixelslash -- (--live URL --local URL | --live-png PATH --local-png PATH | --live-png-dir DIR --local-png-dir DIR) [--ds DIR | --file FILE_KEY] [--routes FILE] [--token-path PATH] [--out DIR] [--width PX] [--browser chromium|firefox|webkit] [--label TEXT] [--threshold 0..1] [--min-changed-pixels N] [--min-changed-ratio 0..1] [--merge-distance PX] [--min-region-area PX] [--noise-amplitude 0..1] [--max-shift 0..1] [--ignore x,y,w,h]...
 ```
 
@@ -257,7 +257,7 @@ pixelslash init --url http://localhost:3000 --routes /,/pricing --yes
 
 The full form, with every flag:
 
-```
+```bash
 pixelslash init [--url URL | --storybook URL] [--routes PATH,...] [--viewports WxH,...] [--themes THEME,...] [--server URL] [--project NAME] [--yes] [--force]
 ```
 
@@ -273,14 +273,14 @@ pixelslash init [--url URL | --storybook URL] [--routes PATH,...] [--viewports W
 
 `pixelslash capture` shoots every route × variant in a config into a shot dir plus `manifest.json`, for upload to a PixelSlash server, which compares each shot with its **baseline**, the earlier accepted shot of the same page ([Baselines and branches](concepts/baselines-and-branches.md)). Run it inside the pinned capture image: it fixes Bun, Playwright, Chromium, Firefox, WebKit and the font set, and each shot records what rendered it, so a shot from a different setup is named as one.
 
-```
+```bash
 docker build -f docker/capture/Dockerfile -t pixelslash-capture:dev .
 docker run --rm --network host -v "$PWD:/work" pixelslash-capture:dev capture
 ```
 
 The same run with every flag it takes:
 
-```
+```bash
 docker run --rm --network host -v "$PWD:/work" pixelslash-capture:dev capture [--config FILE] [--out DIR] [--only NAME]... [--concurrency N] [--json]
 ```
 
@@ -429,13 +429,13 @@ A variant is one way to shoot every route: a browser, a viewport and a theme. Tw
 
 ### Storybook stories
 
-A Storybook needs no route list: give `storybook` its URL and every story is shot.
+Storybook needs no route list: give `storybook` its URL and every story is shot.
 
 ```json
 { "storybook": { "url": "http://127.0.0.1:6007" } }
 ```
 
-- `storybook` shoots a Storybook without a hand-written route list. Once the app is up (after `start`), capture reads `<url>/index.json` (Storybook 7+; `docs` entries are skipped, only `type: "story"`) and adds one route per story × each combination of the listed `globals` (no globals: one per story), each then × the config's `variants`. `url` is required; `baseUrl` defaults to it, so a Storybook-only config needs no `routes`. Example:
+- `storybook` shoots the stories of a running Storybook without a hand-written route list. Once the app is up (after `start`), capture reads `<url>/index.json` (Storybook 7+; `docs` entries are skipped, only `type: "story"`) and adds one route per story × each combination of the listed `globals` (no globals: one per story), each then × the config's `variants`. `url` is required; `baseUrl` defaults to it, so a Storybook-only config needs no `routes`. Example:
 
   ```json
   { "start": { "command": "bun e2e/serve.ts", "readyUrl": "http://127.0.0.1:6007" },
@@ -553,7 +553,7 @@ test("watch page", async ({ page }) => {
 });
 ```
 
-```
+```bash
 npx playwright test
 pixelslash upload pixelslash-snapshots --server URL
 ```
@@ -581,7 +581,7 @@ pixelslash upload pixelslash-snapshots --server URL
 
 `pixelslash import` turns a dir of PNGs from any screenshot tool (Cypress, a Playwright script, a native app) into a shot dir that `pixelslash upload` and `pixelslash compare` take, so the server does not have to be fed by `capture`.
 
-```
+```bash
 pixelslash import PNG_DIR [--out DIR] [--viewport WxH] [--theme light|dark] [--renderer LABEL]
                            [--platform web|android|ios --device LABEL --scale N]
 pixelslash upload DIR --server URL
@@ -598,7 +598,7 @@ pixelslash upload DIR --server URL
 
 `--platform android|ios` files the PNGs as native shots, for shots from [Maestro](https://maestro.dev) flows on an Android emulator or an iOS Simulator (any tool that writes PNGs works the same). `web` is the default and the same as giving no flag: a web import, its manifest and its stdout are exactly as before.
 
-```
+```bash
 pixelslash import shots/android --platform android --device "Pixel 8 API 35" --scale 3 --out snaps/android
 pixelslash import shots/ios     --platform ios     --device "iPhone 16 iOS 18.2" --scale 3 --out snaps/ios
 pixelslash upload snaps/android --server URL
@@ -703,7 +703,7 @@ The **parity view** shows one shot key (name + theme) of a build on web, android
 
 `pixelslash compare` is pair mode for two `capture` outputs: Main's shot dir against Branch's, on this machine, with no design system and no server.
 
-```
+```bash
 pixelslash compare MAIN_DIR BRANCH_DIR [--out DIR]
 ```
 
@@ -719,7 +719,7 @@ pixelslash compare MAIN_DIR BRANCH_DIR [--out DIR]
 
 `pixelslash dev` is a fast local loop for one page or component while you build it: every save re-captures the target and diffs it with the previous iteration. Nothing is uploaded, and nothing is written to a server.
 
-```
+```bash
 pixelslash dev [TARGET | --url URL] [--viewport WxH|NAME] [--theme light|dark] [--watch PATH]... [--against main|previous] [--judge [--ds DIR]] [--refresh-refs] [--figma-token-path PATH] [--once] [--json] [--config FILE] [--server URL] [--token-path PATH] [--project ID|NAME] [--base BRANCH]
 pixelslash dev latest [TARGET] [--json]
 pixelslash dev pin [ID] [--json] · pixelslash dev unpin [ID] [--json]
@@ -730,7 +730,7 @@ pixelslash dev spec [TARGET] [--json] [--refresh-refs] [--viewport WxH|NAME] [--
 - **Watching.** The git working tree, minus what git ignores and minus `.pixelslash/`, or only the paths given with `--watch` (repeatable or comma-separated). A burst of saves is debounced into one run; a save during a run queues exactly one more. Each run waits for the page to settle as `capture` does. A directory created after `dev` starts is not watched until the next start.
 - **Speed.** The browser stays open between runs. Every run prints one line, with the page's settle time apart from ours:
 
-  ```
+  ```text
   #3 vs #2: 3 regions changed · 412 px · ours 0.9 s · settle 1.4 s · http://127.0.0.1:PORT
   ```
 
@@ -782,7 +782,7 @@ Every remote command, with every flag:
 
 The remote commands talk to a server's [API](#api) as one token. They read; only `upload` sends page shots, and only `flake --resolve` changes anything else.
 
-```
+```bash
 pixelslash login [--server URL] [--config FILE]
 pixelslash logout [--server URL] [--config FILE]
 pixelslash whoami [--server URL] [--token-path PATH] [--config FILE] [--json]
@@ -830,7 +830,7 @@ pixelslash --version
 
 A crash never exits 1. Any error `pixelslash` did not expect writes, to stderr and in this order:
 
-```
+```text
 pixelslash: FAILED <command>: <stage>: <message>
 nothing was uploaded            (or: upload incomplete: <n>/<m> shots sent)
 a runner seeing exit 7 must escalate to the PixelSlash planner: this is a bug in pixelslash
@@ -873,11 +873,11 @@ ever attached.
 
 `pixelslash mcp` is a stdio [MCP](https://modelcontextprotocol.io) server, so the coding agent you already run can read PixelSlash (which builds have changes, what changed in a shot, which shots are flaky, what reviewers flagged), accept or reject a change for you, and drive feature mode in the worktree it was started in ([below](#feature-mode-from-your-agent)). Add it to Claude Code with:
 
-```
+```bash
 claude mcp add pixelslash -- pixelslash mcp
 ```
 
-```
+```bash
 pixelslash mcp [--server URL] [--token-path PATH] [--project ID|NAME] [--config FILE] [--base BRANCH] [--figma-token-path PATH]
 ```
 
@@ -952,7 +952,7 @@ The same server drives [`pixelslash dev`](#feature-mode-pixelslash-dev), so an a
 
 Nothing leaves the machine unless you ask: `pixelslash upload` and `pixelslash capture --upload` are the only commands that send page shots to a PixelSlash server, and they send them only to the server you name. The judge never sends one anywhere: its images go to the local model on this machine. The same CLI talks to the hosted app and to a self-hosted one.
 
-```
+```bash
 pixelslash upload DIR [--server URL] [--token-path PATH] [--project ID|NAME] [--subproject NAME] [--base BRANCH] [--branch NAME] [--pr N] [--brief FILE | --brief-text TEXT] [--config FILE] [--flake-retries N] [--concurrency N] [--judge] [--wait [--timeout DURATION] [--interval DURATION]]
 pixelslash upload --bundle DIR [--server URL] [--token-path PATH] [--project ID|NAME] [--subproject NAME] [--base BRANCH] [--branch NAME] [--pr N] [--brief FILE | --brief-text TEXT] [--config FILE] [--wait [--timeout DURATION] [--interval DURATION]]
 pixelslash upload --skipped [--server URL] [--token-path PATH] [--project ID|NAME] [--subproject NAME] [--base BRANCH] [--branch NAME] [--pr N] [--config FILE]
@@ -1181,7 +1181,7 @@ fi
 
 `pixelslash check` measures this checkout against the baselines the server would pick for it, and uploads nothing. It is `capture`, then the server's pick, then `compare`, all on this machine:
 
-```
+```bash
 pixelslash check [--config FILE] [--out DIR] [--base BRANCH] [--only NAME]... [--server URL] [--token-path PATH] [--project ID|NAME] [--flake-retries N] [--concurrency N] [--json]
 ```
 
@@ -1198,7 +1198,7 @@ pixelslash check [--config FILE] [--out DIR] [--base BRANCH] [--only NAME]... [-
 
 `bun run dogfood:upload` (in `apps/web`) captures the review app's own project, build, shot and commit review pages, light and dark, from a local build, and uploads them, so a UI change to `apps/web` is a build to review in our own workspace. CI runs it too: the `visual` job in `.github/workflows/ci.yml` uploads to the hosted app at `https://pixelslash.dev` on every pull request that changes the web app (with `--branch`, `--pr` and `--base` from the pull request) and on every push to `main` (`--branch main`, the baseline every pull request is compared with). The PixelSlash check on a pull request comes from that build. Without the `PIXELSLASH_TOKEN` secret (a fork's pull request) it prints `visual: no PIXELSLASH_TOKEN, skipping the upload` and passes, and it is not a required check.
 
-```
+```bash
 PIXELSLASH_SERVER=https://<server> PIXELSLASH_TOKEN_FILE=<path to a project's CI token> \
   bun run dogfood:upload -- --branch NAME [--base main] [--pr N]
 ```
@@ -1482,7 +1482,7 @@ A **flake**:
 
 Capture two windows with grim (automation is later), then compare:
 
-```
+```bash
 grim -g "$(slurp)" /tmp/widget-main.png
 grim -g "$(slurp)" /tmp/widget-branch.png
 bun run pixelslash -- --live-png /tmp/widget-main.png --local-png /tmp/widget-branch.png --label widget
@@ -1492,37 +1492,37 @@ Open the printed `report.html`.
 
 URL pair, no design system (pages already up):
 
-```
+```bash
 bun run pixelslash -- --live https://example.com --local http://127.0.0.1:4173 --out .pixelslash
 ```
 
 Main vs a branch preview, with a design system:
 
-```
+```bash
 bun run pixelslash -- --live https://example.com --local http://127.0.0.1:4173 --ds fixtures/ds --out .pixelslash
 ```
 
 Several routes, no design system (origins already up):
 
-```
+```bash
 bun run pixelslash -- --live https://example.com --local http://127.0.0.1:4173 --routes routes.txt --out .pixelslash
 ```
 
 Several routes, with a design system:
 
-```
+```bash
 bun run pixelslash -- --live https://example.com --local http://127.0.0.1:4173 --routes routes.txt --ds fixtures/ds --out .pixelslash
 ```
 
 Local screenshot shots (no URL, no Playwright, no DS):
 
-```
+```bash
 bun run pixelslash -- --live-png main.png --local-png branch.png --out .pixelslash
 ```
 
 GTK dirs + routes:
 
-```
+```bash
 bun run pixelslash -- --live-png-dir shots/main --local-png-dir shots/branch --routes routes.txt --ds fixtures/ds --out .pixelslash
 ```
 

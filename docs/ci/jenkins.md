@@ -112,7 +112,7 @@ pipeline {
 
 The container runs as root, so what it writes in the mounted directory belongs to root. A hosted runner is thrown away after the job, but a Jenkins workspace stays, and the next build may not be able to clean it. Running the container as the agent's user avoids that. For a capture, this ran on the GitHub Actions runner, and its files belonged to the runner's user. This is the form that ran, with the config and the output directory as mounts:
 
-```
+```bash
 docker run --rm --user "$(id -u):$(id -g)" --network host \
   -v "$PWD/as-user:/work/as-user" -v "$PWD/pixelslash.config.ts:/work/pixelslash.config.ts" \
   -e HOME=/tmp "$IMAGE" capture --out as-user/snaps
@@ -124,7 +124,7 @@ docker run --rm --user "$(id -u):$(id -g)" --network host \
 
 A pull request that turned a button green ended like this, as the plain shell ran on a GitHub Actions runner:
 
-```
+```text
 timing: 1 shot, diff 0.0s, total 0.1s
 visual gate: differences found, read the report
 pixelslash: 1 changed, 0 unchanged, 0 new, 0 removed

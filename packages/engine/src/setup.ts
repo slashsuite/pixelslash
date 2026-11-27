@@ -10,7 +10,7 @@ export type SetupArgs = { page: Page; context: BrowserContext; baseUrl: string }
  * The default export of a config's `setup` module. It runs once, after `start` and before the
  * first shot, and whatever it leaves in its context (cookies, local storage) is given to every
  * shot. So it can sign in through a form, or put a saved session's cookies in with
- * `context.addCookies`. The session is held in memory only: it is not written to the snapshot
+ * `context.addCookies`. The session is held in memory only: it is not written to the shot
  * dir, the manifest or an upload.
  */
 export type CaptureSetup = (args: SetupArgs) => Promise<void>;

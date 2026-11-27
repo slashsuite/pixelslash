@@ -16,7 +16,7 @@ import { unfinished } from "#/db/server-timings";
  * The claim is a lease, and the build status writes are fenced on it (PS-392): the end of a run
  * writes its verdict or its error only where `status` is `processing` and `processingStartedAt` is
  * the run's own, so a run still alive past the bound cannot overwrite its successor's status. A
- * zombie run's per-snapshot writes (`diffKey`, `diffStatus`) are not fenced.
+ * zombie run's per-shot writes (`diffKey`, `diffStatus`) are not fenced.
  */
 export const STALE_PROCESSING_MS = 5 * 60 * 1000;
 

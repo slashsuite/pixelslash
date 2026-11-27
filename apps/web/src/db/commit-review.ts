@@ -8,7 +8,7 @@ import { builds } from "./schema";
 /*
  * The combined review of a top-level project and its subprojects on one commit: every shot that
  * holds a change, waiting or decided, in the newest build of each member there. The rows are each
- * build's own snapshot rows, so a decision made here is the one its build page shows, and the
+ * build's own `snapshots` rows, so a decision made here is the one its build page shows, and the
  * reverse. A member that did not run on the commit (`commitGroup`: no build, or a skipped one) is
  * listed as not run, with its last build elsewhere, and counts no change.
  */

@@ -83,7 +83,7 @@ const image = async (ctx: Ctx, url: string): Promise<string> =>
 
 /**
  * `get_snapshot`: the API's record, plus the layout metrics file (`docs/metrics.md`) inline as
- * `metrics` when the snapshot has one, so an agent reads the parts without fetching a signed URL.
+ * `metrics` when the shot has one, so an agent reads the parts without fetching a signed URL.
  * No metrics, no extra field and no extra request. The file is data, not pixels.
  */
 async function snapshotRecord(ctx: Ctx, args: Args): Promise<CallToolResult> {
@@ -95,7 +95,7 @@ async function snapshotRecord(ctx: Ctx, args: Args): Promise<CallToolResult> {
   return text(pretty({ ...r.body, snapshot: { ...shot, metrics } }));
 }
 
-/** `get_snapshot_images`: the PNGs the snapshot has, each after a line naming it. */
+/** `get_snapshot_images`: the PNGs the shot has, each after a line naming it. */
 async function snapshotImages(ctx: Ctx, args: Args): Promise<CallToolResult> {
   const sid = need(args, "snapshot_id");
   const which = arg(args, "which");

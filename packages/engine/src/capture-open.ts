@@ -15,7 +15,7 @@ export type Opened = {
   storyMs?: number;
 };
 
-/** A shot's capture steps: what opening the page measured, with the setup before it and the screenshot and measure after. */
+/** A shot's capture steps: what opening the page measured, with the setup before it and the shot and measure after. */
 export function stepsOf(
   opened: Opened,
   parts: { setupMs: number; screenshotMs: number; measureMs: number },

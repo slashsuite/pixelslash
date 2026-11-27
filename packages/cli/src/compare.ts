@@ -36,7 +36,7 @@ function failCompare(failed: SnapshotCompareResult["failed"], io: Io): number {
   return INTERNAL_EXIT;
 }
 
-/** `pixelslash compare MAIN_DIR BRANCH_DIR`: diff two snapshot dirs locally. Exit 0; 2 on a bad dir or manifest; 7 when the diff threw on a shot, which is then `not compared`. */
+/** `pixelslash compare MAIN_DIR BRANCH_DIR`: diff two shot dirs locally. Exit 0; 2 on a bad dir or manifest; 7 when the diff threw on a shot, which is then `not compared`. */
 export async function runCompare(argv: string[], io: Io): Promise<number> {
   const [mainDir, branchDir, ...rest] = argv;
   if (!mainDir || mainDir.startsWith("--") || !branchDir || branchDir.startsWith("--"))

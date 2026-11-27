@@ -33,7 +33,7 @@ export async function readShot(dir: string, e: SnapshotEntry) {
 
 /**
  * One shot's upload: its meta and PNG; in a CI project, what it measured against each baseline;
- * for a flaky shot, the flake record and every re-capture as `flake:<run>` (ob 1737); and the
+ * for a flaky shot, the flaky-shot record and every re-capture as `flake:<run>` (ob 1737); and the
  * judge's sentence, when it wrote one (ob 1745). A shot with a metrics file sends it as `metrics`.
  * A shot the server already holds (`byHash`, PS-424) names the image by `meta.sha256` and sends no `file`.
  */
@@ -75,7 +75,7 @@ export function snapshotForm(
 
 /**
  * One shot of a batch: the meta a PUT sends for a shot registered by hash, with the hash.
- * Only a shot with nothing but its meta to send is batched (no metrics file, CI result or flake
+ * Only a shot with nothing but its meta to send is batched (no metrics file, CI result or flaky-shot
  * record), so this is the whole of what its PUT would carry.
  */
 export function batchItem(e: SnapshotEntry, sha256: string, note: string | null) {

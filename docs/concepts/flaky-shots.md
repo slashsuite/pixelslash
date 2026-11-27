@@ -43,13 +43,13 @@ The `stabilise` settings stop a page moving while it is shot. These are the defa
 
 A page with an infinite CSS animation, an interval counter and a `requestAnimationFrame` loop, shot twice with these defaults:
 
-```
+```text
 pixelslash: 0 changed, 1 unchanged, 0 new, 0 removed
 ```
 
 The same page with `"stabilise": { "animations": false, "clock": false, "timers": false }`:
 
-```
+```text
 pixelslash: 1 changed, 0 unchanged, 0 new, 0 removed
 changed:
   anim (chromium 1280x720)
@@ -67,11 +67,11 @@ If the captures disagree with each other, the shot is flaky. That says nothing a
 
 A shot needs a baseline before it can be detected. The first upload of a new shot measures it against nothing, so it isn't captured again and `flakes` lists nothing yet. The second upload is where it shows:
 
-```
+```bash
 npx pixelslash capture --upload --out snapshots/f1
 ```
 
-```
+```text
 pixelslash: 3 snapshots
 pixelslash: uploaded 3 snapshots
 build: b58931e1-… (2937d20 on flaky-branch)
@@ -83,7 +83,7 @@ Detection is a sample. A shot that happens to agree three times is reported as a
 
 That `report.html` shows each run side by side and lists where they differed. The extra captures are kept in `@flake/` beside the shots. Its first lines count what happened:
 
-```
+```text
 1 flaky · 0 changed in every run · 0 not captured again · each changed shot captured 2 more times
 ```
 
@@ -106,22 +106,22 @@ Storybook stories use the tags `pixelslash-flaky-review` and `pixelslash-flaky-s
 
 `pixelslash flakes` lists the open flaky shots on the server:
 
-```
+```bash
 npx pixelslash flakes
 ```
 
-```
+```text
 a5453507-…  rand (chromium 1280x720 light)  1 build  2026-11-05T13:55:30.832Z
 reproduce one locally: pixelslash flake ID
 ```
 
 `pixelslash flake ID` then captures that one shot several times on your machine and compares each run with the first. Your `baseUrl` must already be up. Nothing is uploaded.
 
-```
+```bash
 npx pixelslash flake a5453507-… --runs 4 --out fl1
 ```
 
-```
+```text
 flake a5453507-…: rand (chromium 1280x720 light), open; capturing it 4 times here
 run 2: same
 run 3: differed (real change)
@@ -139,7 +139,7 @@ It exits 6 when the shot is unstable and 0 when it is stable. `--runs` defaults 
 
 `--suggest` prints the exact edits without writing them:
 
-```
+```text
   1: routes[2].variants.chromium-1280x720-light.ignore += {"x":20,"y":20,"width":200,"height":60}
   2: routes[2].flaky = "skip"
 nothing written; --write writes the one you pick
@@ -147,7 +147,7 @@ nothing written; --write writes the one you pick
 
 `--write` asks at the terminal and writes the number you type. Once the shot is stable here, `--resolve` closes the flaky shot on the server. While it's unstable, it refuses:
 
-```
+```text
 not resolved: the shot is still unstable here
 ```
 

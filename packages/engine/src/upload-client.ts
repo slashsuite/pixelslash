@@ -149,7 +149,7 @@ async function attempt(client: Client, call: Call): Promise<Attempt> {
 /**
  * One request to the API; anything but 2xx is an UploadError naming the step and carrying the
  * server's answer. A failure the API never answered is tried again, up to TRIES in all: every
- * step is safe to repeat (a snapshot sent again replaces itself, a finalise again with the same
+ * step is safe to repeat (a shot sent again replaces itself, a finalise again with the same
  * count is a no-op), and a repeated open at worst leaves an empty, unfinalised build behind.
  */
 export async function send(client: Client, call: Call): Promise<unknown> {

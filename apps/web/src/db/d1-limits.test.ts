@@ -86,7 +86,7 @@ describe(`a build of ${SHOTS} shots on a local D1 (ob 1773)`, () => {
     });
     expect(wide.length).toBeGreaterThan(0);
 
-    // The snapshot pages: the first, a middle and the last shot.
+    // The shot pages: the first, a middle and the last shot.
     const picked = [view.snapshots[0], view.snapshots[SHOTS >> 1], view.snapshots.at(-1)];
     for (const snapshot of picked.map((s) => must(s, "a picked shot"))) {
       await snapshotDiffOptions(ctx.db, snapshot.id);

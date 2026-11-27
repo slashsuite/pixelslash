@@ -37,7 +37,7 @@ export type NewBuild = {
   renderPlan?: string | null;
 };
 
-/** What a snapshot is: a name and a fixed variant, plus what rendered it. */
+/** What a shot is: a name and a fixed variant, plus what rendered it. */
 export type SnapshotInput = {
   name: string;
   platform: string;
@@ -87,7 +87,7 @@ export class ImageUnknownError extends Error {
   }
 }
 
-/** Finalise named a snapshot count the build does not hold. */
+/** Finalise named a shot count the build does not hold. */
 export class SnapshotCountError extends Error {
   constructor(expected: number, actual: number) {
     super(`build holds ${actual} snapshots, finalise expected ${expected}`);
@@ -288,13 +288,13 @@ function whileUploading(buildId: string, row: typeof snapshots.$inferInsert): SQ
 }
 
 /**
- * Store a snapshot's PNG and its row. Sending the same name + variant again replaces the row, which
+ * Store a shot's PNG and its row. Sending the same name + variant again replaces the row, which
  * then names the second PNG's blob. The PNG is stored once per org under its hash, so bytes the org
  * already holds are not written again. The blob goes first, so a failed put leaves no row to count.
  *
  * A shot sent by hash (PS-424) has no PNG: its row takes `imageKey`, `imageSha256` and `imageSize`
  * from a finished build of the same project that holds that hash, and everything else (masks,
- * metrics, flake captures) is stored under the shot's own stem as for any shot. With no such
+ * metrics, flaky-shot captures) is stored under the shot's own stem as for any shot. With no such
  * build it throws `ImageUnknownError` before anything is written. A hash is never trusted for
  * bytes the server received: a shot sent with its PNG is hashed here.
  */
@@ -362,7 +362,7 @@ export async function putSnapshot(
 
 /**
  * Close the build to further uploads and hand it to processing. `expected` is how many
- * snapshots the client sent: a short count means an upload was lost, so the build stays open.
+ * shots the client sent: a short count means an upload was lost, so the build stays open.
  * Finalising twice is fine (a retry after a lost reply); a changed count after that is not.
  */
 export async function finaliseBuild(
@@ -388,7 +388,7 @@ export async function finaliseBuild(
 }
 
 /**
- * The diff options a snapshot is to be compared with, as the customer's config resolved them at
+ * The diff options a shot is to be compared with, as the customer's config resolved them at
  * upload. Keys left out take the engine default. The server diff reads them here.
  */
 export async function snapshotDiffOptions(db: Db, snapshotId: string): Promise<DiffOptions> {

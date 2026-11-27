@@ -9,7 +9,7 @@ import { causeJson } from "./twins-section";
 import { BadRequest } from "./validate";
 
 /**
- * The parity view over the API (PS-298): one snapshot key of a build on web, android and ios, the
+ * The parity view over the API (PS-298): one shot key of a build on web, android and ios, the
  * metrics comparison of PS-296 and a similarity hint per native column. A read of stored shots and
  * metrics files; the score is a hint and feeds no status, check or count.
  */

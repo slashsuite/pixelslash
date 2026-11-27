@@ -90,7 +90,7 @@ const remote = async (api: Pick<ReturnType<typeof fakeApi>, "fetch">) => ({
   cwd: await tmp(),
 });
 
-/** A stub of the flake endpoints, enough for `flake f1` to capture the shot it names. */
+/** A stub of the flaky-shot endpoints, enough for `flake f1` to capture the shot it names. */
 async function flakeFetch(raw: string) {
   const path = new URL(raw).pathname;
   if (path === "/api/v1/me") return Response.json({ kind: "user", user: { id: "u1", login: "a" } });

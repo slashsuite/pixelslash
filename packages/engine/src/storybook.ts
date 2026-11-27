@@ -42,15 +42,15 @@ function slug(text: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-/** A global's name or value inside a snapshot name: case kept, anything outside `A-Za-z0-9_.-` a `-`. */
+/** A global's name or value inside a shot name: case kept, anything outside `A-Za-z0-9_.-` a `-`. */
 function globalSlug(text: string): string {
   return text.replace(/[^A-Za-z0-9_.-]+/g, "-");
 }
 
 /**
- * The snapshot name for a story under one set of globals: `<title>-<story name>` slugged, then
+ * The shot name for a story under one set of globals: `<title>-<story name>` slugged, then
  * `@<global>=<value>` per global in the order the config lists them. It is what the server keys a
- * snapshot on, so it is built from the index entry alone and must not depend on anything that
+ * shot on, so it is built from the index entry alone and must not depend on anything that
  * changes between runs. It stays inside a path segment's alphabet (plus `@` and `=`).
  */
 function storyName(story: Story, combo: [string, string][]): string {
@@ -88,7 +88,7 @@ function isObj(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
-/** The stories in a Storybook 7+ `index.json` (`entries`); docs pages are not snapshots. */
+/** The stories in a Storybook 7+ `index.json` (`entries`); docs pages are not shots. */
 function storiesIn(index: unknown, url: string): Story[] {
   if (!isObj(index) || !isObj(index["entries"]))
     throw new CaptureError(`storybook: ${url} has no "entries": needs Storybook 7 or later`);
@@ -126,7 +126,7 @@ async function readIndex(url: string): Promise<unknown> {
 /**
  * One route per story × combination of globals, read from the running Storybook's `index.json`;
  * a story tagged `ONCE_TAG` is one route, at the globals' defaults. `taken` is the hand-written routes' names: a story that lands on one, or two that land on each
- * other, is a config error. A Storybook with nothing left after include/exclude is one too, since
+ * other, is a config error. A Storybook index with nothing left after include/exclude is one too, since
  * a run that shoots nothing would pass for ever.
  */
 export async function storybookRoutes(sb: StorybookConfig, taken: string[]): Promise<Route[]> {
@@ -202,7 +202,7 @@ function storyState(): StoryState | null {
 
 /**
  * Wait until Storybook says the story rendered, within `timeoutMs`. A story that errors, or one
- * that never renders, fails the capture naming the snapshot.
+ * that never renders, fails the capture naming the shot.
  */
 export async function awaitStory(
   page: Pick<Page, "waitForFunction">,

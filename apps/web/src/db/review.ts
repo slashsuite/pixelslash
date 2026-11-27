@@ -101,7 +101,7 @@ export type SnapshotView = {
   cacheHit: boolean;
   /** Why the shot could not be measured, when it could not. */
   diffError: string | null;
-  /** The flake it is labelled with (ob 1724): detected on upload, open for its key, or marked. */
+  /** The flaky shot it is labelled with (ob 1724): detected on upload, open for its key, or marked. */
   flakeId: string | null;
   /** The flaky policy its config sent; null is `review`. */
   flakyPolicy: FlakyPolicy | null;

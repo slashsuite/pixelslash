@@ -12,7 +12,7 @@ import { png } from "./png";
  *
  * The seed is the case that widens a page: a tall shot with a thin change, a 1300 px shot, a shot
  * with a long name that a summary link must cut, and a branch build carried over from the one
- * before it, so the snapshot page shows its "Compared with" switch. The parity page is left out: it
+ * before it, so the shot page shows its "Compared with" switch. The parity page is left out: it
  * needs the same key shot on web, Android and iOS, and no browser test opened it before this loop.
  */
 

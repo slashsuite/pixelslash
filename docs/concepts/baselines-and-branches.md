@@ -6,7 +6,7 @@ A baseline is the image a new shot is measured against. Where it comes from depe
 
 Locally there is no baseline to look up. You name both sides, and that is the comparison:
 
-```
+```bash
 npx pixelslash compare snapshots/main snapshots/branch --out compare
 ```
 
@@ -29,12 +29,12 @@ A previous shot with an undecided change is not accepted, so it only counts as a
 
 The first upload of a project's default branch has nothing to compare against. Every shot is new and accepted, and the build passes:
 
-```
+```bash
 npx pixelslash capture --upload --out snapshots/main
 npx pixelslash status --dir snapshots/main
 ```
 
-```
+```text
 passed: 0 waiting · 2 accepted · 0 rejected
 ```
 
@@ -42,12 +42,12 @@ passed: 0 waiting · 2 accepted · 0 rejected
 
 A branch with no build of its own goes straight to step 2, the accepted shots at its merge-base. Here a branch changed its button, and that showed up on both of its pages:
 
-```
+```bash
 npx pixelslash capture --upload --out snapshots/branch
 npx pixelslash status --dir snapshots/branch
 ```
 
-```
+```text
 changes: 2 waiting · 0 accepted · 0 rejected
 ```
 
@@ -57,7 +57,7 @@ changes: 2 waiting · 0 accepted · 0 rejected
 
 A shot with no baseline from either step is `new`. On a branch, it waits for review like a change does, because somebody should look at it once. Adding a third route to that branch gave:
 
-```
+```text
 changes: 1 waiting · 0 accepted · 0 rejected
 ```
 
@@ -69,7 +69,7 @@ Accepting records that a person looked at a change and meant it. The accepted im
 
 An acceptance reaches other builds that carry the same change, and it survives a rebase or an amend. A new commit on the branch that changes nothing visible has nothing to review:
 
-```
+```text
 passed: 0 waiting · 0 accepted · 0 rejected
 ```
 
@@ -81,13 +81,13 @@ A baseline must be an image somebody could still approve of. So a build with a r
 
 This has a useful effect. If you reject a change and upload the same pixels again, the new build is measured against the last good shot, and the change is back in front of you:
 
-```
+```text
 failed: 1 waiting · 0 accepted · 1 rejected
 ```
 
 and after the next upload:
 
-```
+```text
 changes: 2 waiting · 0 accepted · 0 rejected
 ```
 

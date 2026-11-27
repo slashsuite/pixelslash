@@ -14,7 +14,7 @@ import type { WindowFigures } from "#/db/window-figures";
 import { formatDuration, formatNumber } from "#/lib/format";
 import { P95_MIN_BUILDS, P99_MIN_COMPARES, type StepStats } from "#/lib/timings";
 
-/** Each build's snapshots and compare times on the operator health page (PS-336). */
+/** Each build's shots and compare times on the operator health page (PS-336). */
 
 const ms = (v: number) => formatDuration(v, { exact: true });
 
@@ -79,8 +79,8 @@ function Figures({
 }
 
 /**
- * The window's two figures above the per-build table (PS-342): how many snapshots a build holds and
- * how long a snapshot's compare takes, over every build that ended in the window. The per-build
+ * The window's two figures above the per-build table (PS-342): how many shots a build holds and
+ * how long a shot's compare takes, over every build that ended in the window. The per-build
  * table below cannot say it: a build rarely has the compares a p99 needs.
  */
 export function WindowFiguresLine({ figures, testId }: { figures: WindowFigures; testId: string }) {

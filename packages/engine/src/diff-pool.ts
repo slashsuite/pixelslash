@@ -1,6 +1,6 @@
 /**
  * The local comparisons, on at most `PIXELSLASH_DIFF_CORES` cores (`diff-cores.ts`). Every Bun call
- * site that diffs two PNGs (`compare`, `check`, `dev`, the upload's measure, the flake re-checks)
+ * site that diffs two PNGs (`compare`, `check`, `dev`, the upload's measure, the flaky-shot re-checks)
  * goes through `pooledDiff` or `pooledMeasure`, which run in the pool of the enclosing
  * `withDiffPool` scope, or in a pool of their own when there is none. With one core the diff runs
  * in-process, as it always did; with more, each comparison runs in a Bun `Worker` (`diff-worker.ts`),

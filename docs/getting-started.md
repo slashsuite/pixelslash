@@ -6,13 +6,13 @@ Install PixelSlash, compare two versions of a page, and read the report it write
 
 PixelSlash is a Bun CLI that ships on npm. It needs [Bun](https://bun.sh) on your `PATH`, and this page uses npm and `npx` to run it. If you do not have Bun yet, this is the install line from [bun.sh](https://bun.sh):
 
-```
+```bash
 curl -fsSL https://bun.sh/install | bash
 ```
 
 Then start in an empty directory:
 
-```
+```bash
 mkdir my-site && cd my-site
 npm init -y
 npm i -D @slashsuite/pixelslash
@@ -23,7 +23,7 @@ npx pixelslash install-browser
 
 Check that it runs:
 
-```
+```console
 $ npx pixelslash --version
 pixelslash 0.1.0
 ```
@@ -36,7 +36,7 @@ That number is the engine inside the package, not the package itself. `npm ls @s
 
 If you have an app, run it twice, on main and on your branch, and skip to the next section. Otherwise, make a small page:
 
-```
+```bash
 mkdir main
 cat > main/index.html <<'HTML'
 <!doctype html>
@@ -60,27 +60,27 @@ HTML
 
 Copy it to Branch and turn the button green there. This is GNU `sed`; on a Mac, use `sed -i ''`, or edit the file by hand:
 
-```
+```bash
 cp -r main branch
 sed -i 's/#2563eb/#16a34a/' branch/index.html
 ```
 
 Serve each copy on its own port, and leave them running:
 
-```
+```bash
 npx --yes serve -l 4101 main &
 npx --yes serve -l 4102 branch &
 ```
 
 ## Compare two URLs
 
-```
+```bash
 npx pixelslash --live http://localhost:4101 --local http://localhost:4102 --out .pixelslash
 ```
 
 It captures both pages once each has settled, diffs them, and prints where the report is:
 
-```
+```text
 pixelslash: 3091 changed pixels
 report: file:///…/my-site/.pixelslash/report.html
 timing: 1 shot, capture 0.7s, diff 0.0s, total 0.7s
@@ -90,7 +90,7 @@ Your count can differ from this one, because your machine has different fonts.
 
 `--out` (default `.pixelslash`) now holds the whole run:
 
-```
+```console
 $ ls .pixelslash
 branch.png  diff.png  live.png  local.png  main.png  manifest.json  report.html
 ```
@@ -119,12 +119,12 @@ The report tells you what changed. Whether the change is right is for you to dec
 
 Say you did not mean it. Put the button back on Branch, and run again:
 
-```
+```bash
 cp main/index.html branch/index.html
 npx pixelslash --live http://localhost:4101 --local http://localhost:4102 --out .pixelslash
 ```
 
-```
+```text
 pixelslash: 0 changed pixels
 report: file:///…/my-site/.pixelslash/report.html
 timing: 1 shot, capture 0.7s, diff 0.0s, total 0.7s
@@ -134,7 +134,7 @@ timing: 1 shot, capture 0.7s, diff 0.0s, total 0.7s
 
 Right after that run:
 
-```
+```console
 $ echo $?
 0
 ```
@@ -145,12 +145,12 @@ The exit code is 0 for a pixel-only run, changed or not: the first run, with its
 
 Already have shots? Hand them over and skip the browser. These two came from the run above:
 
-```
+```bash
 cp .pixelslash/main.png .pixelslash/branch.png .
 npx pixelslash --live-png main.png --local-png branch.png --out .pixelslash --label "button colour"
 ```
 
-```
+```text
 pixelslash: 0 changed pixels
 report: file:///…/my-site/.pixelslash/report.html
 timing: 1 shot, diff 0.0s, total 0.0s

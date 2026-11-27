@@ -2,7 +2,7 @@ import { signedImagePath } from "#/storage/signed";
 import { imageSigningSecret } from "./env";
 
 /**
- * Images are only ever handed out as signed, short-lived URLs (invariant 5). Snapshot rows hold
+ * Images are only ever handed out as signed, short-lived URLs (invariant 5). `snapshots` rows hold
  * keys inside the org's prefix; the URL carries the full blob key, so the route needs no database.
  */
 export async function imageUrls(

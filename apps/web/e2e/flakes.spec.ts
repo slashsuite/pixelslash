@@ -3,7 +3,7 @@ import { CHANGED, SHA_MAIN, SHA_WORK, WHITE, uploadBuild } from "./api-upload";
 import { showPanel } from "./snapshot-viewer";
 
 /**
- * Flakes on the server (ob 1724): a flaky shot under each policy, uploaded as the CLI sends it,
+ * Flaky shots on the server (ob 1724): a flaky shot under each policy, uploaded as the CLI sends it,
  * gets its badge and the build's summary line; the policy control copies a config line; the
  * Flakes list resolves and reopens. The uploads go straight to the API: the CLI's re-capture
  * needs a browser, and what the server stores is the same form either way.
@@ -88,7 +88,7 @@ test("a flaky shot under each policy: badge, summary line, config line, resolve 
   await expect(ticker).toHaveAttribute("data-status", "resolved");
   await expect(ticker.getByTestId("flake-resolution")).toContainText("by e2e-octocat");
   await expect(ticker.getByTestId("flake-resolution")).toContainText("froze the ticker");
-  // Open flakes first: the resolved one moves below the open one.
+  // Open flaky shots first: the resolved one moves below the open one.
   await expect(flakes.first()).toContainText("hero");
   await ticker.getByRole("button", { name: "Reopen" }).click();
   await expect(ticker).toHaveAttribute("data-status", "open");

@@ -151,7 +151,7 @@ function mask(v: unknown, where: string): Mask {
   return parseArea(v, where, bad);
 }
 
-/** A route or variant name: it becomes a path segment in the snapshot dir. */
+/** A route or variant name: it becomes a path segment in the shot dir. */
 function fileName(v: unknown, where: string, fallback: string): string {
   const name = v === undefined ? fallback : str(v, where);
   if (!/^[a-zA-Z0-9_.-]+$/.test(name) || /^\.+$/.test(name))
@@ -315,7 +315,7 @@ export function parseConfig(raw: unknown): CaptureConfig {
 }
 
 /**
- * The diff options a snapshot is compared with: variant > route > project > engine default.
+ * The diff options a shot is compared with: variant > route > project > engine default.
  * Only keys someone set are in the result, so the engine default still applies to the rest.
  * The one place the layers are combined; a UI override layer goes on top here.
  */
@@ -324,7 +324,7 @@ export function resolveDiff(config: CaptureConfig, shot: Route, as: Variant): Di
 }
 
 /**
- * The ignore areas a snapshot is captured with: project, then route, then variant, all added
+ * The ignore areas a shot is captured with: project, then route, then variant, all added
  * together (an ignore area is something to skip, so a layer can only add). Selectors are resolved
  * to boxes in the page at capture time; rectangles are CSS px.
  */
