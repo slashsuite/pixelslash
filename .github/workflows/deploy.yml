@@ -41,6 +41,7 @@ jobs:
       actions: read
     outputs:
       sha: ${{ steps.sha.outputs.sha }}
+      go: ${{ steps.wait.outputs.go }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -63,35 +64,59 @@ jobs:
           echo "deploying $sha"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
       # The newest CI run of a push on main for that commit. A run not there yet (both workflows start on
-      # the same push) or not finished is asked again every 30 s; any conclusion but success stops here.
+      # the same push), not finished, or an API call that failed is asked again every 30 s. Success goes on;
+      # cancelled or skipped (ci.yml drops a queued main run when a newer push comes) ends green with no
+      # deploy; any other conclusion fails. A push run whose commit is no longer main's tip by then does not
+      # deploy either: the newer push's run deploys that.
       - name: Wait for CI on that commit
+        id: wait
         env:
+          EVENT: ${{ github.event_name }}
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ steps.sha.outputs.sha }}
         run: |
           while true; do
-            run="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$SHA&event=push&branch=main&per_page=1" \
-              --jq '.workflow_runs[0] | select(.) | "\(.status) \(.conclusion) \(.html_url)"')"
-            if [ -z "$run" ]; then
+            if ! run="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$SHA&event=push&branch=main&per_page=1" \
+              --jq '.workflow_runs[0] | select(.) | "\(.status) \(.conclusion) \(.html_url)"')"; then
+              echo "the runs API did not answer; asking again"
+            elif [ -z "$run" ]; then
               echo "no CI run for $SHA yet"
             else
               read -r status conclusion url <<< "$run"
               echo "CI $url: $status $conclusion"
               if [ "$status" = "completed" ]; then
-                [ "$conclusion" = "success" ] && exit 0
-                echo "::error::CI on $SHA ended $conclusion: $url"
-                exit 1
+                case "$conclusion" in
+                  success) break ;;
+                  cancelled | skipped)
+                    echo "::notice::CI on $SHA was $conclusion, so it is not deployed"
+                    echo "go=false" >> "$GITHUB_OUTPUT"
+                    exit 0
+                    ;;
+                  *)
+                    echo "::error::CI on $SHA ended $conclusion: $url"
+                    exit 1
+                    ;;
+                esac
               fi
             fi
             sleep 30
           done
+          git fetch --quiet origin main
+          if [ "$EVENT" = "push" ] && [ "$(git rev-parse origin/main)" != "$SHA" ]; then
+            echo "::notice::main has moved past $SHA; the newer push deploys"
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "go=true" >> "$GITHUB_OUTPUT"
 
   deploy:
     needs: ci
+    if: needs.ci.outputs.go == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # One production deploy at a time, and a running one is never cancelled (a deploy cut short could
-    # leave the migrations applied and the Worker not). A newer deploy waiting replaces an older one waiting.
+    # leave the migrations applied and the Worker not). A deploy waiting for approval holds the group, so
+    # later ones queue behind it (the newest replacing the one queued); approve or reject it to let them on.
     concurrency:
       group: production
       cancel-in-progress: false
@@ -110,20 +135,35 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: .tool-versions
-      - run: bun install --frozen-lockfile
+      # A push run approved after main moved on would ship an older commit than the tip: it stops here,
+      # green, and the newer push's run deploys. A manual run deploys the sha it names (a rollback).
+      - name: Still main's tip
+        id: tip
+        if: github.event_name == 'push'
+        run: |
+          git fetch --quiet origin main
+          if [ "$(git rev-parse origin/main)" != "$SHA" ]; then
+            echo "::notice::main has moved past $SHA; the newer push deploys"
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.tip.outputs.stale != 'true'
+        run: bun install --frozen-lockfile
       # Without CLOUDFLARE_ENV=production the build is the top level's (placeholder D1, no route), and
       # wrangler deploy would publish a different Worker.
       - name: Build env.production
+        if: steps.tip.outputs.stale != 'true'
         working-directory: apps/web
         run: CLOUDFLARE_ENV=production bun run build
       # Before the deploy that needs them; the only step that changes the database.
       - name: Apply the D1 migrations
+        if: steps.tip.outputs.stale != 'true'
         working-directory: apps/web
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: bunx wrangler d1 migrations apply pixelslash --remote --env production
       - name: Deploy the Worker
+        if: steps.tip.outputs.stale != 'true'
         working-directory: apps/web
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -131,8 +171,10 @@ jobs:
         run: bunx wrangler deploy --var SENTRY_RELEASE:"$(git rev-parse --short HEAD)"
       # The live page names the commit it was built from (apps/web/build-commit.ts); up to two minutes.
       - name: Check the live commit
+        if: steps.tip.outputs.stale != 'true'
         run: bun scripts/check-commit.ts https://pixelslash.dev/ "$SHA"
       - name: Smoke
+        if: steps.tip.outputs.stale != 'true'
         env:
           MOON_BASE: origin/main
           SMOKE_BASE_URL: https://pixelslash.dev

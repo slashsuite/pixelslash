@@ -460,8 +460,11 @@ pointed at anything but github.com.
 Production deploys run from `.github/workflows/deploy.yml`. Every push to `main` starts it: it waits for that
 commit's CI run, and once CI succeeds the `deploy` job asks for approval in the `production` environment. After
 one click (the run's page, **Review deployments**) it runs the steps below in order: the production build, the
-D1 migrations, `wrangler deploy` with `SENTRY_RELEASE`, `scripts/check-commit.ts` and `web:smoke`. A deploy
-nobody approves just waits; reject it to drop it. One runs at a time and a running one is never cancelled.
+D1 migrations, `wrangler deploy` with `SENTRY_RELEASE`, `scripts/check-commit.ts` and `web:smoke`. One runs at a
+time and a running one is never cancelled. A deploy waiting for approval holds the queue, so later pushes wait
+behind it: approve or reject it. A push's deploy whose commit is no longer `main`'s tip by the time it is
+approved stops green without deploying, and the newer push's deploy ships the tip. A push whose CI run was
+cancelled (a newer push replaced it) is not deployed either.
 
 To deploy (or roll back to) a given commit on `main`, run it by hand with that sha; it still needs CI green on
 that commit and the same approval:
