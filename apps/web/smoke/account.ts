@@ -8,10 +8,11 @@
 import { readFile } from "node:fs/promises";
 import { randomToken } from "#/lib/crypto";
 import { smokeAccountSql } from "#/db/smoke-account";
+import { USER_PREFIX } from "#/db/tokens";
 
 const command = process.argv[2];
 if (command === "token") {
-  process.stdout.write(`${randomToken("psu_")}\n`);
+  process.stdout.write(`${randomToken(USER_PREFIX)}\n`);
 } else if (command === "sql") {
   const file = process.env["SMOKE_TOKEN_FILE"];
   const token = (file ? await readFile(file, "utf8") : (process.env["SMOKE_TOKEN"] ?? "")).trim();

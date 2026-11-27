@@ -133,7 +133,9 @@ exit $status'
   if [[ -n ${PIXELSLASH_PUBLIC_URL:-} ]]; then
     bun scripts/check-commit.ts "${PIXELSLASH_PUBLIC_URL%/}/" "$sha"
     if [[ -n ${SMOKE_TOKEN_FILE:-}${SMOKE_TOKEN:-} ]]; then
-      (cd apps/web && SMOKE_BASE_URL="$PIXELSLASH_PUBLIC_URL" bun --bun vitest run -c vitest.smoke.config.ts)
+      # moon runs the task from apps/web, so a token file named relative to here is made absolute first.
+      [[ -z ${SMOKE_TOKEN_FILE:-} ]] || SMOKE_TOKEN_FILE=$(realpath "$SMOKE_TOKEN_FILE")
+      SMOKE_BASE_URL="$PIXELSLASH_PUBLIC_URL" SMOKE_TOKEN_FILE="${SMOKE_TOKEN_FILE:-}" bun scripts/moon.ts run web:smoke
     fi
   else
     echo "check it with: bun scripts/check-commit.ts <the CT's URL> $sha" >&2

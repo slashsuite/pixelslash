@@ -538,7 +538,8 @@ hostname, so a deploy never touches any other record.
 
 **pixelslash.dev is the only host.** The app used to live on `app.pixelslash.dev`, and the apex was the
 docs site, whose pages now live on slashslash.build. The old app host has no route and no DNS record
-any more, and its OAuth callbacks are gone. The app's entry still answers the old docs site's paths
+any more. Sign-in calls back to pixelslash.dev only, so the old host's callback URLs in the GitHub and
+Google OAuth settings are unused, and are still to be removed there by hand. The app's entry still answers the old docs site's paths
 (`src/server/moved.ts`) before any route runs: `/docs`, `/docs/<slug>`, `/security`, `/self-host`,
 `/how-it-works`, `/compare`, `/pricing`, `/search-index.json` and `/sitemap.xml` 301 to their
 slashslash.build address, the query kept.

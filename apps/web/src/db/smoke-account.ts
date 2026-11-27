@@ -1,4 +1,5 @@
 import { sha256Hex } from "#/lib/crypto";
+import { USER_PREFIX } from "./tokens";
 
 /**
  * The deployed smoke's account: one user, one synthetic org (`is_smoke`, so no count or admin figure
@@ -15,8 +16,6 @@ export const SMOKE = {
   projectName: "smoke",
   tokenId: "smoke-token",
 } as const;
-
-const USER_PREFIX = "psu_";
 
 /**
  * The statements that make (or refresh) the smoke account on a migrated database, as one SQL text
