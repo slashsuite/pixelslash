@@ -27,23 +27,33 @@ const shot = (name: string, extra: Record<string, unknown> = {}) => ({
   ...extra,
 });
 
-/** The build read for `id`, as the server would answer it at `step`. */
-const buildAt = (id: string, step: Step, snapshots = [shot("home")]) => ({
-  api_version: 1,
-  build: {
-    ...build(id),
-    status: step,
-    error: step === "errored" ? "diff ceiling" : null,
-    counts: { ...build(id).counts, ...COUNTS[step] },
-    snapshots,
-  },
-});
+/** A step, or an `errored` build with that error. */
+type Read = Step | { error: string };
+
+const ceiling = (left: number) => ({ error: `diff ceiling: ${left} left` });
+
+/** The build read for `id`, as the server would answer it at `read`. */
+const buildAt = (id: string, read: Read, snapshots = [shot("home")]) => {
+  const at = read === "errored" ? { error: "diff ceiling" } : read;
+  const step = typeof at === "string" ? at : "errored";
+  const error = typeof at === "string" ? null : at.error;
+  return {
+    api_version: 1,
+    build: {
+      ...build(id),
+      status: step,
+      error,
+      counts: { ...build(id).counts, ...COUNTS[step] },
+      snapshots,
+    },
+  };
+};
 
 /**
  * `fakeApi`, with `/api/v1/builds/<id>` walking `steps` one read at a time and staying on the
  * last. A fake clock: `sleep` moves `now` on, so a timeout costs no real time.
  */
-function walk(steps: Step[], id = "b2", snapshots?: ReturnType<typeof shot>[]) {
+function walk(steps: Read[], id = "b2", snapshots?: ReturnType<typeof shot>[]) {
   const api = fakeApi();
   let reads = 0;
   let clock = 0;
@@ -110,11 +120,22 @@ describe("pixelslash status --wait", () => {
     expect(cap.stderr).toContain("still waiting after 60s");
   });
 
-  test("an errored build exits 3 with its error", async () => {
-    const w = walk(["processing", "errored"]);
+  test("an errored build exits 3 with its error, once the next read finds the same error", async () => {
+    // A different error on the next read is another run of the diff, so it reads on.
+    const w = walk(["processing", ceiling(61), ceiling(30)]);
     const cap = capture();
     expect(await run(status("--build", "b2", "--wait"), cap.io, await w.deps())).toBe(3);
-    expect(cap.stdout).toContain("errored (diff ceiling)");
+    expect(cap.stdout).toContain("errored (diff ceiling: 30 left)");
+    expect(w.reads()).toBe(4);
+  });
+
+  test("a build errored for a moment between two of the renderer's runs is waited on, not the end", async () => {
+    // The diff stopped at its ceiling; the renderer's next finalise had the build processing again.
+    const w = walk(["processing", "errored", "processing", "passed"]);
+    const cap = capture();
+    expect(await run(status("--build", "b2", "--wait"), cap.io, await w.deps())).toBe(0);
+    expect(cap.stdout).toContain("passed: 0 waiting · 1 accepted · 0 rejected");
+    expect(w.sleeps).toEqual([15_000, 15_000, 15_000]);
   });
 
   test("a flaky shot skipped by policy does not wait, and is listed on its own line", async () => {
