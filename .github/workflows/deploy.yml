@@ -72,13 +72,13 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
       # Every 30 s: on a push, stop with no deploy once main has moved past the sha (the newer push's run
       # deploys); then read the newest CI push run on main for the sha and its jobs. Only CI's own jobs
-      # decide: changes, gate, web (which may be skipped: changes runs it only when the push touched the
-      # app) and example. visual uploads to pixelslash.dev itself, so a broken production would fail the CI
-      # of the fix that restores it, and visual and self-host flakes would block every deploy. All passed:
-      # deploy. Any of them ended otherwise (failed, cancelled, skipped, or missing from a finished run):
-      # fail. A push whose CI run has not appeared in 10 minutes (CI disabled, say) fails, and
-      # a manual run with none fails at once: a commit inside a push of several never had a run of its own.
-      # Five API errors in a row fail.
+      # decide: changes, gate, web and example (on a push `changes` always runs web). visual uploads to
+      # pixelslash.dev itself, so a broken production would fail the CI of the fix that restores it, and
+      # visual and self-host flakes would block every deploy. All passed: deploy. Any of them ended
+      # otherwise (failed, cancelled, skipped, or missing from a finished run): fail, unless main has moved
+      # on a push. A push whose CI run has not appeared in 10 minutes (CI disabled, say) fails, and a manual
+      # run with none fails at once: a commit inside a push of several never had a run of its own. Five
+      # GitHub errors in a row fail.
       - name: Wait for CI on that commit
         id: wait
         env:
@@ -102,8 +102,7 @@ jobs:
           misses=0
           while true; do
             if [ "$errors" -ge 5 ]; then
-              echo "::error::the GitHub API failed 5 times in a row"
-              exit 1
+              fail "GitHub failed 5 times in a row (the API or a fetch of main)"
             fi
             if [ "$EVENT" = "push" ]; then
               if ! git fetch --quiet origin main; then
@@ -158,8 +157,7 @@ jobs:
                   fail "CI on $SHA finished without a $name job: $url"
                 fi
               elif [ "$job_status" = "completed" ]; then
-                # web runs only when the push changed the app ("changes" decides, and must itself pass).
-                if [ "$conclusion" != "success" ] && ! { [ "$name" = "web" ] && [ "$conclusion" = "skipped" ]; }; then
+                if [ "$conclusion" != "success" ]; then
                   fail "CI's $name job on $SHA ended $conclusion: $url"
                 fi
                 passed=$((passed + 1))

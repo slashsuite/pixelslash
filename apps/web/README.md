@@ -458,7 +458,7 @@ pointed at anything but github.com.
 ### From CI: the deploy workflow
 
 Production deploys run from `.github/workflows/deploy.yml`. Every push to `main` starts it: it waits for that
-commit's CI jobs `changes`, `gate`, `web` (skipped when the push left the app alone) and `example`, and once
+commit's CI jobs `changes`, `gate`, `web` and `example`, and once
 they pass the `deploy` job, named after the sha, asks for approval in the `production` environment. `visual`
 and `self-host` do not count: `visual` uploads to pixelslash.dev itself, so a broken production would block
 its own fix. The run's summary names the commit and its subject. After one click (the run's page, **Review
@@ -532,7 +532,7 @@ From `apps/web`:
 ```bash
 CLOUDFLARE_ENV=production bun run build                          # writes dist/ for env.production
 bunx wrangler d1 migrations apply pixelslash --remote --env production
-bunx wrangler deploy --var SENTRY_RELEASE:"$(git rev-parse --short HEAD)"
+CLOUDFLARE_ENV=production bunx wrangler deploy --var SENTRY_RELEASE:"$(git rev-parse --short HEAD)"
 bun ../../scripts/check-commit.ts https://pixelslash.dev/ "$(git rev-parse HEAD)"
 SMOKE_BASE_URL=https://pixelslash.dev SMOKE_TOKEN_FILE=<file> bunx moon run web:smoke
 ```
