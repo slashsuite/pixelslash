@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>actions</title>
+  <style>
+    body { margin: 0; background: #fff; color: #111; font: 16px/1.5 sans-serif; }
+    button { position: absolute; left: 20px; top: 20px; width: 120px; height: 40px; }
+    #menu { position: absolute; left: 20px; top: 70px; width: 200px; height: 120px; background: #2563eb; }
+    #panel { position: absolute; left: 240px; top: 70px; width: 200px; height: 120px; background: #16a34a; }
+    [hidden] { display: none; }
+  </style>
+</head>
+<body>
+  <button id="open">Menu</button>
+  <div id="menu" hidden></div>
+  <div id="panel" hidden></div>
+  <script>
+    // The click opens the menu at once; its panel follows 150 ms later, on a page timer.
+    document.getElementById("open").addEventListener("click", () => {
+      document.getElementById("menu").hidden = false;
+      setTimeout(() => { document.getElementById("panel").hidden = false; }, 150);
+    });
+  </script>
+</body>
+</html>

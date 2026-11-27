@@ -217,6 +217,11 @@ export type CaptureSession = {
   close: () => Promise<void>;
 };
 
+/** Whether a shot may go on a pooled preview page: a story, unless its actions would change the page. */
+function pooled(route: Route, reuse: boolean | undefined): boolean {
+  return reuse === true && route.storybook !== undefined && route.actions === undefined;
+}
+
 /** Start the app, launch the browser, sign in and read the routes. The caller closes it. */
 export async function openCaptureSession(
   config: CaptureConfig,
@@ -279,10 +284,9 @@ export async function openCaptureSession(
           warn,
           unmatched,
         };
-        const taken =
-          scan?.reuse && route.storybook
-            ? await shootPooled(browser, shot, pool)
-            : await shoot(browser, shot);
+        const taken = pooled(route, scan?.reuse)
+          ? await shootPooled(browser, shot, pool)
+          : await shoot(browser, shot);
         warnMedia(route, variant, taken.media);
         return taken;
       },

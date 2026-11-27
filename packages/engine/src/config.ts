@@ -12,6 +12,7 @@ import { type CompositionConfig, parseComposition } from "./config-composition.t
 import { type FlakyPolicy, parseFlake, parseFlaky } from "./config-flake.ts";
 import { flag, uniqueNames } from "./config-flag.ts";
 import { parseConcurrency } from "./config-concurrency.ts";
+import { type Action, checkAdvances, parseActions } from "./config-actions.ts";
 import { type Stabilise, parseStabilise } from "./config-stabilise.ts";
 import { baseUrlOf, parseStorybook, type StorybookConfig } from "./config-storybook.ts";
 import type { DiffOptions } from "./diff.ts";
@@ -28,6 +29,7 @@ export { type StorybookConfig } from "./config-storybook.ts";
 export { DEFAULT_FLAKE_RETRIES, FLAKY_POLICIES, type FlakyPolicy } from "./config-flake.ts";
 export { parseFlaky, resolveFlaky } from "./config-flake.ts";
 export type { Stabilise } from "./config-stabilise.ts";
+export type { Action } from "./config-actions.ts";
 export type { Feature, FeatureRef } from "./config-feature.ts";
 export type { CompositionConfig, CustomDeclared } from "./config-composition.ts";
 
@@ -54,6 +56,8 @@ export type Route = {
   variantIgnore: Record<string, Ignore[]>;
   /** This route's own flaky policy; unset takes the project's (see `resolveFlaky`). */
   flaky?: FlakyPolicy;
+  /** Steps run on the settled page before the shot (click, hover, type, advance the clock); absent for none. */
+  actions?: Action[];
   /** Set on a route read from a Storybook index: its `path` is on `origin`, and capture waits for the story to render. */
   storybook?: { origin: string };
 };
@@ -188,13 +192,14 @@ function route(v: unknown, i: number, global: { masks: Mask[]; tags: string[] })
   if (!isObj(r))
     bad(
       where,
-      "must be a path or { path, name?, masks?, ignore?, tags?, diff?, variants?, flaky? }",
+      "must be a path or { path, name?, masks?, ignore?, tags?, diff?, variants?, flaky?, actions? }",
     );
   const path = str(r.path, `${where}.path`);
   if (!path.startsWith("/")) bad(`${where}.path`, "must start with /");
   const name = fileName(r.name, `${where}.name`, routeSlug(path));
   const variants = variantLayers(r.variants, `${where}.variants`);
   const flaky = parseFlaky(r.flaky, `${where}.flaky`, bad);
+  const actions = parseActions(r.actions, `${where}.actions`, bad);
   return {
     path,
     name,
@@ -208,6 +213,7 @@ function route(v: unknown, i: number, global: { masks: Mask[]; tags: string[] })
     variantDiff: variants.diff,
     variantIgnore: variants.ignore,
     ...(flaky && { flaky }),
+    ...(actions && { actions }),
   };
 }
 
@@ -281,6 +287,8 @@ export function parseConfig(raw: unknown): CaptureConfig {
         );
     }
   }
+  const stabilise = parseStabilise(raw.stabilise, bad);
+  checkAdvances(routes, sb, stabilise.timers, bad);
   return {
     baseUrl,
     start: start(raw.start, baseUrl),
@@ -293,7 +301,7 @@ export function parseConfig(raw: unknown): CaptureConfig {
     flake: parseFlake(raw.flake, bad),
     routes,
     variants,
-    stabilise: parseStabilise(raw.stabilise, bad),
+    stabilise,
     features: parseFeatures(
       raw.features,
       variants.map((vr) => vr.name),

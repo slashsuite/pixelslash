@@ -1,6 +1,7 @@
 import type { Browser, BrowserContext, Page } from "playwright";
 import { type Inflight, keepNativeRaf, settleCapture, trackInflight } from "./capture.ts";
 import type { Route, Stabilise, Variant } from "./config.ts";
+import type { Action } from "./config-actions.ts";
 import type { Session } from "./setup.ts";
 import { CaptureError } from "./errors.ts";
 import type { CaptureSteps, SettleSteps } from "./timings.ts";
@@ -61,11 +62,13 @@ export async function openPage(
   // A story's own render signal and the generic settle share one budget.
   const started = Date.now();
   const storyMs = route.storybook ? await storyWait(page, route.name, timeoutMs) : undefined;
-  const settle = await settleCapture(
-    page,
-    Math.max(1, timeoutMs - (Date.now() - started)),
-    inflight,
-  );
+  const left = () => Math.max(1, timeoutMs - (Date.now() - started));
+  const settle = await settleCapture(page, left(), inflight);
+  if (route.actions) {
+    // On the settled page, then settled again: what the actions started (a fetch, an image) is waited for too.
+    await runActions(page, route.actions, started + timeoutMs);
+    await settleCapture(page, left(), inflight);
+  }
   return {
     navigateMs: settling - loading,
     settleMs: performance.now() - settling,
@@ -111,4 +114,31 @@ export async function pinClock(
   await context.addInitScript(keepNativeRaf);
   await context.clock.install({ time: clock });
   await context.clock.pauseAt(clock);
+}
+function describe(a: Action): string {
+  if ("click" in a) return `click ${a.click}`;
+  if ("hover" in a) return `hover ${a.hover}`;
+  if ("type" in a) return `type into ${a.type}`;
+  return `advance ${a.advance}ms`;
+}
+
+/**
+ * Run the actions in order on the settled page, all before `deadline` (a `Date.now()` time): each
+ * gets what is left of it. A selector must match one element; the clock only moves on an
+ * `advance`, never by a wall-clock wait.
+ */
+async function runActions(page: Page, actions: Action[], deadline: number): Promise<void> {
+  for (const a of actions) {
+    const timeoutMs = Math.max(1, deadline - Date.now());
+    try {
+      if ("click" in a) await page.locator(a.click).click({ timeout: timeoutMs });
+      else if ("hover" in a) await page.locator(a.hover).hover({ timeout: timeoutMs });
+      else if ("type" in a)
+        await page.locator(a.type).pressSequentially(a.text, { timeout: timeoutMs });
+      else await page.clock.runFor(a.advance);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message.split("\n")[0] : String(e);
+      throw new Error(`action "${describe(a)}" failed: ${msg}`, { cause: e });
+    }
+  }
 }

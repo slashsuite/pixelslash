@@ -20,6 +20,7 @@ describe("the storybook config", () => {
       globals: { theme: ["none", "dark"] },
       include: ["**"],
       exclude: [],
+      actions: {},
       masks: [".clock"],
       tags: ["sb"],
     });

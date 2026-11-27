@@ -134,10 +134,14 @@ export async function storybookRoutes(sb: StorybookConfig, taken: string[]): Pro
   const stories = storiesIn(await readIndex(indexUrl), indexUrl).filter((s) => selected(s, sb));
   if (stories.length === 0)
     throw new UsageError(`storybook: no story in ${indexUrl} matches include/exclude`);
+  const unknown = Object.keys(sb.actions).find((id) => !stories.some((s) => s.id === id));
+  if (unknown)
+    throw new UsageError(`config: storybook.actions.${unknown} names no story that is shot`);
   const owner = new Map(taken.map((name) => [name, "a route in routes"]));
   const routes: Route[] = [];
   for (const story of stories) {
     const flaky = storyFlaky(story);
+    const actions = sb.actions[story.id];
     for (const combo of story.tags.includes(ONCE_TAG) ? [[]] : globalCombos(sb.globals)) {
       const name = storyName(story, combo);
       const clash = owner.get(name);
@@ -157,6 +161,7 @@ export async function storybookRoutes(sb: StorybookConfig, taken: string[]): Pro
         variantIgnore: {},
         storybook: { origin: sb.url },
         ...(flaky && { flaky }),
+        ...(actions && { actions }),
       });
     }
   }
