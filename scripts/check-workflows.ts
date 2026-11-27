@@ -48,8 +48,11 @@ const EXPORT = /\bd1\s+export\b/;
 const SINK = /^["']?(?:\$RUNNER_TEMP\/|\$\{RUNNER_TEMP\}\/|\/dev\/null\b)/;
 // A command list's separators, longest first, so `||` is not read as two pipes.
 const SEPARATOR = /(\|\||&&|\|&|;|\|)/;
-// A redirect: `&>`, `&>>`, `>&` or `[n]>`, `[n]>>`, `[n]>&`, then its target.
-const REDIRECT = /(&>>?|(\d?)>>?(&?))\s*("[^"]*"|'[^']*'|[^\s;|&<>]+)/g;
+// A redirect: `&>`, `&>>`, `>&` or `[n]>`, `[n]>>`, `[n]>&`, then its target. The shell reads n as a
+// descriptor only when it starts a word: `dump2>f` is the word `dump2` and then `>f`.
+const REDIRECT = /(&>>?|((?<!\S)\d)?>>?(&?))\s*("[^"]*"|'[^']*'|[^\s;|&<>]+)/g;
+// A comment to the end of the line: the shell never reads a redirect in it.
+const COMMENT = /(?:^|\s)#.*$/;
 
 /** Where a file descriptor points: a sink, the log, or anywhere else (a file, a pipe). */
 type Fd = "sink" | "log" | "other";
@@ -97,7 +100,7 @@ function outputs(segment: string, piped: "" | "|" | "|&"): [Fd, Fd] {
 /** Whether a shell line runs `d1 export` with its stdout or stderr left on the log. */
 function exportLeaks(line: string): boolean {
   if (!EXPORT.test(line) || line.trimStart().startsWith("#")) return false;
-  const parts = line.split(SEPARATOR);
+  const parts = line.replace(COMMENT, "").split(SEPARATOR);
   // Even indices are commands, odd ones the separators between them.
   return parts.some((part, i) => {
     if (i % 2 || !EXPORT.test(part)) return false;
