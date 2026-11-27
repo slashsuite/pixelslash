@@ -24,9 +24,9 @@ Without one, you name both sides of every comparison yourself, and nothing is re
 
 ## Do I need Storybook?
 
-No. A Storybook is one way to capture: PixelSlash reads a running Storybook 7 or later index and shoots every story (or the ones your patterns keep). You can also shoot pages by URL, a directory of PNGs, or your own Playwright tests.
+No. Storybook is one way to capture: PixelSlash reads a running Storybook 7 or later index and shoots every story (or the ones your patterns keep). You can also shoot pages by URL, a directory of PNGs, or your own Playwright tests.
 
-[Choose how to capture](../tutorials/choose-capture.md) compares the routes, and [A Storybook](../tutorials/storybook.md) is the step-by-step.
+[Choose how to capture](../tutorials/choose-capture.md) compares the routes, and [Your Storybook stories](../tutorials/storybook.md) is the step-by-step.
 
 ## Why is every shot new?
 

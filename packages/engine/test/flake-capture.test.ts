@@ -11,7 +11,7 @@ import { type Call, fakeServer, metaOf } from "./fake-server.ts";
 import { FP, gitOpts, repo, cleanup } from "./upload-fixtures.ts";
 
 /**
- * The flake check on a real browser (ob 1737): a page that puts a box somewhere new on every load
+ * The flaky-shot check on a real browser (ob 1737): a page that puts a box somewhere new on every load
  * is flaky, with the box as the moving region; a page that renders the same every time but
  * differs from its baseline is a real change, captured again only the default twice.
  */

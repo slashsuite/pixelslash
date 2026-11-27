@@ -1,4 +1,4 @@
-// Run by snapshot.spec.ts under `node` and under `bun` (PS-237): shoots the fixture page with an
+// Run by `snapshot.spec.ts` under `node` and under `bun` (PS-237): shoots the fixture page with an
 // ignore and a redact selector through the built bundle and prints what the helper decided, as JSON:
 // the ignore boxes, the variant, and the redacted pixels' colour. The two runtimes must print the same.
 // argv: the URL of the fixture page. PIXELSLASH_SNAPSHOT_DIR is the dir.

@@ -72,7 +72,7 @@ describe("a diffed build's page", () => {
     expect(text("run-wall-source")).toContain("derived");
     expect(text("run-shots-value")).toBe("2");
     expect(text("run-compares-value")).toBe("1");
-    // "ticker" is the same bytes as main: a snapshot of the build, and no compare ran.
+    // "ticker" is the same bytes as main: a shot of the build, and no compare ran.
     expect(text("run-cache-hits-value")).toBe("1");
     expect(text("run-unmeasured-value")).toBe("0");
     expect(text("run-compare-value")).toContain("2 snapshots · 1 compared");

@@ -3,14 +3,14 @@ import { violationLine, type A11yDiff, type A11yViolation } from "./a11y-entry.t
 import type { Region } from "./regions.ts";
 import { esc } from "./report.ts";
 
-/** One snapshot in a `compare` of two snapshot dirs. */
+/** One shot in a `compare` of two shot dirs. */
 export type CompareRow = {
   name: string;
   /** `chromium 1280x720 prefers: dark`: the rest of the identity; the scheme only when the compare varied it. */
   shot: string;
-  /** A changed snapshot's `report.html`, relative to the index; else none. */
+  /** A changed shot's `report.html`, relative to the index; else none. */
   report: string | undefined;
-  /** A new snapshot's PNG as copied under `--out`, relative to the index, for the report to show. */
+  /** A new shot's PNG as copied under `--out`, relative to the index, for the report to show. */
   shotHref?: string | undefined;
   /** The same PNG, absolute, for the summary to name. */
   shotFile?: string | undefined;
@@ -19,7 +19,7 @@ export type CompareRow = {
   mismatch: string[];
   /** The manifest identity (`name / browser / WxH / theme`), for a caller that maps a row back to its shot. */
   key: string;
-  /** What the diff found; empty unless the snapshot changed. */
+  /** What the diff found; empty unless the shot changed. */
   regions: Region[];
   /** Set when the shot was captured again and the captures disagreed (`check`, ob 1732). */
   flaky?: { runs: number; differed: number } | undefined;
@@ -43,10 +43,10 @@ type Rows = {
  */
 type ChangeName = { label: string; anchor: string; shotFile?: string | undefined };
 
-/** The snapshots that moved, in three groups; a group with nothing in it is left out. */
+/** The shots that moved, in three groups; a group with nothing in it is left out. */
 type ChangeGroup = { group: "changed" | "new" | "removed"; names: ChangeName[] };
 
-/** `home (chromium 1280x720 prefers: dark)`: the snapshot name plus the rest of its identity. */
+/** `home (chromium 1280x720 prefers: dark)`: the shot name plus the rest of its identity. */
 export function rowLabel(r: CompareRow): string {
   return `${r.name} (${r.shot})`;
 }
@@ -75,8 +75,8 @@ function anchorsOf(input: Rows): Map<CompareRow, string> {
 }
 
 /**
- * Which snapshots changed, are new or were removed, by name. The CLI's summary and the report's
- * top list both read this, so they cannot disagree. Unchanged snapshots are not listed.
+ * Which shots changed, are new or were removed, by name. The CLI's summary and the report's
+ * top list both read this, so they cannot disagree. Unchanged shots are not listed.
  */
 function changeGroups(input: Rows): ChangeGroup[] {
   const anchors = anchorsOf(input);
@@ -218,9 +218,9 @@ function newShot(r: CompareRow): string {
 }
 
 /**
- * The index of a `compare` of two snapshot dirs: counts, the fingerprint warning, and the lists.
+ * The index of a `compare` of two shot dirs: counts, the fingerprint warning, and the lists.
  * `check` (ob 1732) adds its own title, a note on where the result was measured, and a link to the
- * flake report when a changed shot was captured again.
+ * flaky-shot report when a changed shot was captured again.
  */
 export function renderCompareIndex(input: {
   changed: CompareRow[];

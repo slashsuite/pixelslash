@@ -205,7 +205,7 @@ const uploadRun = (shots: ShotTiming[], count: number, loadStart: number): Uploa
 });
 
 /**
- * Send a snapshot dir to a PixelSlash server: open a build, upload each PNG, finalise.
+ * Send a shot dir to a PixelSlash server: open a build, upload each PNG, finalise.
  * The only network this package does for a page shot, and only to `server`. If anything
  * fails the build is left open on the server (unfinalised, uncounted) and this throws.
  */
@@ -231,7 +231,7 @@ export type IntoBuild = Omit<UploadOptions, "git" | "projectId" | "subproject" |
 
 /**
  * `uploadSnapshots` into a build that is already open, as the bundle renderer does with the build
- * the CLI opened for it: no git context is read and no build opened; every shot, the flake pass and
+ * the CLI opened for it: no git context is read and no build opened; every shot, the flaky-shot pass and
  * the finalise go as for any upload.
  */
 export function uploadIntoBuild(
@@ -322,7 +322,7 @@ async function sendShots(
  * and what the judge describes, and is never sent as the shot's result. A shot from a pooled preview
  * page (PS-445) is kept only when it is byte for byte its baseline; otherwise, or with no baseline,
  * it is shot again on a fresh page, and that PNG is the shot from then on: on disk, in the upload,
- * in the measure and as the first run the flake check compares with.
+ * in the measure and as the first run the flaky-shot check compares with.
  */
 async function measureOne(
   client: Client,

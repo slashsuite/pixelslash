@@ -2,7 +2,7 @@ import type { Fail } from "./diff-options.ts";
 
 /**
  * The parity manifest (PS-296): a JSON file in the repo that says which differences between twin
- * snapshots are on purpose. The contract is `docs/metrics.md`. No runtime imports, like
+ * shots are on purpose. The contract is `docs/metrics.md`. No runtime imports, like
  * `metrics-entry.ts`, so the CLI and later the server read the one shape.
  */
 
@@ -23,7 +23,7 @@ export const LENGTH_FIELDS = [
   "gap",
   "font.lineHeight",
 ] as const;
-/** Compared for equality, never within a tolerance. */
+/** Compared for equality, never within a threshold. */
 export const EXACT_FIELDS = ["font.size", "font.weight"] as const;
 export const COLOR_FIELDS = ["color.fg", "color.bg", "color.border"] as const;
 
@@ -39,7 +39,7 @@ export type ColorAllowance = { web: string; native: string; platform?: "android"
 
 /** What one part is declared to be on each platform, per field. */
 export type Declaration = {
-  /** The key as written: a snapshot name, or `<name> <theme>`. It matches a pair by that text. */
+  /** The key as written: a shot name, or `<name> <theme>`. It matches a pair by that text. */
   key: string;
   part: string;
   platforms: Partial<Record<ParityPlatform, Partial<Record<ParityField, ParityValue>>>>;

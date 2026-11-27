@@ -13,7 +13,7 @@ import { saveTwinProject } from "#/server/twin-fns";
 
 /**
  * The project this one's shots are paired with (PS-295): the web app and the native app often live
- * in two projects of one org. Pairing is by snapshot name and theme; it reads, and changes no diff.
+ * in two projects of one org. Pairing is by shot name and theme; it reads, and changes no diff.
  */
 export function TwinSettings({
   projectId,

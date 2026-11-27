@@ -6,10 +6,10 @@ import { heldShot } from "./markers";
 import { builds, orgs, projects, snapshots } from "./schema";
 
 /**
- * The window-wide figures of the operator page (PS-342): how many snapshots a build holds and how
- * long a snapshot's compare takes, over every build that ended in the window rather than one build
+ * The window-wide figures of the operator page (PS-342): how many shots a build holds and how
+ * long a shot's compare takes, over every build that ended in the window rather than one build
  * at a time. Computed in SQL, nearest-rank as `percentile` in `lib/timings.ts` reads it, so no
- * snapshot row reaches JS. `inWindow` is the page's own filter (real orgs, `endedSince`).
+ * `snapshots` row reaches JS. `inWindow` is the page's own filter (real orgs, `endedSince`).
  */
 
 export type WindowFigures = {
@@ -22,7 +22,7 @@ export type WindowFigures = {
   perSnapshot: StepStats | null;
 };
 
-/** Snapshots per build: one grouped read over `snapshots_build_idx`, ranked over the builds. */
+/** Shots per build: one grouped read over `snapshots_build_idx`, ranked over the builds. */
 async function snapshotsPerBuild(db: Db, inWindow: SQL | undefined): Promise<StepStats | null> {
   const perBuild = db
     .select({ held: sql<number>`count(*)`.as("held") })
@@ -44,7 +44,7 @@ async function snapshotsPerBuild(db: Db, inWindow: SQL | undefined): Promise<Ste
   return rankedStats(db, ranked, P99_MIN_BUILDS);
 }
 
-/** Time per snapshot: every server compare of the window with a time, ranked in one pass. */
+/** Time per shot: every server compare of the window with a time, ranked in one pass. */
 function timeSample(db: Db, inWindow: SQL | undefined) {
   return db
     .select({

@@ -261,7 +261,7 @@ export function SidePanel({
   twins?: TwinEntry | null;
   /** Re-run, mark flaky, thresholds and ignore areas: collapsed under Tools; null when none apply. */
   tools?: ReactNode;
-  /** The detection flags and an open flake, above the fold: a second reviewer reads them before deciding. */
+  /** The detection flags and an open flaky shot, above the fold: a second reviewer reads them before deciding. */
   children?: ReactNode;
 }) {
   return (

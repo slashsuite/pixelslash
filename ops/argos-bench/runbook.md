@@ -44,7 +44,7 @@ not, add `-i ~/.ssh/<key>`, or an `IdentityFile` in `~/.ssh/config`.
 
 ### Step 0: check the host
 
-```
+```text
 desk$ ssh root@$SSH_HOST 'grep MemAvailable /proc/meminfo; pvesh get /cluster/nextid; qm list; pct list; pvesm status'
 ```
 
@@ -57,7 +57,7 @@ small and does not start at boot.
 
 ### Step 1: provision the VM
 
-```
+```text
 desk$ ssh root@$SSH_HOST 'install -d -m 0700 /root/argos-bench'
 desk$ scp ~/.ssh/<key>.pub root@$SSH_HOST:/root/argos-bench/desktop.pub
 desk$ scp ops/argos-bench/provision-vm.sh root@$SSH_HOST:/root/argos-bench/
@@ -76,7 +76,7 @@ the VM's address. If DHCP hands out a different one later, the same re-run finds
 
 ### Step 2: Docker in the VM
 
-```
+```text
 desk$ ssh $VM 'cloud-init status --wait'
 desk$ ssh $VM 'sudo bash -s' < ops/argos-bench/setup-vm.sh
 ```
@@ -86,7 +86,7 @@ in again, because the `docker` group membership is new.
 
 ### Step 3: build the image
 
-```
+```text
 desk$ scp ops/argos-bench/Dockerfile ops/argos-bench/argos-diff.ts $VM:argos-bench/
 desk$ ssh $VM 'cd argos-bench && docker build -t argos-bench .'
 ```
@@ -97,7 +97,7 @@ To pin a different Argos commit, pass `--build-arg ARGOS_COMMIT=<sha>` and recor
 
 **Verify:** run Argos's own unit tests for this code path inside the image, with no network:
 
-```
+```text
 desk$ ssh $VM 'docker run --rm --network none --entrypoint /bench/self-test argos-bench'
 ```
 
@@ -107,7 +107,7 @@ Expect `Tests 27 passed (27)`. That is their `diff/image/index.test.ts` calibrat
 
 ### Step 4: run pairs
 
-```
+```text
 desk$ mkdir -p /tmp/pairs/pages
 desk$ cp main.png /tmp/pairs/pages/base.png; cp branch.png /tmp/pairs/pages/head.png
 desk$ ops/argos-bench/run-pairs.sh /tmp/pairs /tmp/argos-out          # [--threshold 0.5]
@@ -122,7 +122,7 @@ The script prints one JSON line per pair and writes `/tmp/argos-out/verdicts.jso
 The VM does not start with the host. Start it for a bench run and stop it afterwards, so it is not
 holding 2 GB on a host that is already swapping:
 
-```
+```text
 desk$ ssh root@$SSH_HOST "qm start $VMID"      # address may change: re-run provision-vm.sh to find it
 desk$ ssh root@$SSH_HOST "qm shutdown $VMID"
 ```
@@ -131,7 +131,7 @@ The image survives a restart. Nothing in the VM runs between bench runs.
 
 ## Destroy
 
-```
+```text
 desk$ ssh root@$SSH_HOST "qm stop $VMID; qm destroy $VMID --purge"
 desk$ ssh root@$SSH_HOST 'rm -rf /root/argos-bench'
 desk$ ssh-keygen -R $VM_IP

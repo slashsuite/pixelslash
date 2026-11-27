@@ -94,7 +94,7 @@ padding and turns yellow. The base and head are `argos-local/pages.base.png` and
 `argos-local/pages.head.png`. Two `fixtures/ds` pairs were added to cover the "same" and
 "different size" edges. All three went through `run-pairs.sh` in one call:
 
-```
+```json
 {"name":"ds-button-same","changed":false,"score":0,"threshold":0.5,"width":null,"height":null,"diff":null}
 {"name":"ds-button-vs-card","changed":true,"score":0.6459,"threshold":0.5,"width":160,"height":80,"diff":"…/ds-button-vs-card.diff.png"}
 {"name":"pages","changed":true,"score":0.0074,"threshold":0.5,"width":1280,"height":720,"diff":"…/pages.diff.png"}
@@ -130,7 +130,7 @@ The `ds-button-vs-card` diff is `argos-local/ds-button-vs-card.argos-diff.png`.
 
 The benchmark ticket needs exactly this interface:
 
-```
+```bash
 ops/argos-bench/run-pairs.sh <pairs-dir> <out-dir> [--threshold n]
 ```
 

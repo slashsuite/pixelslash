@@ -51,7 +51,7 @@ function ShotTitle({ snapshot, label }: { snapshot: SnapshotView; label: ShotLab
 }
 
 /**
- * The shot's own variant: its colour scheme and viewport, once, for both panes (a snapshot has
+ * The shot's own variant: its colour scheme and viewport, once, for both panes (a shot has
  * exactly one of each), then the chips its name carries. "mode" keeps the scheme apart from a
  * Storybook theme chip.
  */

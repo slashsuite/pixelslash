@@ -15,7 +15,7 @@ import {
 /** A PNG over this is refused before it is read; a full-page shot is a few MB. */
 export const MAX_PNG_BYTES = 32 * 1024 * 1024;
 
-/** One part of a snapshot upload: a PNG no larger than MAX_PNG_BYTES. */
+/** One part of a shot upload: a PNG no larger than MAX_PNG_BYTES. */
 async function pngPart(form: FormData, field: string): Promise<ArrayBuffer> {
   const file = form.get(field);
   if (!(file instanceof File)) throw new BadRequest(`${field} must be a PNG upload`);

@@ -18,13 +18,13 @@ An ignored area still gets uploaded when you upload. **If it must not leave your
 
 On a pair run, give the area in image pixels. Repeat the flag for more areas:
 
-```
+```bash
 npx pixelslash --live-png main.png --local-png branch.png --ignore 10,10,140,60
 ```
 
 The pair from [Thresholds](thresholds.md) has 4,836 changed pixels. With that box over the larger change, it has 36:
 
-```
+```text
 pixelslash: 36 changed pixels
 ```
 
@@ -32,7 +32,7 @@ The manifest records the area as `ignored` and counts what it covered as `ignore
 
 The report hatches the area and says plainly what happened:
 
-```
+```text
 6500 ignored pixels in 1 area (hatched): not measured, neither changed nor unchanged.
 ```
 
@@ -59,13 +59,13 @@ When the shot is taken, each selector becomes a box in the manifest:
 
 Capture only records the box. `compare`, or a server after an upload, skips it. A `.live` panel whose text went from 12 to 57 users online:
 
-```
+```bash
 npx pixelslash capture --out s-a
 npx pixelslash capture --out s-b
 npx pixelslash compare s-a s-b --out o-ab
 ```
 
-```
+```text
 pixelslash: 0 changed, 1 unchanged, 0 new, 0 removed
 ```
 
@@ -87,7 +87,7 @@ An ignored element can still move what is around it. PixelSlash ignores the elem
 
 To compare, it uses both shots' boxes together, so an element that moved is covered at its old place and its new one. Everything outside those boxes is measured normally. Here the `.live` panel grew from 100 to 200 pixels tall and pushed two rows down:
 
-```
+```text
 pixelslash: 1 changed, 0 unchanged, 0 new, 0 removed
 changed:
   dash (chromium 1280x720)
@@ -95,7 +95,7 @@ changed:
 
 The shot's report says:
 
-```
+```text
 51229 changed pixels
 1 changed region
 256000 ignored pixels in 2 areas (hatched): not measured, neither changed nor unchanged.
@@ -118,7 +118,7 @@ On a server, a changed region that touches the edge of an ignored area also carr
 }
 ```
 
-```
+```text
 warning: mask ".nothing-here" matched no shot in this run
 pixelslash: 1 snapshots
 ```
@@ -131,7 +131,7 @@ A mask paints the area on both sides, so a mask of the same size in the same pla
 
 A `<video>` or similar element renders unreliably, so PixelSlash warns about it:
 
-```
+```text
 warning: <video> at 580,36 112x118 on overview (desktop): media renders unreliably; add an exclusion zone (route.ignore) for this shot
 ```
 

@@ -5,7 +5,7 @@ import { createdAt, projects, users } from "./schema";
 /* Review-UI diff overrides (ob 1495). Beside `schema.ts`, which `drizzle.config.ts` reads with it. */
 
 /**
- * A reviewer's diff options for one test (ob 1495), set in the review UI: a snapshot name, for every
+ * A reviewer's diff options for one test (ob 1495), set in the review UI: a shot name, for every
  * variant (the four variant columns `""`) or for one. Laid over the config's options key by key, the
  * variant's over the test's; the next server diff of a matching shot reads them. `""` rather than
  * null so the unique key holds: SQLite treats every null as distinct.

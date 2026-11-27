@@ -74,7 +74,7 @@ function blank(spec: ShotSpec): PNG {
   return png;
 }
 
-/** A shot as PNG bytes, so it can be uploaded as a snapshot. */
+/** A shot as PNG bytes, so it can be uploaded. */
 export function shot(spec: ShotSpec = {}): Uint8Array<ArrayBuffer> {
   return new Uint8Array(PNG.sync.write(blank(spec)));
 }

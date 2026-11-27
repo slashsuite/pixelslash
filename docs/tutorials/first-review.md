@@ -8,12 +8,12 @@ This carries on from [Getting started](../getting-started.md), with the two serv
 
 Turn the button green on Branch. This is GNU `sed`; on a Mac, use `sed -i ''`, or edit the file by hand:
 
-```
+```bash
 sed -i 's/#2563eb/#16a34a/' branch/index.html
 npx pixelslash --live http://localhost:4101 --local http://localhost:4102 --out .pixelslash
 ```
 
-```
+```text
 pixelslash: 3091 changed pixels
 report: file:///…/my-site/.pixelslash/report.html
 timing: 1 shot, capture 0.6s, diff 0.0s, total 0.7s
@@ -43,14 +43,14 @@ Pixels compare Branch with Main. The judge asks another question: does this page
 
 Make one by cutting the button out of `.pixelslash/main.png` with any image editor. It is the blue one, the way the design system has it:
 
-```
+```text
 design-system/
   button.png
 ```
 
 Then run with `--ds`:
 
-```
+```bash
 npx pixelslash --live http://localhost:4101 --local http://localhost:4102 --ds design-system --out .pixelslash-ds
 ```
 
@@ -58,7 +58,7 @@ npx pixelslash --live http://localhost:4101 --local http://localhost:4102 --ds d
 
 The judge is a local vision model. With none on your `PATH`, this is what you get:
 
-```
+```text
 skip: no judge
 report: file:///…/my-site/.pixelslash-ds/report.html
 timing: 1 shot, capture 0.7s, diff 0.0s, total 0.7s
@@ -72,13 +72,13 @@ The exit code is 0, and the report is still written, with the shots and the desi
 
 Install [Ollama](https://ollama.com), and pull the model. Nothing leaves your machine:
 
-```
+```bash
 ollama pull qwen2.5vl
 ```
 
 The same command now takes half a minute and exits 1:
 
-```
+```text
 pixelslash: 0 already on main, 1 new on branch (button)
 report: file:///…/my-site/.pixelslash-ds/report.html
 timing: 1 shot, capture 0.7s, diff 0.0s, judge 28.2s, total 28.9s

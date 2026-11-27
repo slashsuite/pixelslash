@@ -17,7 +17,7 @@ import { builds, snapshots } from "./schema";
  *   on a pull request's build: the merge build holds the image that person approved.
  *
  * Only a `review` shot: a `skip` shot is documented never to become a baseline on its own. A native
- * shot of a stale twin key waits for a person whatever its flake (PS-297), so it is left.
+ * shot of a stale twin key waits for a person whatever its flaky-shot label (PS-297), so it is left.
  */
 async function settledFlakyShots(
   db: Db,

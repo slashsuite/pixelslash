@@ -34,7 +34,7 @@ const boxes = (page: Page) => page.getByRole("img", { name: "Measured regions", 
 
 /**
  * The pane framed on the change. Zoom changes only the framing, and `data-scale` on the viewport is
- * the one state it exposes; no lower layer renders the viewport (src/components/snapshot-frame.tsx).
+ * the one state it exposes; no lower layer renders the viewport (`src/components/snapshot-frame.tsx`).
  */
 const zoomed = (page: Page) =>
   // oxlint-disable-next-line playwright/no-raw-locators -- zoom has no role, name or text of its own: data-scale is its only state, and a test id would be product markup

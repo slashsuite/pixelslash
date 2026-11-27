@@ -1,21 +1,21 @@
-# A Storybook
+# Your Storybook stories
 
-Shoot every story in a Storybook, in light and dark, compare two runs, and control how each story is treated with a tag.
+Shoot every story in Storybook, in light and dark, compare two runs, and control how each story is treated with a tag.
 
 You need Bun on your `PATH`, and Storybook 7 or later. With an older one, capture stops with `needs Storybook 7 or later`.
 
-## A Storybook to try it on
+## Stories to try it on
 
-If you have a Storybook, start it, install PixelSlash, and skip this section:
+If you already use Storybook, start it, install PixelSlash, and skip this section:
 
-```
+```bash
 npm i -D @slashsuite/pixelslash
 npx pixelslash install-browser
 ```
 
 Otherwise, make a small one. `npm init -y` writes a CommonJS package and Storybook's config is an ES module, so set the type:
 
-```
+```bash
 mkdir my-storybook && cd my-storybook
 npm init -y
 npm pkg set type=module
@@ -53,7 +53,7 @@ export const Lucky = {
 
 Start it, and leave it running. Wait for `Storybook ready!` before going on: until then, capture stops with `storybook: cannot read http://localhost:6006/index.json`, and exit 1:
 
-```
+```bash
 npx storybook dev -p 6006 --ci &
 ```
 
@@ -61,11 +61,11 @@ npx storybook dev -p 6006 --ci &
 
 `init --storybook` takes the running Storybook's URL:
 
-```
+```bash
 npx pixelslash init --storybook http://localhost:6006 --themes light,dark --viewports 1280x720 --yes
 ```
 
-```
+```text
 wrote pixelslash.config.ts
 .gitignore: added pixelslash-snapshots/ .pixelslash/
 ```
@@ -99,11 +99,11 @@ storybook: { url: "http://localhost:6006", globals: { locale: ["en", "de"] } },
 
 ## Shoot the stories
 
-```
+```bash
 npx pixelslash capture --out snapshots/main
 ```
 
-```
+```text
 warning: capturing outside the pinned PixelSlash image; local fonts skew rendering. Fingerprint recorded as bare.
 pixelslash: 10 snapshots
 fingerprint: {"image":"bare","browser":"chromium 156.0.8078.4","fonts":"sha256:3d5233441c23835446e52afc8f746b743eb35219a7ff85478ef358fb999cb433"}
@@ -115,7 +115,7 @@ The warning is fair: this machine's fonts are in the shots, which is fine when b
 
 Ten shots, because two stories are shot at two locales and two themes, and one is shot at two themes only. `init` ignored `pixelslash-snapshots/` and `.pixelslash/`, not the `snapshots/` and `report/` used here, so add those two to `.gitignore` if this is a git repository. The folder names say which is which:
 
-```
+```text
 button-danger/chromium-1280x720-light.png
 button-primary@locale=en/chromium-1280x720-light.png
 button-lucky@locale=de/chromium-1280x720-dark.png
@@ -130,13 +130,13 @@ A story's tags are in Storybook's index, so capture reads them before it opens a
 
 A misspelt flaky tag stops the run, with exit 2, rather than being ignored:
 
-```
+```text
 storybook: story "button--lucky" tag "pixelslash-flaky-skipp" must be pixelslash-flaky-review or pixelslash-flaky-skip
 ```
 
 So do both flaky tags on one story:
 
-```
+```text
 storybook: story "button--lucky" has both pixelslash-flaky-review or pixelslash-flaky-skip
 ```
 
@@ -144,13 +144,13 @@ storybook: story "button--lucky" has both pixelslash-flaky-review or pixelslash-
 
 Turn the primary button green, capture again into another directory, and compare the two:
 
-```
+```bash
 sed -i 's/#2563eb/#16a34a/' src/button.stories.js
 npx pixelslash capture --out snapshots/branch
 npx pixelslash compare snapshots/main snapshots/branch --out report
 ```
 
-```
+```text
 timing: 10 shots, diff 0.0s, total 0.0s
 pixelslash: 8 changed, 2 unchanged, 0 new, 0 removed
 changed:

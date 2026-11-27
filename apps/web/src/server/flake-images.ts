@@ -8,7 +8,7 @@ import { imageSigningSecret } from "./env";
  */
 
 /**
- * A flake with its evidence's images signed (ob 1724): run 1 is the shot itself, the rest are the
+ * A flaky shot with its evidence's images signed (ob 1724): run 1 is the shot itself, the rest are the
  * re-captures stored beside it.
  */
 export const signFlakeOrNull = (orgId: string, flake: ProjectFlake | null) =>

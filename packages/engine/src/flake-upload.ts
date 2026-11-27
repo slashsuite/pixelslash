@@ -7,7 +7,7 @@ import { identity } from "./manifest.ts";
 import type { Shoot, SnapshotEntry } from "./snapshot.ts";
 
 /**
- * Where a flaky shot's later runs are saved in the snapshot dir. `@` is outside the route and
+ * Where a flaky shot's later runs are saved in the shot dir. `@` is outside the route and
  * story name alphabet, so no shot's own dir can be called this.
  */
 export const FLAKE_DIR = "@flake";
@@ -75,7 +75,7 @@ function limiter(limit: number) {
 type Recapture = (e: SnapshotEntry) => Promise<Shoot | undefined>;
 
 /**
- * One upload's flake pass (ob 1737): a changed shot is captured `retries` more times as it goes
+ * One upload's flaky-shot pass (ob 1737): a changed shot is captured `retries` more times as it goes
  * up, and at the end the flaky ones' runs and `report.html` are written into the dir. Without
  * `recapture`, or with 0 retries, nothing is captured again and no report is written.
  */

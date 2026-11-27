@@ -129,7 +129,7 @@ describe("flakes are stored per key (ob 1724)", () => {
         note: null,
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
-    // A flake of another project is not found either.
+    // A flaky shot of another project is not found either.
     await expect(
       resolveFlake(ctx.db, {
         projectId: "other-project",
@@ -216,7 +216,7 @@ describe("the flaky policy decides the verdict (ob 1724)", () => {
     expect(about.flakeId).not.toBeNull();
     expect(about.flakyPolicy).toBe("review");
     expect(build.status).toBe("changes");
-    // A shot labelled by an open flake but sent no policy at all is review too.
+    // A shot labelled by an open flaky shot but sent no policy at all is review too.
     const next = await mainThen(ctx, 3, {});
     expect((await onlyShot(ctx, next)).flakyPolicy).toBeNull();
     expect(next.status).toBe("changes");

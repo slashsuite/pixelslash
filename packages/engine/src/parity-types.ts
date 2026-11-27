@@ -37,7 +37,7 @@ export type DeclarationUse = {
 export type ParitySideInfo = {
   platform: ParityPlatform;
   scale: number;
-  /** `recorded` when the file's snapshot carried a scale; `default` when 1 was assumed. */
+  /** `recorded` when the file's shot carried a scale; `default` when 1 was assumed. */
   scale_source: "recorded" | "default";
 };
 
@@ -45,7 +45,7 @@ export type ParityPair = {
   name: string;
   theme: string;
   sides: [ParitySideInfo, ParitySideInfo];
-  /** The logical-px tolerance for lengths: `max(1/scale_a, 1/scale_b)`. */
+  /** The logical-px threshold for lengths: `max(1/scale_a, 1/scale_b)`. */
   tolerance: number;
   mismatches: Mismatch[];
   /** Differences the manifest declares on purpose: compared, differing, and accepted. */

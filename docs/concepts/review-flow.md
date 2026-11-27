@@ -13,11 +13,11 @@ Everything on this page runs on a server you run yourself. [Self-hosting](../../
 
 ## Upload
 
-```
+```bash
 npx pixelslash capture --upload --out snapshots/branch
 ```
 
-```
+```text
 pixelslash: uploaded 2 snapshots
 build: d834e691-… (94bca17 on new-button)
 ```
@@ -28,11 +28,11 @@ This exits 0: the upload worked. It does not mean the change is approved. The co
 
 `status` reports where the build stands. With `--wait` it keeps checking until there's a decision or the time runs out:
 
-```
+```bash
 npx pixelslash status --dir snapshots/branch --wait --interval 2s --timeout 6s
 ```
 
-```
+```text
 waiting on build d834e691-…: changes: 2 waiting · 0 accepted · 0 rejected
 build d834e691-…  http://localhost:4700/projects/f8e1c8c0-…/builds/d834e691-…
 changes: 2 waiting · 0 accepted · 0 rejected
@@ -41,7 +41,7 @@ still waiting after 6s
 
 That exits 5. By default it checks every 15 seconds for up to 30 minutes. You can wait in the upload step itself:
 
-```
+```bash
 npx pixelslash upload snapshots/branch --wait --timeout 30m
 ```
 
@@ -58,7 +58,7 @@ Accepting all skips a flaky shot under the `skip` policy, so a shot nobody could
 
 A decision reaches other builds that carry the same change. Rejecting one shot in a re-run also failed the earlier build of that commit:
 
-```
+```text
 failed: 1 waiting · 0 accepted · 1 rejected
 ```
 
@@ -75,11 +75,11 @@ One rejection fails the build, even with other shots still waiting. A rejected b
 
 A run after everything was accepted:
 
-```
+```bash
 npx pixelslash status --dir snapshots/branch3 --wait
 ```
 
-```
+```text
 passed: 0 waiting · 2 accepted · 0 rejected
 ```
 
@@ -100,7 +100,7 @@ These wait for a decision: a shot that changed, a new shot, an unchanged shot th
 
 A later job, or a job on another runner, may not have `build.json`. Name the build instead:
 
-```
+```bash
 npx pixelslash status --commit 94bca17… --wait
 ```
 

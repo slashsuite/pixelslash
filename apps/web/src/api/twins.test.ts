@@ -15,7 +15,7 @@ import {
   world,
 } from "./twins-support";
 
-/** Twin snapshots on the API (PS-295): the `twins` section of a build and the twin-project link. */
+/** Twin shots on the API (PS-295): the `twins` section of a build and the twin-project link. */
 
 describe("the twins section of a build", () => {
   test("a web-only build carries no twins key at all", async () => {

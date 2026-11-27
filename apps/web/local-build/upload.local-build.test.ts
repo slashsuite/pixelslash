@@ -153,7 +153,7 @@ describe("the CLI against the local build", () => {
     expect(cross.status).toBe(404);
     expect(await shotCount(buildId)).toBe(1);
 
-    // A finalised build is immutable: a late snapshot is refused and not stored.
+    // A finalised build is immutable: a late shot is refused and not stored.
     const late = new FormData();
     late.set(
       "meta",

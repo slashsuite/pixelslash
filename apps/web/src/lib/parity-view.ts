@@ -1,7 +1,7 @@
 import type { StaleCause } from "./stale";
 import { type Platform, type TwinSource, twinLabel, unlinkedLine } from "./twins";
 
-// The parity view (PS-298): one snapshot key (name + theme) on web, android and ios side by side.
+// The parity view (PS-298): one shot key (name + theme) on web, android and ios side by side.
 // Pure words and shapes, so the server function, the API and the screen say the same thing;
 // `server/parity-view.ts` is the one that builds it. Everything here is a hint or a reading of
 // stored files: nothing in it changes a status, an exit code, a check or a count.

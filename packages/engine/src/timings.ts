@@ -18,7 +18,7 @@ export type SettleSteps = {
 
 /**
  * Where a capture's time went (PS-195): `navigateMs` is the `goto` until DOMContentLoaded,
- * `settleMs` the settle wait (split per condition in `settle`), `screenshotMs` the screenshot
+ * `settleMs` the settle wait (split per condition in `settle`), `screenshotMs` the `page.screenshot`
  * call with Chromium's PNG encode. Parts of `captureMs`. A pair's two pages are shot at once, so its
  * parts add both pages' time and can exceed its `captureMs`.
  *
@@ -40,7 +40,7 @@ export type CaptureSteps = {
 /** One shot (or one route / pair): the steps it went through. */
 export type ShotTiming = Partial<CaptureSteps> & {
   name: string;
-  /** Load, settle and screenshot. */
+  /** Load, settle and shoot. */
   captureMs?: number;
   /** The pixel diff and its regions. */
   diffMs?: number;

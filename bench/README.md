@@ -147,7 +147,7 @@ bench:perf:check -- --base HEAD --only diff-phone` adds 300 ms inside the timed 
 A Rust, Go or C# engine can be scored and timed here without touching this repo's code, if it
 answers one command:
 
-```
+```bash
 <impl> diff <base.png> <head.png> --json
 ```
 

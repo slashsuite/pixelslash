@@ -140,7 +140,7 @@ export function parseRect(v: unknown, where: string): IgnoreRect {
   };
 }
 
-/** A snapshot's identity: its name and the fixed variant. `at` prefixes each field's name in an error. */
+/** A shot's identity: its name and the fixed variant. `at` prefixes each field's name in an error. */
 export function parseSnapshotKey(raw: unknown, at = ""): SnapshotKey {
   const m = object(raw, at || "meta");
   const theme = m.theme;
@@ -243,7 +243,7 @@ export function parseCiInput(raw: unknown): CiInput | null {
   return { engineVersion: text(c.engineVersion, "ci.engineVersion", 64, TOKEN), results };
 }
 
-/** The most captures a flake record may name, the first included; a record over it is dropped. */
+/** The most captures a flaky-shot record may name, the first included; a record over it is dropped. */
 export const MAX_FLAKE_RUNS = 10;
 const MAX_FLAKE_REGIONS = 200;
 const REGION_KINDS: readonly RegionKind[] = ["change", "noise", "shift", "moved"];

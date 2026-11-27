@@ -52,7 +52,7 @@ declare const window: {
  * of every visible element portalled into `<body>` beside it (popovers, menus, dialogs, toasts),
  * each clipped to the document first so an element parked off-screen does not stretch it. Storybook's
  * own chrome (`.sb-*`, `#storybook-docs`) is not content. With `finish`, finite animations are run to
- * their end first, as the screenshot's `animations: "disabled"` does, so a popover that fades or
+ * their end first, as the shot's `animations: "disabled"` does, so a popover that fades or
  * slides in is measured where the shot shows it. Runs in the page.
  */
 function storyBox(finish: boolean): Box | null {

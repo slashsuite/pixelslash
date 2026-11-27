@@ -65,7 +65,7 @@ export function shownChips(shot: { theme: string; viewport: string }, label: Sho
 
 /**
  * Only what the name says: its `@theme=` global as the theme, then the other globals as
- * `Key: Value`. The snapshot page shows the capture's colour scheme apart, as what it is.
+ * `Key: Value`. The shot page shows the capture's colour scheme apart, as what it is.
  */
 export function variantChips(label: ShotLabel): string[] {
   const theme = label.variants.find((variant) => variant.key === "theme");

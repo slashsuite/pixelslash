@@ -12,11 +12,11 @@ import { type ReadCtx, imageUrl, iso, regionOf, reply, snapshotUrl } from "./rea
 import { BadRequest, Forbidden, isPng, object, parseFlake, parseFlaky } from "./validate";
 
 /**
- * Flakes over the API (ob 1724): any token that reaches the project lists them; only a person
+ * Flaky shots over the API (ob 1724): any token that reaches the project lists them; only a person
  * resolves one, so `resolved_by` names who did. A CI token gets 403 on resolve.
  */
 
-/** A flake's re-capture, `flake:<run>`: one that is missing, too big or not a PNG is left out. */
+/** A flaky shot's re-capture, `flake:<run>`: one that is missing, too big or not a PNG is left out. */
 async function flakePart(
   form: FormData,
   run: number,
@@ -121,7 +121,7 @@ export async function resolveProjectFlake(
     ctx.actor,
     await flakeProjectId(ctx.db, flakeId),
   ).catch((e: unknown) => {
-    // Another org's flake is the same 404 as a missing one.
+    // Another org's flaky shot is the same 404 as a missing one.
     throw e instanceof NotFoundError ? new NotFoundError("flake") : e;
   });
   const note = noteOf(body);

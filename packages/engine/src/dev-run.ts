@@ -51,7 +51,7 @@ function timedSession(session: CaptureSession): { session: CaptureSession; settl
   return { session: { ...session, shoot }, settled: () => settleMs };
 }
 
-/** An empty snapshot dir: the first run is compared with nothing, so every shot is new. */
+/** An empty shot dir: the first run is compared with nothing, so every shot is new. */
 async function emptySide(dir: string): Promise<string> {
   await mkdir(dir, { recursive: true });
   await Bun.write(join(dir, "manifest.json"), `${JSON.stringify({ version: 1, snapshots: [] })}\n`);

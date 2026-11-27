@@ -1,8 +1,8 @@
-/* The JSON a snapshot row stores for its diff, and a flake its evidence, as typed columns of `schema.ts`. */
+/* The JSON a `snapshots` row stores for its diff, and a flaky shot its evidence, as typed columns of `schema.ts`. */
 
 import type { FlakyPolicy } from "./schema";
 
-/** The diff tolerance a snapshot is compared with; the same keys as the engine's `DiffOptions`. */
+/** The diff threshold a shot is compared with; the same keys as the engine's `DiffOptions`. */
 export type DiffOptions = {
   threshold?: number;
   minChangedPixels?: number;
@@ -71,7 +71,7 @@ export type DiffRegion = {
 };
 
 /**
- * What the diff measured for one snapshot, as stored. `null` means it was not compared: no
+ * What the diff measured for one shot, as stored. `null` means it was not compared: no
  * baseline (`new`), a removed shot, or a fingerprint that needs a re-baseline.
  */
 export type DiffResult = {

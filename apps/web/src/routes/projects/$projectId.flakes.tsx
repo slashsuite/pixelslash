@@ -31,11 +31,11 @@ export const Route = createFileRoute("/projects/$projectId/flakes")({
   component: FlakesPage,
 });
 
-/** The flake's variant, as the build page names one: what is not the default reads as a chip. */
+/** The flaky shot's variant, as the build page names one: what is not the default reads as a chip. */
 const variantOf = (flake: FlakeView) =>
   [flake.platform, flake.browser, flake.viewport, flake.theme].join(" · ");
 
-/** Resolve with an optional note, or reopen a resolved flake. */
+/** Resolve with an optional note, or reopen a resolved flaky shot. */
 function StatusControl({ projectId, flake }: { projectId: string; flake: FlakeView }) {
   const hydrated = useHydrated();
   const [resolving, setResolving] = useState(false);

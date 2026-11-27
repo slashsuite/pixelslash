@@ -6,7 +6,7 @@ import {
 import { bad } from "./errors";
 
 /**
- * A snapshot's layout metrics file (PS-294), checked with the engine's own parser: a malformed file
+ * A shot's layout metrics file (PS-294), checked with the engine's own parser: a malformed file
  * is a 400 that names the field. The bytes the client sent are what is stored, so a higher minor
  * version's extra fields survive; only this reader drops them.
  */

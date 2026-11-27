@@ -67,7 +67,7 @@ export function flatten(raw: RawViolation[]): A11y {
 
 /**
  * Scan the settled page with axe-core and return the WCAG A and AA violations. Run after the
- * screenshot: the scan reads the DOM and changes nothing a shot can see. axe is evaluated through
+ * shot is taken: the scan reads the DOM and changes nothing a shot can see. axe is evaluated through
  * the protocol, not injected as a script tag, so a page's Content-Security-Policy cannot block it.
  * Nothing leaves the machine: axe runs in the page and reports to this process.
  */

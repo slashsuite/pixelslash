@@ -53,7 +53,7 @@ describe("pixelslash import", () => {
       "home 800x600 light",
     ]);
 
-    // The same shots again diff to nothing, and a changed one shows up: it is a snapshot dir.
+    // The same shots again diff to nothing, and a changed one shows up: it is a shot dir.
     const again = join(await tmp(), "snaps");
     await Bun.write(join(from, "home.png"), solidPng(40, 40, [220, 220, 220, 255]));
     expect(await run(["import", from, "--out", again, "--viewport", "800x600"], cap.io, {})).toBe(

@@ -1,6 +1,6 @@
 import type { SnapshotEntry } from "./snapshot.ts";
 
-// Native screenshots (PS-293): Maestro on an Android emulator or an iOS Simulator. The user-facing
+// Native shots (PS-293): Maestro on an Android emulator or an iOS Simulator. The user-facing
 // words are `web | android | ios`; the server keeps `linux` for web, so no row, baseline or manifest
 // of a web project changes. This file is the one place that maps between the two, and it imports
 // only a type, because `snapshot-paths.ts` (the Playwright helper's bundle) uses it.
@@ -32,7 +32,7 @@ export function serverPlatform(e: Pick<SnapshotEntry, "platform">): string {
 }
 
 /**
- * The `browser` the server stores. For a native snapshot the device is the renderer, so the device
+ * The `browser` the server stores. For a native shot the device is the renderer, so the device
  * label sits in the browser column and the unique key stays as it is.
  */
 export function serverBrowser(e: Pick<SnapshotEntry, "platform" | "device" | "variant">): string {

@@ -26,8 +26,8 @@ import type { Io } from "./run.ts";
 import { type Watch, watched } from "./watch.ts";
 
 /**
- * `pixelslash flakes` and `pixelslash flake <id>` (ob 1725): the project's open flakes, and the
- * local loop for fixing one. The server is only read, and told a flake is resolved when asked;
+ * `pixelslash flakes` and `pixelslash flake <id>` (ob 1725): the project's open flaky shots, and the
+ * local loop for fixing one. The server is only read, and told a flaky shot is resolved when asked;
  * no shot leaves the machine.
  */
 
@@ -58,7 +58,7 @@ function key(f: Flake): string {
   return `${str(f.name)} (${str(f.browser)} ${str(f.viewport)} ${str(f.theme)})`;
 }
 
-/** `pixelslash flakes`: the project's open flakes. `--json` is the reply as sent. */
+/** `pixelslash flakes`: the project's open flaky shots. `--json` is the reply as sent. */
 export async function runFlakes(argv: string[], io: Io, deps: RemoteDeps = {}): Promise<number> {
   const { json, rest } = takeJson(argv);
   const flags = readFlagPairs(rest, [...REMOTE_FLAGS, "project"]);
@@ -91,7 +91,7 @@ function parseRuns(raw: string | undefined): number {
   return n;
 }
 
-/** The config's route and variant for the flake's key; a usage error naming what is missing. */
+/** The config's route and variant for the flaky shot's key; a usage error naming what is missing. */
 function shotOf(
   f: Flake,
   config: CaptureConfig,
@@ -155,7 +155,7 @@ async function writeRuns(
   return { report, files, overlays };
 }
 
-/** `--resolve`: only a stable run resolves a flake, so a fix is seen to work before it is said to. */
+/** `--resolve`: only a stable run resolves a flaky shot, so a fix is seen to work before it is said to. */
 async function resolveIfStable(
   remote: Remote,
   { id, note, stable }: { id: string; note: string | undefined; stable: boolean },
@@ -204,7 +204,7 @@ export function checkNote(note: string | undefined, resolving: boolean): void {
     throw new UsageError(`--note is at most ${MAX_NOTE} characters`);
 }
 
-/** One flake reproduced here: what was captured, what the engine measured, what to change. */
+/** One flaky shot reproduced here: what was captured, what the engine measured, what to change. */
 export type FlakeRun = {
   id: string;
   flake: Flake;
@@ -221,7 +221,7 @@ export type FlakeRun = {
   overlays: Record<number, string>;
 };
 
-/** Capture the flake's shot `runs` times here and measure it; the server is only read. */
+/** Capture the flaky shot `runs` times here and measure it; the server is only read. */
 export async function reproduceFlake(
   id: string,
   flags: FlakeFlags,
@@ -251,7 +251,7 @@ export async function reproduceFlake(
   return { id, flake, remote, configPath, config, repro, fixes, media, out, ...written };
 }
 
-/** Resolve the flake on the server when the run was stable; false, and nothing sent, when not. */
+/** Resolve the flaky shot on the server when the run was stable; false, and nothing sent, when not. */
 export const resolveFlake = (r: FlakeRun, note: string | undefined) =>
   resolveIfStable(r.remote, { id: r.id, note, stable: r.repro.stable });
 
@@ -300,7 +300,7 @@ export async function suggestJson(r: FlakeRun) {
   };
 }
 
-/** `pixelslash flake ID`: reproduce one flake here, say what differs and what to change. */
+/** `pixelslash flake ID`: reproduce one flaky shot here, say what differs and what to change. */
 export async function runFlake(argv: string[], io: Io, deps: FlakeDeps = {}): Promise<number> {
   const { id, flags, write, suggest, json, resolving } = flakeArgs(argv);
   const r = await reproduceFlake(id, flags, {

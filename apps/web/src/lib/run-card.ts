@@ -35,7 +35,7 @@ export type RunCardInput = {
   build: MetricBuild & { rerun: boolean };
   shots: readonly MetricShot[];
   defaultBranch: string;
-  /** Flake re-captures the CLI sent for this build; null when it sent none. */
+  /** Flaky-shot re-captures the CLI sent for this build; null when it sent none. */
   recaptures: number | null;
 };
 

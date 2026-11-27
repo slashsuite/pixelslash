@@ -197,7 +197,7 @@ async function pngSize(path: string) {
   return { width: head.readUInt32BE(16), height: head.readUInt32BE(20) };
 }
 
-/** Write `gaps.json` and `gaps.html` into the snapshot dir; returns the HTML's path. */
+/** Write `gaps.json` and `gaps.html` into the shot dir; returns the HTML's path. */
 export async function writeGapsReport(
   out: string,
   manifest: SnapshotManifest,

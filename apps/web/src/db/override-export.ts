@@ -13,7 +13,7 @@ import type { DiffOptions, IgnoreRect } from "./schema";
 /**
  * Review-UI overrides (ob 1495) and ignore boxes (ob 1499) as config, so nothing set in the UI is
  * only there: a snippet per override or box, the project's whole export, and the payloads the
- * settings and snapshot pages read.
+ * settings and shot pages read.
  */
 
 /** The config's default name for a variant, which `parseConfig` gives one that names none. */

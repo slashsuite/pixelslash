@@ -157,7 +157,7 @@ function gapsLine({ manifest, gapsPath = "" }: SnapshotResult): string {
 }
 
 /**
- * `pixelslash capture`: every route × variant in the config into a snapshot dir + manifest. Exit 0.
+ * `pixelslash capture`: every route × variant in the config into a shot dir + manifest. Exit 0.
  * With `--upload` the browser stays open through the upload, so a shot that differs from its
  * baseline is captured again the same way (ob 1737), and closes after it. Only there may a story be
  * shot on a reused preview page (PS-445).

@@ -7,7 +7,7 @@ import { heldShot } from "./markers";
 import { builds, snapshots } from "./schema";
 
 /**
- * One build's snapshots and the times of its compares (PS-336), for the operator page. Computed in
+ * One build's shots and the times of its compares (PS-336), for the operator page. Computed in
  * SQL over `snapshots_build_idx`, one query for the whole list: the database holds too many shots
  * to bring into JS, and D1 is billed and limited per query.
  */

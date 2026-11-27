@@ -8,7 +8,7 @@ import { must } from "#/test/must";
 import { META, PNG, call, openBuild, setup, snapshotForm } from "./test-support";
 import { parseFlake, parseFlaky } from "./validate";
 
-/** Flakes over API v1 (ob 1724): uploaded with a shot, listed, resolved by a person only. */
+/** Flaky shots over API v1 (ob 1724): uploaded with a shot, listed, resolved by a person only. */
 
 const FLAKE = { runs: 3, differed: [2], regions: [], engineVersion: "0.1.0", policy: "skip" };
 
@@ -76,14 +76,14 @@ describe("flakes over the API (ob 1724)", () => {
       );
       expect(Object.keys(await res.json())).toEqual(["id"]);
     };
-    // The key's flake is open: the same shot sent without a record is still labelled with it.
+    // The key's flaky shot is open: the same shot sent without a record is still labelled with it.
     await again();
     expect(await labelOf()).toBe(flake?.id);
     // Resolved: the next upload of the shot no longer takes the label.
     await call(deps, `POST /api/v1/flakes/${flake?.id}/resolve`, ada, "{}");
     await again();
     expect(await labelOf()).toBeNull();
-    // A fresh record reopens the flake and labels the shot again.
+    // A fresh record reopens the flaky shot and labels the shot again.
     await call(
       deps,
       `PUT /api/v1/builds/${buildId}/snapshots`,

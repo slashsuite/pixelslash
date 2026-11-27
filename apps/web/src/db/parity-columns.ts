@@ -9,7 +9,7 @@ import { twinsOfBuild } from "./twins";
 import { shotsOf } from "./twins-read";
 
 /**
- * The columns of the parity view (PS-298): every shot under one snapshot key (name + theme) that a
+ * The columns of the parity view (PS-298): every shot under one shot key (name + theme) that a
  * build's twin pairing finds, with what the view needs to draw and measure each. The pairing is
  * `twinsOfBuild` (PS-295) and nothing here pairs again: this reads that function's answer and adds
  * each shot's blob keys and scale.

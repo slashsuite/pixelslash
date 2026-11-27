@@ -1,6 +1,6 @@
 import { sha256Hex } from "#/lib/crypto";
 
-/** What names a snapshot within a build. */
+/** What names a shot within a build. */
 export type StemKey = {
   buildId: string;
   name: string;
@@ -13,7 +13,7 @@ export type StemKey = {
 /**
  * The blob prefix a shot owns: `builds/<buildId>/<identity>`, the identity being the first 32 hex
  * characters of the sha256 of its name and variant. Everything a shot writes of its own (CI masks,
- * metrics, flake captures, its diff overlay) sits beside this stem. Its PNG does not: an image is
+ * metrics, flaky-shot captures, its diff overlay) sits beside this stem. Its PNG does not: an image is
  * stored once per org under its hash (`imageKeyOf`), and older shots' PNGs sit at `<stem>.png`.
  * The stem is the shot's own, so what it writes never lands on a key another build reads.
  */

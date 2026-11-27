@@ -8,7 +8,7 @@ import { builds, type IgnoreRect, snapshots } from "./schema";
 
 /**
  * Baseline selection (ob 1470, ob 1712), with no git access: the CLI uploads the merge-base and
- * the ancestor SHAs, and the server picks, per snapshot key:
+ * the ancestor SHAs, and the server picks, per shot key:
  *
  * 1. The same branch's previous shot, reviewed or not: the newest earlier build of this branch
  *    that holds the key and was not rejected. A re-run of one commit is therefore 0 changed, and
@@ -31,7 +31,7 @@ import { builds, type IgnoreRect, snapshots } from "./schema";
  * picks here are not changed by it.
  */
 
-/** The fields of a snapshot this module reads; a whole row would drag the blobs' JSON along. */
+/** The fields of a shot this module reads; a whole row would drag the blobs' JSON along. */
 export type BaselineSnapshot = {
   id: string;
   name: string;
@@ -47,7 +47,7 @@ export type BaselineSnapshot = {
   imageSize: { width: number; height: number } | null;
 };
 
-/** The identity a snapshot is diffed under: name + the fixed variant. */
+/** The identity a shot is diffed under: name + the fixed variant. */
 export type SnapshotKey = Pick<
   BaselineSnapshot,
   "name" | "platform" | "browser" | "viewport" | "theme"
@@ -70,12 +70,12 @@ export type Baseline = {
 };
 
 export type Baselines = {
-  /** Snapshot key → what this build's shot is compared against. A missing key is `new`. */
+  /** Shot key → what this build's shot is compared against. A missing key is `new`. */
   byKey: Map<string, Baseline>;
   /** Shots the baseline build had and this one does not: removed, and never blocking. */
   removed: BaselineSnapshot[];
   /**
-   * Snapshot key → the shot the branch is measured against for its final review (ob 1723): the
+   * Shot key → the shot the branch is measured against for its final review (ob 1723): the
    * accepted shot of another branch at the nearest commit in reach, so of main at the merge-base. Unlike `byKey`
    * it never takes this branch's own shots, accepted or not. A missing key is `new` against main.
    */
@@ -203,7 +203,7 @@ async function queryCandidates(db: Db, build: PickFor): Promise<Candidate[]> {
           // A flaky shot its config skips is never a baseline unless a reviewer accepted it (ob 1724).
           notSkippedFlaky(),
           // The reach filter belongs in SQL: the same 128 MB isolate that runs the diff has no
-          // business reading every accepted snapshot the project has ever held.
+          // business reading every accepted shot the project has ever held.
           reach,
         ),
       );

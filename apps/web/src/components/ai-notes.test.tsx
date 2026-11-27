@@ -3,7 +3,7 @@ import { expect, test } from "vitest";
 import { render, screen } from "#/test/render";
 import { AiExplanation, aiFiltered, type JudgedShot } from "./ai-notes";
 
-/** Only the fields the section reads; the rest of a snapshot row is not its business. */
+/** Only the fields the section reads; the rest of a `snapshots` row is not its business. */
 const changed = (over: Partial<JudgedShot>): JudgedShot => ({
   diffStatus: "changed",
   aiReview: null,

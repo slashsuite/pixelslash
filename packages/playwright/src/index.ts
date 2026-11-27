@@ -27,7 +27,7 @@ import type { Browser, Page } from "playwright";
 export { keepNativeRaf } from "@slashsuite/pixelslash-engine/playwright";
 
 export type SnapshotOptions = {
-  /** Selectors the diff skips. Measured at the screenshot as boxes in image px; the pixels stay. */
+  /** Selectors the diff skips. Measured at the shot as boxes in image px; the pixels stay. */
   ignore?: string[];
   /** Selectors painted over in the PNG (MASK_COLOR), so what they show never leaves the machine. */
   redact?: string[];
@@ -66,7 +66,7 @@ type Size = { width: number; height: number };
 let fonts: Promise<string> | undefined;
 
 /**
- * Screenshot `page` as the snapshot `name` into the snapshot dir and add it to the dir's
+ * Shoot `page` as the shot `name` into the shot dir and add it to the dir's
  * `manifest.json`, which `pixelslash upload` takes as it is. Waits for the page to settle first,
  * shoots with animations disabled and the caret hidden, measures `ignore` in image px (device
  * pixel ratio and full page included) and paints `redact`. Workers share the dir: each write of
@@ -169,7 +169,7 @@ function launched(page: Page): { browser: Browser; viewport: Size } {
   return { browser, viewport };
 }
 
-/** The screenshot, with animations off, the caret hidden and every `redact` match painted over. */
+/** The shot, with animations off, the caret hidden and every `redact` match painted over. */
 async function shoot(page: Page, selectors: string[], fullPage: boolean) {
   const mask = await maskLocators(page, selectors, unmatched.checked("redact", selectors));
   return page.screenshot({

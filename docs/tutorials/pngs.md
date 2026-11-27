@@ -6,11 +6,11 @@ You need the package from [Getting started](../getting-started.md): `npm i -D @s
 
 ## Two PNGs
 
-```
+```bash
 npx pixelslash --live-png main.png --local-png branch.png --out .pixelslash --label "button colour"
 ```
 
-```
+```text
 pixelslash: 3091 changed pixels
 report: file:///…/my-pngs/.pixelslash/report.html
 timing: 1 shot, diff 0.0s, total 0.0s
@@ -28,12 +28,12 @@ Two files with the same bytes are not decoded at all, and the count is `pixelsla
 
 `--viewport` is the size the shots were taken at. `--renderer` names what made them, here a Cypress suite, and goes into the fingerprint:
 
-```
+```bash
 npx pixelslash import shots/main --viewport 1280x720 --renderer "cypress 15" --out snaps/main
 npx pixelslash import shots/branch --viewport 1280x720 --renderer "cypress 15" --out snaps/branch
 ```
 
-```
+```text
 pixelslash: 2 snapshots
 manifest: …/my-pngs/snaps/main/manifest.json
 ```
@@ -46,11 +46,11 @@ The fingerprint in the manifest says where the shots came from, and `fonts` is `
 
 Then compare the two directories:
 
-```
+```bash
 npx pixelslash compare snaps/main snaps/branch --out report
 ```
 
-```
+```text
 timing: 2 shots, diff 0.1s, total 0.1s
 pixelslash: 2 changed, 0 unchanged, 0 new, 0 removed
 changed:
@@ -65,18 +65,18 @@ report: file:///…/my-pngs/report/index.html
 
 For a mobile app, name the platform and device. `--device` and `--scale` are required, and the scale turns the PNG's pixels into a viewport:
 
-```
+```bash
 npx pixelslash import shots/android/main --platform android --device "Pixel 8 API 35" --scale 3 --out snaps/android-main
 npx pixelslash import shots/android/branch --platform android --device "Pixel 8 API 35" --scale 3 --out snaps/android-branch
 npx pixelslash compare snaps/android-main snaps/android-branch --out report-android
 ```
 
-```
+```text
 note: home.png: 1280x720 px at scale 3 is viewport 427x240
 pixelslash: 1 snapshots
 ```
 
-```
+```text
 timing: 1 shot, diff 0.0s, total 0.0s
 pixelslash: 1 changed, 0 unchanged, 0 new, 0 removed
 changed:
@@ -88,7 +88,7 @@ report: file:///…/my-pngs/report-android/index.html
 
 `--renderer` works here too, for the tool that took the shots:
 
-```
+```bash
 npx pixelslash import shots/android/main --platform android --device "Pixel 8 API 35" --scale 3 --renderer "maestro 2.0" --out snaps/renderer
 ```
 

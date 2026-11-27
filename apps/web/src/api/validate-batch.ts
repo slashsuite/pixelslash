@@ -22,7 +22,7 @@ export function parseBatch(raw: unknown): HeldShot[] {
     const meta = object(item, where);
     if (typeof meta.sha256 !== "string" || !SHA256.test(meta.sha256))
       bad(`${where}.sha256`, "must be 64 lowercase hex characters");
-    // A flake record or CI results need the shot's own PUT; dropping them here would lose them.
+    // A flaky-shot record or CI results need the shot's own PUT; dropping them here would lose them.
     for (const field of ["flake", "ci"])
       if (meta[field] !== undefined)
         bad(`${where}.${field}`, "is not taken here; use the shot's PUT");

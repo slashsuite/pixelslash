@@ -10,7 +10,7 @@ Before you start: if Getting started left its two servers running on ports 4101 
 
 In a project with Playwright, or in a new one:
 
-```
+```bash
 mkdir my-tests && cd my-tests
 npm init -y
 npm pkg set type=module
@@ -22,7 +22,7 @@ npx playwright install chromium-headless-shell
 
 If you have an app, run it twice, on main and on your branch, on ports 4101 and 4102, and skip to the next section. Otherwise, make a small account page. It has a clock that changes all the time, a session token and a plan:
 
-```
+```bash
 mkdir main
 cat > main/index.html <<'HTML'
 <!doctype html>
@@ -54,14 +54,14 @@ HTML
 
 Copy it to Branch and change the plan there. This is GNU `sed`; on a Mac, use `sed -i ''`, or edit the file by hand:
 
-```
+```bash
 cp -r main branch
 sed -i 's/Plan: free/Plan: team/' branch/index.html
 ```
 
 Serve each copy on its own port, and leave them running:
 
-```
+```bash
 npx --yes serve -l 4101 main &
 npx --yes serve -l 4102 branch &
 ```
@@ -109,12 +109,12 @@ test("the account page", async ({ page }) => {
 
 `PIXELSLASH_SNAPSHOT_DIR` says where the shots go, and `BASE_URL` is read by the config above:
 
-```
+```bash
 PIXELSLASH_SNAPSHOT_DIR=snapshots/main BASE_URL=http://localhost:4101 npx playwright test
 PIXELSLASH_SNAPSHOT_DIR=snapshots/branch BASE_URL=http://localhost:4102 npx playwright test
 ```
 
-```
+```text
 Running 1 test using 1 worker
 
   ✓  1 tests/account.spec.ts:4:1 › the account page (1.1s)
@@ -130,11 +130,11 @@ Each directory now has `account/1024x768-light.png` and a `manifest.json`, where
 
 ## Compare the two directories
 
-```
+```bash
 npx pixelslash compare snapshots/main snapshots/branch --out report
 ```
 
-```
+```text
 timing: 1 shot, diff 0.0s, total 0.0s
 pixelslash: 1 changed, 0 unchanged, 0 new, 0 removed
 changed:

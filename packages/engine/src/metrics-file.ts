@@ -2,7 +2,7 @@ import { UsageError } from "./errors.ts";
 import { type Metrics, parseMetricsText } from "./metrics-entry.ts";
 import { metricsPath } from "./snapshot-paths.ts";
 
-/** A metrics file read from a snapshot dir: its bytes as they are (what is stored and sent) and what they parse to. */
+/** A metrics file read from a shot dir: its bytes as they are (what is stored and sent) and what they parse to. */
 export type MetricsFile = { bytes: Uint8Array; metrics: Metrics };
 
 /**

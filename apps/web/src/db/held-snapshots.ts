@@ -50,8 +50,8 @@ function statementsOf(buildId: string, rows: (typeof snapshots.$inferInsert)[]):
  * Register many shots whose PNGs the project already holds, in one pass: the build is checked by
  * the caller once, the held images are looked up together and the rows are written a statement
  * at a time with several rows each, not one request and one insert per shot. A shot gets the row
- * `putSnapshot` gives a by-hash shot sent with no metrics, flake record or CI results, and the
- * same flake label (`labelFlake` with no record). A hash the project no longer holds is named in
+ * `putSnapshot` gives a by-hash shot sent with no metrics, flaky-shot record or CI results, and the
+ * same flaky-shot label (`labelFlake` with no record). A hash the project no longer holds is named in
  * `missing` and its shots are not stored; the client sends those with their files. A key sent
  * twice keeps its last shot, as a PUT sent twice does.
  */

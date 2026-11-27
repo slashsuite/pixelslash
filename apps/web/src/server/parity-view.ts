@@ -26,7 +26,7 @@ import { type BlobStore, orgBlobs } from "#/storage/blobs";
 import { loadMetrics } from "./metrics-read";
 
 /**
- * The parity view of one snapshot key (PS-298): the shots side by side at one physical size, the
+ * The parity view of one shot key (PS-298): the shots side by side at one physical size, the
  * metrics comparison of PS-296 under them, and a similarity hint per native column. A read: it
  * stores nothing, and the hint is shown and nothing else, so no status, check or count can see it.
  */

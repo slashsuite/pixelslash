@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
 /**
- * What a snapshot was rendered by. Only snapshots with equal fingerprints are
+ * What a shot was rendered by. Only shots with equal fingerprints are
  * compared: a new image, browser or font set means a re-baseline, not a wall of diffs.
  */
 export type Fingerprint = {

@@ -5,7 +5,7 @@ import type { Region } from "./regions.ts";
 import type { Shoot, SnapshotEntry } from "./snapshot.ts";
 
 /**
- * Flake detection (ob 1737). A shot that differs from its baseline is captured again; when a
+ * Flaky-shot detection (ob 1737). A shot that differs from its baseline is captured again; when a
  * capture disagrees with the first one, the page does not render the same twice, and the shot is
  * flaky. That says nothing about whether the change is wanted: it says the captures disagreed.
  * What a flaky shot does to a build (review it, or skip it) is the server's call, on the policy.

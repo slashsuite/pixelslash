@@ -34,14 +34,14 @@ import { elapsed, type CaptureSteps, type ShotTiming } from "./timings.ts";
 import type { NativeFields } from "./native.ts";
 import { storybookRoutes } from "./storybook.ts";
 
-/** One snapshot in the manifest: what it is (name + variant + tags), what made it, and its PNG. */
+/** One shot in the manifest: what it is (name + variant + tags), what made it, and its PNG. */
 export type SnapshotEntry = {
   name: string;
   path: string;
   variant: Variant;
   tags: string[];
   /**
-   * The diff options this snapshot is compared with, resolved from the config (variant > route >
+   * The diff options this shot is compared with, resolved from the config (variant > route >
    * project). Only keys someone set; absent keys take the engine default at diff time. Manifests
    * written before this field existed have none, read as `{}`.
    */
@@ -80,7 +80,7 @@ export type SnapshotEntry = {
   metrics?: string;
 } & NativeFields; // a native shot's platform, device and scale (PS-293); absent on web
 
-/** `manifest.json` in the snapshot dir. No timestamps: two runs of the same build write the same bytes. */
+/** `manifest.json` in the shot dir. No timestamps: two runs of the same build write the same bytes. */
 export type SnapshotManifest = { version: 1; snapshots: SnapshotEntry[] };
 
 export type SnapshotDeps = {
@@ -92,7 +92,7 @@ export type SnapshotDeps = {
 export type SnapshotResult = {
   manifest: SnapshotManifest;
   manifestPath: string;
-  /** How long each shot took to capture (load, settle, screenshot), in capture order. Not in the manifest: that stays byte-for-byte reproducible. */
+  /** How long each shot took to capture (load, settle, shot), in capture order. Not in the manifest: that stays byte-for-byte reproducible. */
   shots: ShotTiming[];
   /** `gaps.html` beside the manifest, for a composition-only project. */
   gapsPath?: string;
@@ -122,7 +122,7 @@ export type Shoot = {
   ignore: IgnoreRect[];
   /** Navigate and settle together, unrounded: `pixelslash dev` adds these up. */
   loadMs?: number;
-  /** Navigate, settle and screenshot apart (PS-195). */
+  /** Navigate, settle and shoot apart (PS-195). */
   steps?: CaptureSteps;
   /**
    * The `<video>` and `<audio>` on the page that no ignore area covers, in CSS px: media renders
@@ -197,7 +197,7 @@ export type CaptureSession = {
   /** How long the browsers took to launch, together (PS-195). */
   browserLaunchMs: number;
   /**
-   * `scan` asks for the accessibility scan (PS-238); only `captureInto` keeps its result, so a flake
+   * `scan` asks for the accessibility scan (PS-238); only `captureInto` keeps its result, so a flaky shot
    * re-capture or a dev loop skips it. `reuse` lets a story be shot on a pooled preview page
    * (PS-445); without it, as for every re-capture, the shot is on a fresh page.
    */

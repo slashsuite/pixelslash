@@ -7,7 +7,7 @@ export { identicalResult, readPngSize } from "./identical.ts";
 
 export type DiffOptions = {
   /**
-   * Per-pixel tolerance, 0 to 1. 0 flags every differing pixel; larger values ignore small
+   * Per-pixel threshold, 0 to 1. 0 flags every differing pixel; larger values ignore small
    * perceptual colour differences (YIQ distance, alpha blended over white).
    */
   threshold?: number;

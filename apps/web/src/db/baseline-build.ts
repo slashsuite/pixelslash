@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import type { Db } from "./db";
 import { builds, snapshots } from "./schema";
 
-/** The build whose shot a snapshot was compared with first: what the viewer's left pane shows. */
+/** The build whose shot this shot was first compared with: what the viewer's left pane shows. */
 export type BaselineBuild = {
   /** The baseline shot, so the viewer can link straight to it. */
   snapshotId: string;

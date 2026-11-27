@@ -82,7 +82,7 @@ It never exits 1: 1 is for new design-system violations.
 
 Any error PixelSlash did not expect writes this to stderr, and then exits 7:
 
-```
+```text
 pixelslash: FAILED <command>: <stage>: <message>
 nothing was uploaded
 a runner seeing exit 7 must escalate to the PixelSlash planner: this is a bug in pixelslash

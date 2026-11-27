@@ -7,7 +7,7 @@ import type { Page } from "@playwright/test";
 export function keepNativeRaf(): void;
 
 export type SnapshotOptions = {
-  /** Selectors the diff skips. Measured at the screenshot as boxes in image px; the pixels stay. */
+  /** Selectors the diff skips. Measured at the shot as boxes in image px; the pixels stay. */
   ignore?: string[];
   /** Selectors painted over in the PNG (`#FF00FF`), so what they show never leaves the machine. */
   redact?: string[];
@@ -37,13 +37,13 @@ export type SnapshotEntry = {
   /** Boxes the diff skips, in image px. */
   ignore: { x: number; y: number; width: number; height: number }[];
   flaky: string;
-  /** Relative to the snapshot dir. */
+  /** Relative to the shot dir. */
   file: string;
   fingerprint: { image: string; browser: string; fonts: string };
 };
 
 /**
- * Screenshot `page` as the snapshot `name` into the snapshot dir and add it to the dir's
+ * Shoot `page` as the shot `name` into the shot dir and add it to the dir's
  * `manifest.json`, which `pixelslash upload` takes as it is.
  */
 export function snapshot(page: Page, name: string, opts?: SnapshotOptions): Promise<SnapshotEntry>;

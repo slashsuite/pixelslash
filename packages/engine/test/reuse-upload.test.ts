@@ -115,7 +115,7 @@ describe("a shot from a reused preview page is kept only where it is its baselin
     expect(await onDisk("artifact")).toEqual(png());
     expect(result.changed.map((e) => e.name)).not.toContain("artifact");
     expect(result.flaky).toEqual([]);
-    // One fresh shot, and no flake retries: the fresh shot equals the baseline.
+    // One fresh shot, and no flaky-shot retries: the fresh shot equals the baseline.
     expect(asked.filter((n) => n === "artifact")).toEqual(["artifact"]);
   });
 
@@ -151,7 +151,7 @@ describe("a shot from a reused preview page is kept only where it is its baselin
 
   test("a shot not taken on a reused page is never shot fresh in its place", async () => {
     const { asked, sent, result } = await upload({ reused: [] });
-    // Only the flake retries of the two that differ from the baseline; the new shot is not measured.
+    // Only the flaky-shot retries of the two that differ from the baseline; the new shot is not measured.
     expect(asked.toSorted()).toEqual(["artifact", "artifact", "real", "real"]);
     expect(sent.get("artifact")).toEqual(png(16));
     expect(result.reshot).toBe(0);

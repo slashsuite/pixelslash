@@ -74,7 +74,7 @@ Drop one of the three. If you want a JSON reply, read the build afterwards with 
 
 A flag that needs a value was the last thing on the line, or the thing after it was another flag:
 
-```
+```bash
 pixelslash --live-png main.png --local-png --out report
 ```
 

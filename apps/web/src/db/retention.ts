@@ -14,7 +14,7 @@ import { effectiveDefaultBranch, parentJoin, parentProjects } from "./effective"
  * The default branch has a window of its own (`mainDays`, `PIXELSLASH_RETENTION_MAIN_DAYS`), off
  * unless set. Under it, two kinds of default-branch build are never candidates however old:
  * - each project's newest default-branch build;
- * - a build that holds the current accepted shot of some test: for each snapshot key, the newest
+ * - a build that holds the current accepted shot of some test: for each shot key, the newest
  *   accepted shot on the default branch (what a new build's baseline would be).
  * Another default-branch build past the window is kept only when a build that stays points at it
  * directly. A default-branch build kept that way does not keep the default-branch builds it points at
@@ -31,8 +31,8 @@ import { effectiveDefaultBranch, parentJoin, parentProjects } from "./effective"
  * to a fixpoint. Without a main window, default-branch builds are never candidates, so they always
  * stay and always count.
  *
- * Flake evidence names builds too, but an open flake would pin a build forever: the evidence of a
- * deleted build is dropped from its flake instead.
+ * Flaky-shot evidence names builds too, but an open flaky shot would pin a build forever: the evidence of a
+ * deleted build is dropped from its flaky shot instead.
  *
  * What it does not keep: a shot that only an expired build of the same branch held. A later build
  * of that branch then falls back to the accepted shot at its merge-base, the way a first build does.
@@ -131,7 +131,7 @@ async function newestMainBuilds(db: Db, projectIds: string[]): Promise<Set<strin
 
 /**
  * The default-branch builds of `projectIds` that hold a current accepted shot: per project and
- * snapshot key (`snapshotKeyOf`'s five columns), the newest accepted shot on the default branch,
+ * shot key (`snapshotKeyOf`'s five columns), the newest accepted shot on the default branch,
  * by the same rules a baseline is picked by (`baselines.ts`): a build that passed or a shot a
  * person accepted, in a build that was not rejected, never a removed marker or a skipped flaky shot,
  * and only a shot with a result. Ranked in SQL, so only the winning build ids are read back.
@@ -354,7 +354,7 @@ export async function applyRetention(
   return result;
 }
 
-/** A flake keeps its row and its other evidence; what a deleted build contributed goes. */
+/** A flaky shot keeps its row and its other evidence; what a deleted build contributed goes. */
 async function dropEvidenceOf(db: Db, deleted: PlannedBuild[]): Promise<void> {
   const gone = new Set(deleted.map((b) => b.id));
   const projectIds = [...new Set(deleted.map((b) => b.projectId))];

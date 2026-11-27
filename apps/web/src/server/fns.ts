@@ -283,7 +283,7 @@ export const getSnapshotPage = createServerFn()
         projectId: project.id,
         snapshotId: snapshot.id,
       }),
-      /** The flake the shot is labelled with (ob 1724), its evidence's images signed. */
+      /** The flaky-shot record the shot is labelled with (ob 1724), its evidence's images signed. */
       flake: await signFlakeOrNull(
         project.orgId,
         await projectFlake(db, project.id, snapshot.flakeId),

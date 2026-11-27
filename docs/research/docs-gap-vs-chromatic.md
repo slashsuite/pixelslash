@@ -87,7 +87,7 @@ differs; the rest are gaps we can close.
 
 - Follow one numbered path from nothing to a first reviewed change, with the output of each step.
   *PS-316.*
-- Set up from a Storybook: find the stories, shoot them, tag one to be shot once or marked flaky.
+- Set up from Storybook: find the stories, shoot them, tag one to be shot once or marked flaky.
   The support exists (`storybook` config key, `init --storybook`, tags checked by
   `packages/engine/src/storybook.ts`). *PS-316.*
 - Set up from a Playwright suite and run it on plain Node. The package is published
@@ -163,7 +163,7 @@ differs; the rest are gaps we can close.
   by PNG, through Maestro (cli.md:411).
 - Figma in Chromatic and the Storybook Figma plugin: out of scope (invariant 6, decision 62). Do not
   write about it.
-- Publishing a Storybook for others to view, embedding stories, composition and the Storybook MCP:
+- Publishing Storybook for others to view, embedding stories, composition and the Storybook MCP:
   we do not host Storybooks.
 - Account pages (profile, email, password, username, delete account), billing and usage reports,
   legal pages, snapshot quotas and plan limits.
@@ -275,10 +275,10 @@ file under `docs/` (the site's `file` field), not as a cut of `cli.md`.
    and check the version; compare two URLs; open the report and read it (one screenshot, with its
    regions labelled); change one thing and run again; what exit code to expect; where to go next
    by route. Keep every existing command, which was verified.
-2. **Choose how to capture**: one decision page comparing URLs and `--routes`, a Storybook, your own
+2. **Choose how to capture**: one decision page comparing URLs and `--routes`, Storybook, your own
    Playwright tests, PNGs you already have and native screenshots; one sentence on each and a link
    to its tutorial. This is the page a Chromatic user lands on when they ask "where do I start".
-3. **Tutorial: a Storybook**: `init --storybook` against a running Storybook, the config it writes,
+3. **Tutorial: Storybook**: `init --storybook` against a running Storybook, the config it writes,
    shooting the stories, a story tagged `pixelslash-once`, one tagged `pixelslash-flaky-skip`, the
    error when a tag is misspelt (the exact text from `storybook.ts`), the report.
 4. **Tutorial: your Playwright tests**: `npm install @hackcove/pixelslash-playwright`, a first spec

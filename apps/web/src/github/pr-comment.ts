@@ -17,7 +17,7 @@ import type { MemberLine } from "./pr-comment-group";
  * summary, or a plain statement that there is none, the counts, the most changed shots as links and
  * the build page), then one line naming the projects with no visual changes. A project with
  * subprojects is one section for the group: its totals, a line per subproject and a link to the
- * commit's combined review; a subproject's build edits that section. Text and links only: no screenshot ever goes to GitHub
+ * commit's combined review; a subproject's build edits that section. Text and links only: no shot ever goes to GitHub
  * (invariant 4). GitHub is told, never asked: the caller logs a failed call and the build's
  * verdict and the request that synced it are untouched.
  */

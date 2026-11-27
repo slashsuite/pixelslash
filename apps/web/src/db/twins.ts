@@ -16,8 +16,8 @@ import { causeOf, staleIndex, staleOf, staleScope } from "./stale";
 import { type Held, baselinesOf, buildAtCommit, hasBaselines, held, shotsOf } from "./twins-read";
 
 /**
- * Twin snapshots (PS-295): a web shot and a native shot of the same screen. A twin shares the
- * snapshot's name and theme and differs in platform; viewport and device are not part of the key,
+ * Twin shots (PS-295): a web shot and a native shot of the same screen. A twin shares the
+ * shot's name and theme and differs in platform; viewport and device are not part of the key,
  * so a key may have several shots on a side and all of them are listed. This is a function over a
  * `Db`, not a screen's logic: the parity check (PS-296) calls it too.
  *
@@ -26,10 +26,10 @@ import { type Held, baselinesOf, buildAtCommit, hasBaselines, held, shotsOf } fr
  *
  * 1. The build itself, when it holds any shot of that platform.
  * 2. The linked twin project's newest build at the same commit, when it holds any.
- * 3. The current baselines: the newest accepted shot per snapshot key of the build's project and,
+ * 3. The current baselines: the newest accepted shot per shot key of the build's project and,
  *    when linked, of the twin project.
  *
- * Nothing here changes a snapshot's identity, its key or its diff.
+ * Nothing here changes a shot's identity, its key or its diff.
  */
 
 /** A project that cannot be named as a twin: unknown, itself, or of another org. A 400. */

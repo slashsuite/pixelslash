@@ -51,7 +51,7 @@ export function fakeUploadApi(refuse?: number) {
   return { calls, fetch };
 }
 
-/** A snapshot dir with one PNG and its manifest. */
+/** A shot dir with one PNG and its manifest. */
 export async function snapshotDir(): Promise<string> {
   const dir = await tmp();
   await Bun.write(join(dir, "home.png"), solidPng(4, 4, [1, 2, 3, 255]));

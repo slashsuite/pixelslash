@@ -111,7 +111,7 @@ workflows:
 
 A pull request that turned a button green ended like this, as the plain shell ran on a GitHub Actions runner:
 
-```
+```text
 timing: 1 shot, diff 0.0s, total 0.1s
 visual gate: differences found, read the report
 pixelslash: 1 changed, 0 unchanged, 0 new, 0 removed

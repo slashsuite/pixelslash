@@ -1,5 +1,5 @@
 /**
- * The PNGs behind the dogfood seed (dogfood-seed.ts): the build and snapshot pages show real
+ * The PNGs behind the dogfood seed (dogfood-seed.ts): the build and shot pages show real
  * pictures, and a missing one is a 404 the capture would never settle past. Generated, so the
  * bytes are the same every run, and encoded here so no dependency is added for it.
  */

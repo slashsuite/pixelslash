@@ -52,9 +52,9 @@ export function useOf(
 }
 
 /**
- * Declarations that applied in no pair of the build, though some pair carried their snapshot and
+ * Declarations that applied in no pair of the build, though some pair carried their shot and
  * part: the web or native value moved, or the two now agree. They are reported, never failed on.
- * A declaration whose snapshot is not in the build is not stale, only not in play.
+ * A declaration whose shot is not in the build is not stale, only not in play.
  */
 export function staleDeclarations(pairs: { declarations: DeclarationUse[] }[]): StaleDeclaration[] {
   const byId = new Map<string, { use: DeclarationUse; applied: boolean }>();

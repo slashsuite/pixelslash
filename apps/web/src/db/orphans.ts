@@ -7,10 +7,10 @@ import { builds, flakes, orgs, projects, snapshots } from "./schema";
 
 /**
  * Orphaned images: an image stored by its hash (`images/<sha256>.png`, PS-424) is the org's, shared by
- * every shot that sent those bytes, so deleting a build leaves it. Once no snapshot row names it (as
+ * every shot that sent those bytes, so deleting a build leaves it. Once no `snapshots` row names it (as
  * `image_key`, `baseline_key` or `main_baseline_key`), nothing can read it again: a by-hash upload
- * is only taken for an image a row still names (`heldImages`). A flake's evidence names images too
- * (the shot and its re-captures, shown on the flake's page), and keeps them the same way. The orphan
+ * is only taken for an image a row still names (`heldImages`). A flaky shot's evidence names images too
+ * (the shot and its re-captures, shown on the flaky shot's page), and keeps them the same way. The orphan
  * sweep finds the rest and, when told to, deletes them.
  *
  * Two guards against an upload in flight. An image put less than a day ago is never a candidate:
@@ -38,7 +38,7 @@ export type OrphanPlan = { orphans: OrphanBlob[] };
 
 type OrphanResult = { blobsDeleted: number; bytesFreed: number };
 
-/** The images the evidence of `orgId`'s flakes names: each shot's image and its re-captures. */
+/** The images the evidence of `orgId`'s flaky shots names: each shot's image and its re-captures. */
 async function flakeImages(db: Db, orgId: string): Promise<Set<string>> {
   const rows = await db
     .select({ evidence: flakes.evidence })
@@ -51,7 +51,7 @@ async function flakeImages(db: Db, orgId: string): Promise<Set<string>> {
   return new Set(keys.filter((key) => key.startsWith(`${IMAGES}/`)));
 }
 
-/** The image keys of `orgId` that some snapshot row or flake names, each column read once, distinct. */
+/** The image keys of `orgId` that some `snapshots` row or flaky shot names, each column read once, distinct. */
 async function namedImages(db: Db, orgId: string): Promise<Set<string>> {
   const named = await flakeImages(db, orgId);
   for (const column of [snapshots.imageKey, snapshots.baselineKey, snapshots.mainBaselineKey]) {
@@ -66,7 +66,7 @@ async function namedImages(db: Db, orgId: string): Promise<Set<string>> {
   return named;
 }
 
-/** Which of `keys` (all `orgId`'s) a snapshot row names now, in any of the three columns, or a flake does. */
+/** Which of `keys` (all `orgId`'s) a `snapshots` row names now, in any of the three columns, or a flaky shot does. */
 async function stillNamed(db: Db, orgId: string, keys: string[]): Promise<Set<string>> {
   const named = await flakeImages(db, orgId);
   const columns = [snapshots.imageKey, snapshots.baselineKey, snapshots.mainBaselineKey];

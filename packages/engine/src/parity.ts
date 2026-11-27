@@ -19,7 +19,7 @@ import type {
 } from "./parity-types.ts";
 
 /**
- * Metrics parity between twin snapshots (PS-296). Pure: two parsed metrics files, each side's
+ * Metrics parity between twin shots (PS-296). Pure: two parsed metrics files, each side's
  * platform and scale, and the manifest in; mismatches out. No I/O, so the CLI, `pixelslash mcp`
  * and later the server call the same function. The contract is `docs/metrics.md`.
  */
@@ -111,7 +111,7 @@ const info = (s: ParitySide): ParitySideInfo => ({
   scale_source: s.scale === null ? "default" : "recorded",
 });
 
-/** Compares one pair of twin snapshots. Sides are ordered web, android, ios whatever order they come in. */
+/** Compares one pair of twin shots. Sides are ordered web, android, ios whatever order they come in. */
 export function compareParity(input: {
   name: string;
   theme: string;

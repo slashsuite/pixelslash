@@ -10,7 +10,7 @@ type Assert<T extends true> = T;
 // Options: both ways, a key one has and the other lacks is a drift.
 export type Check1 = Assert<Fits<shipped.SnapshotOptions, source.SnapshotOptions>>;
 export type Check2 = Assert<Fits<source.SnapshotOptions, shipped.SnapshotOptions>>;
-// What snapshot() resolves to is what the shipped entry describes, and the shipped entry has no key
+// What `snapshot()` resolves to is what the shipped entry describes, and the shipped entry has no key
 // the source lacks (the source has more: the optional fields only `capture` writes).
 export type Check3 = Assert<
   Fits<Awaited<ReturnType<typeof source.snapshot>>, shipped.SnapshotEntry>

@@ -11,7 +11,7 @@ Every comparison has two sides.
 
 On the command line, `--live` is Main and `--local` is Branch:
 
-```
+```bash
 npx pixelslash --live http://localhost:4000/ --local http://localhost:4001/
 ```
 
@@ -26,7 +26,7 @@ The diff goes through the two images pixel by pixel. A pixel counts as changed w
 
 The number of those pixels is `changedPixels`. It is the first thing a run prints:
 
-```
+```text
 pixelslash: 3091 changed pixels
 report: file:///…/my-site/.pixelslash/report.html
 timing: 1 shot, capture 0.6s, diff 0.0s, total 0.7s
@@ -38,7 +38,7 @@ If the two images are not the same size, only the rectangle they share is compar
 
 A size difference always counts as a change, even when the shared rectangle is identical. Here a page grew 40 pixels taller and the rest stayed the same:
 
-```
+```text
 pixelslash: 0 changed pixels
 ```
 
@@ -48,7 +48,7 @@ That run has 0 changed pixels and `"changed": true` in its manifest. The count c
 
 One changed button should read as one thing, not as 3,091 separate pixels. So changed pixels are gathered into **regions**: boxes around pixels that sit near each other. Two groups closer than `--merge-distance` (24 pixels by default) become one region. A report lists them like this:
 
-```
+```text
 #1 40,149 90x38 · 3091 changed px · changed
 ```
 

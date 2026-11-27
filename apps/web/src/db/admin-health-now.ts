@@ -26,7 +26,7 @@ export type NowHealth = {
   byStatus: Record<string, number>;
   inFlight: number;
   oldestInFlight: InFlight | null;
-  /** The oldest in-flight builds, up to `BUILDS_SHOWN`, each with its snapshots and compare times. */
+  /** The oldest in-flight builds, up to `BUILDS_SHOWN`, each with its shots and compare times. */
   flying: BuildCompares[];
   stuckAfterMs: number;
   stuckTotal: number;

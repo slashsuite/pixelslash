@@ -16,7 +16,7 @@ import {
 } from "./schema";
 
 /**
- * Flakes (ob 1724): a snapshot key whose captures disagreed within one run (the CLI's `meta.flake`,
+ * Flaky shots (ob 1724): a shot key whose captures disagreed within one run (the CLI's `meta.flake`,
  * ob 1737), or one a reviewer marked flaky by hand. One row per key per project; what a flaky shot
  * does to its build is its own config's `flaky` policy, never a server setting.
  */
@@ -51,7 +51,7 @@ const REOPENED = {
 } as const;
 
 /**
- * Open the key's flake, or reopen it, and return its id. Evidence for a shot replaces the evidence
+ * Open the key's flaky shot, or reopen it, and return its id. Evidence for a shot replaces the evidence
  * that shot sent before (an upload sent again), and is appended otherwise. A hand mark keeps who
  * marked it first and the note it was marked with.
  */
@@ -84,7 +84,7 @@ async function openFlake(
   return row.id;
 }
 
-/** The key's open flake, if it has one: a shot uploaded while it is open is labelled with it. */
+/** The key's open flaky shot, if it has one: a shot uploaded while it is open is labelled with it. */
 async function openFlakeOf(db: Db, projectId: string, key: SnapshotKey): Promise<string | null> {
   const [row] = await db
     .select({ id: flakes.id })
@@ -94,9 +94,9 @@ async function openFlakeOf(db: Db, projectId: string, key: SnapshotKey): Promise
 }
 
 /**
- * Label a shot just stored (ob 1724). A flake record opens or reopens the key's flake with this
+ * Label a shot just stored (ob 1724). A flaky-shot record opens or reopens the key's flaky shot with this
  * build's evidence, the re-captures stored beside the shot; without one the shot takes the key's
- * open flake, if any, until a reviewer resolves it.
+ * open flaky shot, if any, until a reviewer resolves it.
  */
 export async function labelFlake(
   { db, blobs }: { db: Db; blobs: BlobStore },
@@ -107,7 +107,7 @@ export async function labelFlake(
     key: SnapshotKey;
     imageKey: string;
     stem: string;
-    /** The flake the stored row already carries (a re-upload keeps it); null for a new row. */
+    /** The flaky shot the stored row already carries (a re-upload keeps it); null for a new row. */
     flakeId: string | null;
   },
   flake: SentFlake | null,
@@ -134,14 +134,14 @@ export async function labelFlake(
   } else {
     flakeId = await openFlakeOf(db, shot.projectId, shot.key);
   }
-  // A write only when the label changes: a shot with no flake, the common case, writes nothing.
+  // A write only when the label changes: a shot that is not flaky, the common case, writes nothing.
   if (flakeId !== shot.flakeId)
     await db.update(snapshots).set({ flakeId }).where(eq(snapshots.id, shot.id));
 }
 
 /**
- * `labelFlake` with no flake record, for many shots of one project at once: each takes its key's
- * open flake, if any, in one read of the project's open flakes. A shot is written only when its
+ * `labelFlake` with no flaky-shot record, for many shots of one project at once: each takes its key's
+ * open flaky shot, if any, in one read of the project's open flaky shots. A shot is written only when its
  * label changes, as `labelFlake` writes, so the outcome is the same one shot at a time.
  */
 export async function labelOpenFlakes(
@@ -169,9 +169,9 @@ export async function labelOpenFlakes(
 }
 
 /**
- * A reviewer marks a shot flaky by hand: the key's flake opens (or reopens) with no CLI evidence,
+ * A reviewer marks a shot flaky by hand: the key's flaky shot opens (or reopens) with no CLI evidence,
  * and the shot is labelled with it. Its config's policy then applies, so the build's verdict is
- * read again. A member of the project's org only; anything else is the same 404. Returns the flake
+ * read again. A member of the project's org only; anything else is the same 404. Returns the flaky shot
  * and the shot's build, whose commit status is synced (PS-23).
  */
 export async function markFlaky(
@@ -203,7 +203,7 @@ export async function markFlaky(
   return { flakeId, buildId };
 }
 
-/** The project a flake belongs to, for the caller to check the actor may reach it. */
+/** The project a flaky shot belongs to, for the caller to check the actor may reach it. */
 export async function flakeProjectId(db: Db, flakeId: string): Promise<string> {
   const [row] = await db
     .select({ projectId: flakes.projectId })
@@ -214,7 +214,7 @@ export async function flakeProjectId(db: Db, flakeId: string): Promise<string> {
 }
 
 /**
- * A guarded status update changed no row: the flake is either already in the wanted state, which
+ * A guarded status update changed no row: the flaky shot is either already in the wanted state, which
  * is a no-op (a second resolve keeps the first resolver, time and note), or not there (PS-398).
  */
 async function mustExist(db: Db, input: { projectId: string; flakeId: string }): Promise<void> {
@@ -226,7 +226,7 @@ async function mustExist(db: Db, input: { projectId: string; flakeId: string }):
 }
 
 /**
- * Resolve a flake, with who and an optional note. The caller has checked the user may reach the
+ * Resolve a flaky shot, with who and an optional note. The caller has checked the user may reach the
  * project. Shots already labelled keep their label, as history; later uploads are not labelled
  * until the key is detected or marked again.
  */
@@ -254,7 +254,7 @@ export async function resolveFlake(
   if (done.length === 0) await mustExist(db, input);
 }
 
-/** Reopen a resolved flake by hand from the Flakes list. */
+/** Reopen a resolved flaky shot by hand from the Flakes list. */
 export async function reopenFlake(
   db: Db,
   input: { projectId: string; flakeId: string },
@@ -304,7 +304,7 @@ export type ProjectFlake = {
 const creator = alias(users, "creator");
 const resolver = alias(users, "resolver");
 
-/** A flake as a reader sees it, with the reviewers as logins. */
+/** A flaky shot as a reader sees it, with the reviewers as logins. */
 function selectFlakes(db: Db) {
   return db
     .select({
@@ -329,7 +329,7 @@ function selectFlakes(db: Db) {
     .leftJoin(resolver, eq(resolver.id, flakes.resolvedBy));
 }
 
-/** Every flake of the project: open ones first, then the most recently touched. */
+/** Every flaky shot of the project: open ones first, then the most recently touched. */
 export async function projectFlakes(db: Db, projectId: string): Promise<ProjectFlake[]> {
   return selectFlakes(db)
     .where(eq(flakes.projectId, projectId))
@@ -340,7 +340,7 @@ export async function projectFlakes(db: Db, projectId: string): Promise<ProjectF
     );
 }
 
-/** The project's flakes for the web app: a member of the project's org only. */
+/** The project's flaky shots for the web app: a member of the project's org only. */
 export async function listFlakes(
   db: Db,
   userId: string,
@@ -350,7 +350,7 @@ export async function listFlakes(
   return projectFlakes(db, projectId);
 }
 
-/** One flake of the project, for the snapshot page; null when the shot is not labelled. */
+/** One flaky shot of the project, for the shot page; null when the shot is not labelled. */
 export async function projectFlake(
   db: Db,
   projectId: string,

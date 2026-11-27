@@ -116,7 +116,7 @@ export async function buildBaselines(
 
 /**
  * `POST /api/v1/baselines`: the pick a build at this commit would get now, with nothing created
- * (for `check` and flake retries). A CI token asks for its project; a personal token names one.
+ * (for `check` and flaky-shot retries). A CI token asks for its project; a personal token names one.
  */
 export async function previewBaselines(
   ctx: BaselinesCtx,

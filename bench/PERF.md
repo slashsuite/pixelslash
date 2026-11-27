@@ -216,7 +216,7 @@ Newest first. One entry per perf run that landed. The `env` column says what the
 | --- | --- | --- | --- |
 | 2026-11-12 | n/a | desktop, dedicated | capture reuse: one preview page per worker, switched story to story, against a fresh page per story, 786 shots, 57.1 s to 28.5 s |
 | 2026-11-12 | n/a | desktop, dedicated | the flake pass: re-captures bounded by the capture concurrency instead of one at a time, 240 re-captures, 73.2 s to 18.0 s |
-| 2026-11-12 | n/a | desktop, dedicated | capture workers 2 to 10 on a Storybook of 786 shots; the default is ten, capped by the cores |
+| 2026-11-12 | n/a | desktop, dedicated | capture workers 2 to 10 on Storybook stories, 786 shots; the default is ten, capped by the cores |
 | 2026-10-26 | PS-191 | desktop, dedicated | tile hashes: diff.wasm compares only the 64 px tiles that differ, off against on |
 | 2026-10-26 | PS-212 | desktop, dedicated | why diff.wasm is 2.3x slower than cs on the long page: each step in wasm, natively and in cs; the unfilter fixed |
 | 2026-10-25 | PS-205 | desktop, shared | the WASM differ's overlay encode: pngjs's filter pass in the module, timed in workerd |

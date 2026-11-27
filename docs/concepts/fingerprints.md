@@ -6,7 +6,7 @@ The same page renders differently on another machine. Fonts differ, the browser 
 
 Every shot's manifest entry records three things:
 
-```
+```text
 fingerprint: {"image":"bare","browser":"chromium 156.0.8078.4","fonts":"sha256:2344…"}
 ```
 
@@ -18,7 +18,7 @@ fingerprint: {"image":"bare","browser":"chromium 156.0.8078.4","fonts":"sha256:2
 
 `bare` means the shot was taken outside the pinned image, using whatever browser and fonts this machine has. It works, and it warns you:
 
-```
+```text
 warning: capturing outside the pinned PixelSlash image; local fonts skew rendering. Fingerprint recorded as bare.
 ```
 
@@ -30,11 +30,11 @@ PNGs brought in with `import` have the fingerprint `{ "image": "external", "brow
 
 `compare` and `check` compare whatever you give them. You named both sides, so PixelSlash assumes you meant it. It warns on stderr and diffs anyway:
 
-```
+```bash
 npx pixelslash compare snapshots/main snapshots/m4 --out cmp9
 ```
 
-```
+```text
 warning: home (chromium 1280x720): rendered by a different image; diffing anyway
 warning: pricing (chromium 1280x720): rendered by a different image; diffing anyway
 pixelslash: 0 changed, 2 unchanged, 0 new, 0 removed
@@ -52,18 +52,18 @@ What happens next depends on the branch.
 
 **On the default branch**, the shot is accepted and becomes the new baseline. This is how you move a project to a new environment:
 
-```
+```bash
 PIXELSLASH_IMAGE_DIGEST=sha256:newimage2 npx pixelslash capture --upload --out snapshots/m4
 ```
 
-```
+```text
 pixelslash: uploaded 2 snapshots
 build: a981b89f-… (608fbfc on main)
 ```
 
 **On any other branch**, the build errors, naming both environments, and `upload` exits 1. The build's page shows the same reason:
 
-```
+```text
 3/3 shots sent and finalised; the failure came after
 UPLOAD FAILED: build 4c98d50e-… errored on the server: 3 of 3 shots were captured in another environment than their baselines, so they were not compared. This build: image sha256:newimage, browser chromium 156.0.8078.4, fonts sha256:9e1c…. Its baseline: image bare, browser chromium 156.0.8078.4, fonts sha256:2344…. Upload from CI or the pinned capture image, so every build is captured in the same environment; to move the project to this environment, upload the default branch from it, then rebase this branch onto that commit and upload it again
 ```

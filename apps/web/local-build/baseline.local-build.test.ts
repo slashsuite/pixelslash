@@ -43,7 +43,7 @@ function checkout() {
   return git;
 }
 
-/** A snapshot dir of one shot. */
+/** A shot dir of one shot. */
 function shots(image: Buffer, fingerprint = FINGERPRINT) {
   const dir = tempDir("ps-local-build-shots-");
   mkdirSync(join(dir, "forms"));

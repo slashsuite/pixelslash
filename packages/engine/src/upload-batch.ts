@@ -6,7 +6,7 @@ import { batchItem } from "./upload-form.ts";
 /**
  * Shots the server already holds, registered many to a request: `POST
  * /builds/:id/snapshots/batch` takes each shot's meta and the hash of its PNG, authorizes once and
- * writes the rows together. A shot with anything else to send (a metrics file, a flake record, CI
+ * writes the rows together. A shot with anything else to send (a metrics file, a flaky-shot record, CI
  * results, an image the server lacks) still goes by its own PUT.
  */
 
@@ -49,7 +49,7 @@ type Extras = { results: unknown[]; flake?: { flaky: boolean } | undefined; metr
 /** How many of a batch's own PUTs run at once, as many as the upload's workers. */
 const RESEND_AT_ONCE = 4;
 
-/** Whether a shot sends nothing but its meta: no CI result, flake record or metrics file. */
+/** Whether a shot sends nothing but its meta: no CI result, flaky-shot record or metrics file. */
 export const sendsOnlyMeta = (extras: Extras): boolean =>
   extras.results.length === 0 && !extras.flake?.flaky && !extras.metrics;
 

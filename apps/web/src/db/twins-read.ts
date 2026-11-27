@@ -126,7 +126,7 @@ function baselineWhere(
 }
 
 /**
- * The newest accepted shot per snapshot key, in the given projects, on the given platforms and
+ * The newest accepted shot per shot key, in the given projects, on the given platforms and
  * under the given names (every name when `names` is left out; the release check, PS-297, reads
  * them all): what a project's baselines are right now.
  */

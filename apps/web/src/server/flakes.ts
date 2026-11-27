@@ -6,11 +6,11 @@ import { signedFlake } from "./flake-images";
 import { field, noteInput, or404 } from "./input";
 import { requireViewer } from "./session";
 
-/* Flakes on the page (ob 1724): the snapshot page's panel, Mark flaky and the project's list. */
+/* Flaky shots on the page (ob 1724): the shot page's panel, Mark flaky and the project's list. */
 
 export type { FlakeView } from "./flake-images";
 
-/** Mark a shot flaky by hand, with an optional note: its key's flake opens with no CLI evidence. */
+/** Mark a shot flaky by hand, with an optional note: its key's flaky shot opens with no CLI evidence. */
 export const markShotFlaky = createServerFn({ method: "POST" })
   .validator((d: unknown) => ({
     projectId: field(d, "projectId"),
@@ -39,7 +39,7 @@ export const getFlakesPage = createServerFn()
     };
   });
 
-/** Resolve a flake with an optional note, or reopen it. */
+/** Resolve a flaky shot with an optional note, or reopen it. */
 export const saveFlakeStatus = createServerFn({ method: "POST" })
   .validator((d: unknown) => {
     const open = typeof d === "object" && d !== null ? Reflect.get(d, "open") : null;

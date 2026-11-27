@@ -1,7 +1,7 @@
 import type { Fail } from "./diff-options.ts";
 
 /**
- * A snapshot's layout metrics file (PS-294), its typed parser and its builder. The contract is
+ * A shot's layout metrics file (PS-294), its typed parser and its builder. The contract is
  * `docs/metrics.md`. No runtime imports, so the web emitter, the CLI, the server and the review UI
  * all read the one shape.
  */

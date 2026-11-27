@@ -117,7 +117,7 @@ describe("the batch endpoint", () => {
     const a = await rowsOf(s, viaBatch);
     const b = await rowsOf(s, viaPut);
     expect(a).toHaveLength(7);
-    // Only shot-2's key has an open flake; the batch labels it as the PUT does.
+    // Only shot-2's key has an open flaky shot; the batch labels it as the PUT does.
     expect(a.map((r) => r.flakeId !== null)).toEqual(a.map((r) => r.name === "shot-2"));
     expect(a.map(({ imageKey: _k, metricsKey: _m, ...r }) => r)).toEqual(
       b.map(({ imageKey: _k, metricsKey: _m, ...r }) => r),

@@ -8,7 +8,7 @@ import { FP, cleanup, repo, tmp } from "./upload-fixtures.ts";
 
 afterAll(cleanup);
 
-/** `pixelslash check` against a stubbed server (ob 1732): counts, a mismatch, a flake, no writes. */
+/** `pixelslash check` against a stubbed server (ob 1732): counts, a mismatch, a flaky shot, no writes. */
 
 /** A 16x16 white PNG, with a red square at (x, 4) when `at` is given. */
 function png(at?: number): Buffer {

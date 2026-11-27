@@ -6,7 +6,7 @@ import { real } from "./synthetic";
 
 /**
  * The usage numbers a bill or a dashboard reads. Smoke orgs never count, and neither does a
- * build still `uploading` (or its snapshots): an upload that never finalised was not delivered.
+ * build still `uploading` (or its shots): an upload that never finalised was not delivered.
  */
 export async function usageCounts(db: Db): Promise<{ builds: number; snapshots: number }> {
   const [b] = await db

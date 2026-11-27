@@ -27,7 +27,7 @@ afterAll(cleanup);
 vi.stubEnv("PIXELSLASH_DIFF_CORES", "1");
 afterAll(() => vi.unstubAllEnvs());
 
-/** A snapshot dir as `pixelslash capture` writes it: one solid 40x40 shot per name. */
+/** A shot dir as `pixelslash capture` writes it: one solid 40x40 shot per name. */
 async function snapshotDir(shots: Record<string, number>): Promise<string> {
   const dir = await tmp();
   const snapshots = [];

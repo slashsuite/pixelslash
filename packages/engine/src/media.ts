@@ -13,7 +13,7 @@ export function mediaWarning(route: Route, variant: Variant, m: MediaBox): strin
 }
 
 /**
- * Warn about each medium of a shot once per route, variant and rect: a flake check or an upload
+ * Warn about each medium of a shot once per route, variant and rect: a flaky-shot check or an upload
  * captures the same shot again, and the second time has nothing new to say.
  */
 export function mediaWarner(warn: (message: string) => void) {

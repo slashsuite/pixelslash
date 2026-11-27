@@ -11,8 +11,8 @@ import { builds, flakes, snapshots } from "./schema";
  */
 
 /**
- * The re-captures the CLI sent for this build's shots found flaky: each flake's runs past the
- * first. Null when the build stored no flake evidence; a shot whose re-captures agreed stores none.
+ * The re-captures the CLI sent for this build's shots found flaky: each flaky shot's runs past the
+ * first. Null when the build stored no flaky-shot evidence; a shot whose re-captures agreed stores none.
  */
 export async function flakeRecaptures(
   db: Db,

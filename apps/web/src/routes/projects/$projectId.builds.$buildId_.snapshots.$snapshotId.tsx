@@ -87,13 +87,13 @@ function DecisionError({ error }: { error: string | null }) {
 }
 
 /**
- * Mark flaky shows while no flake is open; the others need a server diff of a shot still there
+ * Mark flaky shows while no flaky shot is open; the others need a server diff of a shot still there
  * (the guards at the top of RerunShot, DiffOverride and IgnoreBoxes: keep this in step with them).
  */
 const hasTools = ({ flake, project, snapshot }: ReturnType<typeof Route.useLoaderData>) =>
   !flake || (project.diffLocation === "server" && snapshot.diffStatus !== "removed");
 
-/** The side panel's tools: re-run, mark flaky (when no flake is open), thresholds and ignore areas. */
+/** The side panel's tools: re-run, mark flaky (when no flaky shot is open), thresholds and ignore areas. */
 function ShotTools({
   data,
   ignore,
@@ -123,7 +123,7 @@ function Flake({ data }: { data: ReturnType<typeof Route.useLoaderData> }) {
   );
 }
 
-/** The right-hand column: the side panel, the flag and an open flake on top, the rest under Tools. */
+/** The right-hand column: the side panel, the flag and an open flaky shot on top, the rest under Tools. */
 function SideColumn({
   data,
   flag,

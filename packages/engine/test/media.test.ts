@@ -10,7 +10,7 @@ import { captureSnapshots, openCaptureSession, type SnapshotDeps } from "../src/
 
 /**
  * Media on a page (PS-230): capture measures each `<video>` and `<audio>` after the settle, warns
- * once per shot with the rect to exclude, and a flake check offers that exclusion first. The pages
+ * once per shot with the rect to exclude, and a flaky-shot check offers that exclusion first. The pages
  * are written under the test's TMPDIR, so no fixture in the repo carries a video.
  */
 

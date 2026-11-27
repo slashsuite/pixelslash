@@ -63,7 +63,7 @@ function parseNative(flags: Record<string, string | undefined>): NativeFlags {
   };
 }
 
-/** `pixelslash import PNG_DIR`: a dir of PNGs into a snapshot dir + manifest. Exit 0; 2 on a bad flag or dir. */
+/** `pixelslash import PNG_DIR`: a dir of PNGs into a shot dir + manifest. Exit 0; 2 on a bad flag or dir. */
 export async function runImport(argv: string[], io: Io): Promise<number> {
   const [dir, ...rest] = argv;
   if (!dir || dir.startsWith("--")) throw new UsageError("need a PNG_DIR");
