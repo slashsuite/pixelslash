@@ -48,13 +48,15 @@ jobs:
           ref: main
           fetch-depth: 0
           persist-credentials: false
-      # The commit to deploy, in full, and on main: a manual run may name a sha, never one off main.
+      # The commit to deploy, in full, and on main: a manual run may name a sha, never one off main. The run's
+      # summary names the commit and its subject, so the approver sees what a manual run deploys.
       - id: sha
         env:
           WANTED: ${{ github.event_name == 'workflow_dispatch' && inputs.sha || github.sha }}
         run: |
-          sha="$(git rev-parse --verify --quiet "${WANTED}^{commit}")" || {
-            echo "::error::$WANTED is not a commit in this repository"
+          wanted="$(printf '%s' "$WANTED" | tr -d '\r\n')"
+          sha="$(git rev-parse --verify --quiet "${wanted}^{commit}")" || {
+            echo "::error::$wanted is not a commit in this repository"
             exit 1
           }
           if ! git merge-base --is-ancestor "$sha" origin/main; then
@@ -63,11 +65,20 @@ jobs:
           fi
           echo "deploying $sha"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
-      # The newest CI run of a push on main for that commit. A run not there yet (both workflows start on
-      # the same push), not finished, or an API call that failed is asked again every 30 s. Success goes on.
-      # Cancelled or skipped on a push main has moved past (ci.yml drops a queued main run when a newer push
-      # comes) ends green with no deploy; any other conclusion fails. A push run whose commit is no longer
-      # main's tip by then does not deploy either: the newer push's run deploys that.
+          {
+            echo "### Deploys \`$sha\`"
+            echo
+            git log -1 --format='%s' "$sha"
+          } >> "$GITHUB_STEP_SUMMARY"
+      # Every 30 s: on a push, stop with no deploy once main has moved past the sha (the newer push's run
+      # deploys); then read the newest CI push run on main for the sha and its jobs. Only CI's own jobs
+      # decide: changes, gate, web (which may be skipped: changes runs it only when the push touched the
+      # app) and example. visual uploads to pixelslash.dev itself, so a broken production would fail the CI
+      # of the fix that restores it, and visual and self-host flakes would block every deploy. All passed:
+      # deploy. Any of them ended otherwise (failed, cancelled, skipped, or missing from a finished run):
+      # fail. A push whose CI run has not appeared in 10 minutes ([skip ci], say) fails, and
+      # a manual run with none fails at once: a commit inside a push of several never had a run of its own.
+      # Five API errors in a row fail.
       - name: Wait for CI on that commit
         id: wait
         env:
@@ -75,59 +86,95 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ steps.sha.outputs.sha }}
         run: |
+          required="changes gate web example"
+          errors=0
+          misses=0
           while true; do
+            if [ "$errors" -ge 5 ]; then
+              echo "::error::the GitHub API failed 5 times in a row"
+              exit 1
+            fi
+            if [ "$EVENT" = "push" ]; then
+              if ! git fetch --quiet origin main; then
+                errors=$((errors + 1))
+                sleep 30
+                continue
+              fi
+              if [ "$(git rev-parse origin/main)" != "$SHA" ]; then
+                echo "::notice::main has moved past $SHA; the newer push's run deploys"
+                echo "go=false" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+            fi
             if ! run="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$SHA&event=push&branch=main&per_page=1" \
-              --jq '.workflow_runs[0] | select(.) | "\(.status) \(.conclusion) \(.html_url)"')"; then
+              --jq '.workflow_runs[0] | select(.) | "\(.id) \(.status) \(.html_url)"')"; then
+              errors=$((errors + 1))
               echo "the runs API did not answer; asking again"
-            elif [ -z "$run" ]; then
-              # A push's run may not be there yet. A manual run names a commit that was some push's head, and
-              # its run is long there: a commit inside a push of several never had one of its own.
+              sleep 30
+              continue
+            fi
+            if [ -z "$run" ]; then
               if [ "$EVENT" != "push" ]; then
                 echo "::error::no CI push run on main for $SHA; pick a commit that was the head of a push to main"
                 exit 1
               fi
-              echo "no CI run for $SHA yet"
-            else
-              read -r status conclusion url <<< "$run"
-              echo "CI $url: $status $conclusion"
-              if [ "$status" = "completed" ]; then
-                case "$conclusion" in
-                  success) break ;;
-                  cancelled | skipped)
-                    git fetch --quiet origin main
-                    if [ "$EVENT" = "push" ] && [ "$(git rev-parse origin/main)" != "$SHA" ]; then
-                      echo "::notice::CI on $SHA was $conclusion and main has moved on; the newer push deploys"
-                      echo "go=false" >> "$GITHUB_OUTPUT"
-                      exit 0
-                    fi
-                    echo "::error::CI on $SHA ended $conclusion: $url"
-                    exit 1
-                    ;;
-                  *)
-                    echo "::error::CI on $SHA ended $conclusion: $url"
-                    exit 1
-                    ;;
-                esac
+              misses=$((misses + 1))
+              if [ "$misses" -ge 20 ]; then
+                echo "::error::no CI run for $SHA after 10 minutes (was CI skipped?)"
+                exit 1
               fi
+              errors=0
+              echo "no CI run for $SHA yet"
+              sleep 30
+              continue
+            fi
+            read -r id status url <<< "$run"
+            if ! jobs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id/jobs?filter=latest&per_page=100" \
+              --jq '.jobs[] | "\(.name) \(.status) \(.conclusion)"')"; then
+              errors=$((errors + 1))
+              echo "the jobs API did not answer; asking again"
+              sleep 30
+              continue
+            fi
+            errors=0
+            passed=0
+            for name in $required; do
+              line="$(printf '%s\n' "$jobs" | awk -v n="$name" '$1 == n' | tail -n 1)"
+              read -r _ job_status conclusion <<< "$line"
+              echo "CI $url: $name ${job_status:-not started} $conclusion"
+              if [ -z "$line" ]; then
+                if [ "$status" = "completed" ]; then
+                  echo "::error::CI on $SHA finished without a $name job: $url"
+                  exit 1
+                fi
+              elif [ "$job_status" = "completed" ]; then
+                # web runs only when the push changed the app ("changes" decides, and must itself pass).
+                if [ "$conclusion" != "success" ] && ! { [ "$name" = "web" ] && [ "$conclusion" = "skipped" ]; }; then
+                  echo "::error::CI's $name job on $SHA ended $conclusion: $url"
+                  exit 1
+                fi
+                passed=$((passed + 1))
+              fi
+            done
+            if [ "$passed" -eq 4 ]; then
+              echo "go=true" >> "$GITHUB_OUTPUT"
+              exit 0
             fi
             sleep 30
           done
-          git fetch --quiet origin main
-          if [ "$EVENT" = "push" ] && [ "$(git rev-parse origin/main)" != "$SHA" ]; then
-            echo "::notice::main has moved past $SHA; the newer push deploys"
-            echo "go=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          echo "go=true" >> "$GITHUB_OUTPUT"
 
   deploy:
+    name: Deploy ${{ needs.ci.outputs.sha }}
     needs: ci
     if: needs.ci.outputs.go == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # One production deploy at a time, and a running one is never cancelled (a deploy cut short could
-    # leave the migrations applied and the Worker not). A deploy waiting for approval holds the group, so
-    # later ones queue behind it (the newest replacing the one queued); approve or reject it to let them on.
+    # leave the migrations applied and the Worker not). GitHub keeps one running and one pending job per
+    # group, and a newer job replaces the pending one, cancelled. Its docs do not say whether a job waiting
+    # for approval is the running one or the pending one, so assume either: a deploy left waiting can block
+    # the ones behind it, and a newer deploy can cancel one that is waiting, a manual rollback included.
+    # A rollback that shows cancelled is dispatched again.
     concurrency:
       group: production
       cancel-in-progress: false
@@ -174,6 +221,7 @@ jobs:
       - name: Deploy the Worker
         working-directory: apps/web
         env:
+          CLOUDFLARE_ENV: production
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: bunx wrangler deploy --var SENTRY_RELEASE:"$(git rev-parse --short HEAD)"

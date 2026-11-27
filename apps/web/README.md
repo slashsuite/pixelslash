@@ -458,13 +458,24 @@ pointed at anything but github.com.
 ### From CI: the deploy workflow
 
 Production deploys run from `.github/workflows/deploy.yml`. Every push to `main` starts it: it waits for that
-commit's CI run, and once CI succeeds the `deploy` job asks for approval in the `production` environment. After
-one click (the run's page, **Review deployments**) it runs the steps below in order: the production build, the
-D1 migrations, `wrangler deploy` with `SENTRY_RELEASE`, `scripts/check-commit.ts` and `web:smoke`. One runs at a
-time and a running one is never cancelled. A deploy waiting for approval holds the queue, so later pushes wait
-behind it: approve or reject it. A push's deploy whose commit is no longer `main`'s tip by the time it is
-approved fails without deploying, and the newer push's deploy ships the tip. A push whose CI run was
-cancelled because a newer push replaced it ends without asking.
+commit's CI jobs `changes`, `gate`, `web` (skipped when the push left the app alone) and `example`, and once
+they pass the `deploy` job, named after the sha, asks for approval in the `production` environment. `visual`
+and `self-host` do not count: `visual` uploads to pixelslash.dev itself, so a broken production would block
+its own fix. The run's summary names the commit and its subject. After one click (the run's page, **Review
+deployments**) it runs the steps below in order: the production build, the D1 migrations, `wrangler deploy`
+with `SENTRY_RELEASE`, `scripts/check-commit.ts` and `web:smoke`.
+
+While it waits on CI, a push's run stops with no deploy as soon as `main` moves past its commit (the newer
+push's run deploys), fails when no CI run for the commit has appeared after 10 minutes (`[skip ci]`, say), and
+fails after five GitHub API errors in a row. A push's deploy whose commit is no longer `main`'s tip by the
+time it is approved fails without deploying.
+
+One deploy runs at a time (the `production` concurrency group) and a running one is never cancelled. GitHub
+keeps one running and one pending job per group, and a newer job cancels the pending one. Its docs do not say
+whether a job waiting for approval counts as running or pending, so expect either: a deploy left waiting may
+hold back the ones behind it (approve or reject it), and a newer deploy may cancel one that is waiting. That
+includes a manual rollback: a newer push can cancel a rollback still waiting for approval, without a word. If
+a rollback shows cancelled, run it again.
 
 To deploy (or roll back to) a given commit on `main`, run it by hand with that sha. It must be the head of a
 push to `main` (every squash merge is), and it still needs that push's CI green and the same approval:
@@ -488,6 +499,8 @@ printf '%s' "$SMOKE_TOKEN"           | gh secret set SMOKE_TOKEN           --env
 ```
 
 The Cloudflare token is the scoped deploy token described next; never paste a token on the command line.
+The environment has `can_admins_bypass` on (GitHub's default): a repo admin can deploy without the
+reviewer's approval. That is the owner's call; the setup above leaves it as it is.
 
 ### By hand: the fallback
 
