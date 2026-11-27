@@ -133,13 +133,14 @@ async function wrangler(cwd: string, token: string, args: string[]): Promise<str
     stdout: "pipe",
     stderr: "pipe",
   });
-  const [out, err, code] = await Promise.all([
+  const [out, , code] = await Promise.all([
     new Response(proc.stdout).text(),
     new Response(proc.stderr).text(),
     proc.exited,
   ]);
+  // The exit code only: wrangler's output can quote the statement that failed, a row of the dump.
   if (code !== 0)
-    throw new Error(`wrangler ${args.slice(0, 2).join(" ")} failed (${code}):\n${err || out}`);
+    throw new Error(`wrangler ${args.slice(0, 2).join(" ")} failed with exit ${code}`);
   return out;
 }
 
@@ -211,9 +212,8 @@ async function restore(dir: string, d1: string, list: Check[]): Promise<(number 
   return parseCounts(out, list.length);
 }
 
-async function restoreTest(creds: Creds, key: string): Promise<number> {
-  // An empty dir with no wrangler config: no env, no binding, nothing but the names passed below.
-  const dir = await mkdtemp(join(tmpdir(), "ps-restore-test-"));
+/** Creates the scratch database, restores into it and checks it; deletes it, pass or fail. */
+async function inScratch(dir: string, creds: Creds, key: string): Promise<number> {
   let created = false;
   try {
     const expected = await fetchDump(dir, creds, key);
@@ -226,6 +226,16 @@ async function restoreTest(creds: Creds, key: string): Promise<number> {
       await wrangler(dir, creds.d1, ["d1", "delete", SCRATCH, "--skip-confirmation"]);
       console.log(`deleted ${SCRATCH}`);
     }
+  }
+}
+
+async function restoreTest(creds: Creds, key: string): Promise<number> {
+  // An empty dir with no wrangler config: no env, no binding, nothing but the names passed below.
+  const dir = await mkdtemp(join(tmpdir(), "ps-restore-test-"));
+  try {
+    return await inScratch(dir, creds, key);
+  } finally {
+    // Its own finally: the dump in it is production data, removed even when the delete above fails.
     await rm(dir, { recursive: true, force: true });
   }
 }

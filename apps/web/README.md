@@ -625,7 +625,9 @@ bunx wrangler d1 time-travel restore pixelslash --env production --bookmark <boo
 `.github/workflows/backup.yml` runs at 03:41 UTC every day, and from **Run workflow** on its Actions page.
 It runs `wrangler d1 export pixelslash --remote --env production`, gzips the dump and puts it in the
 private R2 bucket `pixelslash-backups` as `d1/pixelslash/<YYYY-MM-DD>T<HHMMSS>Z.sql.gz` (the UTC time it
-was taken), then reads the object back and fails unless R2 lists it at the size it sent. The bucket's
+was taken), then reads the object back and fails unless R2 lists it at the size it sent. wrangler's output
+from the export goes to a file, never the job's log: it prints a presigned link to the whole dump, and the
+repo's Actions logs are public. The bucket's
 lifecycle rule `expire-30d` deletes a dump after 30 days. D1 answers no other query while an export runs, which is why it runs at night.
 
 The job runs in the GitHub environment `backups`, which only `main` may deploy to and which alone holds its

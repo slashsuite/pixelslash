@@ -108,7 +108,8 @@ interface Row {
 
 function parseRow(line: string): Row {
   const [, table, cols, vals] = ROW.exec(line) ?? [];
-  const what = `a ${bytes(line)}-byte row: ${line.slice(0, 40)}`;
+  // The size only: a row's text is production data and stays out of the message.
+  const what = `a ${bytes(line)}-byte row`;
   if (table === undefined || cols === undefined || vals === undefined)
     throw new Error(`cannot parse ${what}`);
   const names = cols.split(",");

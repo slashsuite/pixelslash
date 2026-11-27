@@ -38,6 +38,19 @@ describe("check-workflows", () => {
   });
 
   test.each([
+    ['wrangler d1 export db --output "$RUNNER_TEMP/a.sql" > "$RUNNER_TEMP/log" 2>&1', 0],
+    ["wrangler d1 export db --output x \\\n  &> /dev/null || status=$?", 0],
+    ["# wrangler d1 export prints a link", 0],
+    ["wrangler d1 export db --output x", 1],
+    ["wrangler d1 export db --output x > /dev/null", 1],
+    ["wrangler d1 export db --output x 2>&1", 1],
+    ["wrangler d1 export db --output x 2> /dev/null", 1],
+  ])("checks that %s keeps the export off the log", (run, n) => {
+    const text = `on: push\njobs:\n  j:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          ${run.replaceAll("\n", "\n          ")}\n`;
+    expect(checkWorkflow("a.yml", text)).toHaveLength(n);
+  });
+
+  test.each([
     "pull_request_target",
     "workflow_run",
     "issue_comment",

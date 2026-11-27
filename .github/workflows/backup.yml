@@ -46,7 +46,16 @@ jobs:
         run: |
           key="d1/pixelslash/$(date -u +%Y-%m-%dT%H%M%SZ).sql.gz"
           dump="$RUNNER_TEMP/pixelslash.sql"
-          bunx wrangler d1 export pixelslash --remote --env production --output "$dump"
+          # wrangler's output goes to a file, never the log: it prints a presigned link to the whole dump,
+          # good for an hour with no credentials, and a public repo's Actions logs are public. On a failure
+          # only the exit code is printed. check-workflows fails a workflow whose export reaches the log.
+          status=0
+          bunx wrangler d1 export pixelslash --remote --env production --output "$dump" \
+            > "$RUNNER_TEMP/export.log" 2>&1 || status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "::error::the export failed with exit $status; its output is not printed"
+            exit 1
+          fi
           # A dump with no table in it is a failed export, not a backup.
           if ! grep -q '^CREATE TABLE' "$dump"; then
             echo "::error::the export has no CREATE TABLE; not uploading it"
@@ -64,6 +73,7 @@ jobs:
           KEY: ${{ steps.export.outputs.key }}
           FILE: ${{ steps.export.outputs.file }}
         run: |
+          set -o pipefail
           bunx wrangler r2 object put "pixelslash-backups/$KEY" --file "$FILE" \
             --content-type application/gzip --remote
           # Read the object back: the upload counts only once R2 lists it at the size that was sent.
