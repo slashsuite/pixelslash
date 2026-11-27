@@ -258,8 +258,8 @@ so a job lost to a restart is simply re-issued by finalize. No queue table, no n
    branch, `refreshBuildStatus`, `recordRun`, `queueExplain`, and the reply body, which Rust
    relays.
 6. If W runs out first, commit replies exactly as today's `DiffCeilingError` does: `errored` with
-   `unmeasured: <n>`. The shipped CLI already loops on that while `unmeasured` falls
-   (`upload.ts:78`), and the runner keeps working between calls, so the next finalize finds more
+   `unmeasured: <n>`. The shipped CLI already loops on that while `unmeasured` is above 0
+   (`finalise` in `upload.ts`), and the runner keeps working between calls, so the next finalize finds more
    standing. **No CLI change is needed.** A clearer additive field (`measuring: true`) is **Q6**.
 
 ### Memory, at 1280x9500
@@ -505,7 +505,7 @@ No mTLS and no signing: both hops are loopback or in-account, and the secret is 
 | Diff done, result is stale (409) | Dropped. The newer upload has its own job. |
 | A diff hits a malformed PNG | The core returns `Result` for every bad input; the job writes the shot's `diffError`, as `diffOrRecord` (`process.ts`) does today. A panic is a bug: native wraps the diff in `catch_unwind` as a backstop; on `wasm32` a panic aborts the invocation, and finalize re-issues the job. |
 | The Rust service restarts mid-build | In-memory jobs are lost; finalize's plan re-issues every shot without a standing result. |
-| Finalize times out with jobs left | `errored` + `unmeasured`, as today; the CLI calls finalize again while `unmeasured` falls; the runner keeps going between calls, so each call finds fewer left. |
+| Finalize times out with jobs left | `errored` + `unmeasured`, as today; the CLI calls finalize again while `unmeasured` is above 0; the runner keeps going between calls, so each call finds fewer left. |
 
 ## 6. Contract and cut-over
 
