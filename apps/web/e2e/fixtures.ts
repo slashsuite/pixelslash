@@ -17,8 +17,18 @@ export { SIGNED_OUT } from "./session";
  */
 export async function open(page: Page, path: string, { hydrated = true } = {}) {
   const response = await page.goto(path);
-  if (hydrated) await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
+  if (hydrated) await expectHydrated(page);
   return response;
+}
+
+/**
+ * The app's ready marker: the `<Page>` frame (`src/components/ui.tsx`) says `data-hydrated="true"`
+ * once React owns the page. Every spec waits on it through here after a navigation it did not make
+ * with `open()` (a click, a reload), so the one raw locator is this one.
+ */
+export async function expectHydrated(page: Page) {
+  // oxlint-disable-next-line playwright/no-raw-locators -- the ready marker is on the <Page> frame, not <html>, so the allowed html[data-hydrated] cannot match; moving it is a product change
+  await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
 }
 
 type Provisioned = {

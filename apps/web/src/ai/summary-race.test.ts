@@ -8,22 +8,31 @@ import { card, red, stubModel, white, withModel } from "./summary-test-kit";
 
 /** A summary written off the queue (ob 1875) and a re-run that queues the build again meanwhile. */
 
+/**
+ * `inner`, but each summary call (text only, no image) waits for `answer`; `asking` is set once
+ * one has been asked.
+ */
+function holdingSummary(inner: ModelFetch) {
+  const { promise: held, resolve: answer } = Promise.withResolvers<void>();
+  const state = { asking: false };
+  const modelFetch: ModelFetch = async (input, init) => {
+    const summary = typeof init.body === "string" && !init.body.includes("image_url");
+    if (summary) {
+      state.asking = true;
+      await held;
+    }
+    return inner(input, init);
+  };
+  return { modelFetch, answer, state };
+}
+
 describe("the queued summary and a re-run (ob 1875)", () => {
   test("a summary still being asked when a re-run queues the build again is not stored over it (ob 1875)", async () => {
     const ctx = await context();
     await withModel(ctx);
     const old = stubModel(() => "Old. [C1]");
     // The old summary's answer waits until the re-run has written its own.
-    const { promise: held, resolve: answer } = Promise.withResolvers<void>();
-    let asking = false;
-    const asked: ModelFetch = async (input, init) => {
-      const summary = typeof init.body === "string" && !init.body.includes("image_url");
-      if (summary) {
-        asking = true;
-        await held;
-      }
-      return old.modelFetch(input, init);
-    };
+    const { modelFetch: asked, answer, state } = holdingSummary(old.modelFetch);
     await upload(ctx, { branch: "main", commit: sha(1), shots: card(white) });
     const queue = memoryQueue();
     const build = await upload(
@@ -34,14 +43,15 @@ describe("the queued summary and a re-run (ob 1875)", () => {
     const draining = queue.drain(
       consumerDeps({ db: ctx.db, blobs: ctx.scoped, modelFetch: asked }),
     );
-    await vi.waitFor(() => expect(asking).toBe(true));
+    await vi.waitFor(() => expect(state.asking).toBe(true));
     // Still pending while it is asked, so the page keeps waiting for it.
     expect((await getBuild(ctx.db, ctx.projectId, build.id)).aiSummaryQueuedAt).not.toBeNull();
     const fresh = stubModel(() => "New. [C1]");
     const [shot] = await rows(ctx, build);
+    expect(shot).toBeDefined();
     const stored = await getBuild(ctx.db, ctx.projectId, build.id);
     await explaining({ db: ctx.db, blobs: ctx.scoped, modelFetch: fresh.modelFetch }, (deps) =>
-      rerunShots(deps, stored, shot?.id ?? null),
+      rerunShots(deps, stored, shot!.id),
     );
     expect((await getBuild(ctx.db, ctx.projectId, build.id)).aiSummary?.sentences[0]?.text).toBe(
       "New.",

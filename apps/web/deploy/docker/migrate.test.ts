@@ -31,19 +31,25 @@ beforeAll(async () => {
 });
 afterAll(() => mf?.dispose());
 
-test("applies every migration once, records each as wrangler does, and none on a rerun", async () => {
-  const db = await mf.getD1Database("DB");
-  let batches = 0;
+/** `db` behind a proxy that counts its `batch` calls, so a test can see the round trips. */
+function countingBatches(db: D1Database) {
+  const counts = { batches: 0 };
   const counted = new Proxy(db, {
     get(target, key) {
-      if (key === "batch") batches++;
+      if (key === "batch") counts.batches++;
       const value = Reflect.get(target, key);
       return typeof value === "function" ? value.bind(target) : value;
     },
   });
+  return { counted, counts };
+}
+
+test("applies every migration once, records each as wrangler does, and none on a rerun", async () => {
+  const db = await mf.getD1Database("DB");
+  const { counted, counts } = countingBatches(db);
   expect(await applyMigrations(counted, DRIZZLE)).toEqual(FILES);
   // one round trip for the whole history: a fallback to a batch per file would be 36 of them
-  expect(batches).toBe(1);
+  expect(counts.batches).toBe(1);
   const rows = await db.prepare("SELECT name FROM d1_migrations ORDER BY id").all();
   expect(rows.results).toEqual(FILES.map((name) => ({ name })));
   const tables = await db

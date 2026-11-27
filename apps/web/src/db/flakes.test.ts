@@ -16,6 +16,7 @@ import { countBuilds } from "./build-counts";
 import { acceptAllSnapshots } from "./review";
 import { type FlakyPolicy, flakes } from "./schema";
 import { signInGithubUser } from "./users";
+import { must } from "#/test/must";
 
 const block = { x: 8, y: 8, w: 12, h: 12, rgb: RED };
 
@@ -56,7 +57,7 @@ describe("flakes are stored per key (ob 1724)", () => {
     expect(flake?.evidence.map((e) => e.buildId)).toEqual([first.id, second.id]);
     expect(flake?.evidence[0]?.captures.map((c) => c.run)).toEqual([2, 3]);
     // The re-captures are stored beside the shot.
-    const key = flake?.evidence[0]?.captures[0]?.key ?? "";
+    const key = must(flake?.evidence[0]?.captures[0], "the first re-capture").key;
     expect(key).toMatch(/\.flake-run2\.png$/);
     expect(ctx.blobs.data.has(`orgs/${ctx.orgId}/${key}`)).toBe(true);
     expect((await onlyShot(ctx, second)).flakeId).toBe(flake?.id);
@@ -65,8 +66,7 @@ describe("flakes are stored per key (ob 1724)", () => {
   test("a detection on a resolved flake reopens it", async () => {
     const ctx = await context();
     await mainThen(ctx, 2, { flake: flakeOf("review") });
-    const [flake] = await listFlakes(ctx.db, ctx.userId, ctx.projectId);
-    if (!flake) throw new Error("no flake");
+    const flake = must((await listFlakes(ctx.db, ctx.userId, ctx.projectId))[0], "the flake");
     await resolveFlake(ctx.db, {
       projectId: ctx.projectId,
       flakeId: flake.id,
@@ -93,8 +93,7 @@ describe("flakes are stored per key (ob 1724)", () => {
   test("resolving a resolved flake changes nothing: the first resolver, time and note stay (PS-398)", async () => {
     const ctx = await context();
     await mainThen(ctx, 2, { flake: flakeOf("review") });
-    const [flake] = await listFlakes(ctx.db, ctx.userId, ctx.projectId);
-    if (!flake) throw new Error("no flake");
+    const flake = must((await listFlakes(ctx.db, ctx.userId, ctx.projectId))[0], "the flake");
     const grace = await signInGithubUser(ctx.db, {
       githubId: 3,
       login: "grace",
@@ -114,8 +113,7 @@ describe("flakes are stored per key (ob 1724)", () => {
   test("reopening an open flake changes nothing, and an unknown id still throws (PS-398)", async () => {
     const ctx = await context();
     await mainThen(ctx, 2, { flake: flakeOf("review") });
-    const [flake] = await ctx.db.select().from(flakes);
-    if (!flake) throw new Error("no flake");
+    const flake = must((await ctx.db.select().from(flakes))[0], "the flake");
     expect(flake.status).toBe("open");
     await reopenFlake(ctx.db, { projectId: ctx.projectId, flakeId: flake.id });
     const [after] = await ctx.db.select().from(flakes).where(eq(flakes.id, flake.id));
@@ -151,7 +149,7 @@ describe("flakes are stored per key (ob 1724)", () => {
     await setFlakeStatus(ctx.db, {
       userId: ctx.userId,
       projectId: ctx.projectId,
-      flakeId: flake?.id ?? "",
+      flakeId: must(flake, "the flake").id,
       open: false,
       note: null,
     });
@@ -193,7 +191,7 @@ describe("flakes are stored per key (ob 1724)", () => {
       setFlakeStatus(ctx.db, {
         userId: eve.id,
         projectId: ctx.projectId,
-        flakeId: flake?.id ?? "",
+        flakeId: must(flake, "the flake").id,
         open: false,
         note: null,
       }),
@@ -264,9 +262,9 @@ describe("the flaky policy decides the verdict (ob 1724)", () => {
         { name: "home", png: shot() },
       ],
     });
-    for (const [n, policy] of [
-      [2, "skip"],
-      [3, "review"],
+    for (const [n, policy, status] of [
+      [2, "skip", "passed"],
+      [3, "review", "changes"],
     ] as const) {
       const build = await upload(ctx, {
         branch: "main",
@@ -280,7 +278,7 @@ describe("the flaky policy decides the verdict (ob 1724)", () => {
       const byName = new Map((await rows(ctx, build)).map((r) => [r.name, r]));
       expect(byName.get("home")?.reviewState).toBe("accepted");
       expect(byName.get("about")?.reviewState).toBe("pending");
-      expect(build.status).toBe(policy === "skip" ? "passed" : "changes");
+      expect(build.status).toBe(status);
     }
     // The flaky change never became main's baseline.
     const [flake] = await ctx.db.select().from(flakes).where(eq(flakes.name, "about"));

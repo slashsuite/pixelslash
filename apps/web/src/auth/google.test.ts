@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { must } from "#/test/must";
 import { primaryVerifiedEmail } from "./github";
 import {
   UnverifiedEmailError,
@@ -58,8 +59,7 @@ describe("googleConfigOf", () => {
 
 describe("authorizeUrl", () => {
   test("asks for openid email profile with state and an S256 challenge", async () => {
-    const cfg = googleConfigOf({ GOOGLE_CLIENT_ID: "id", GOOGLE_CLIENT_SECRET: "s" });
-    if (!cfg) throw new Error("no config");
+    const cfg = must(googleConfigOf({ GOOGLE_CLIENT_ID: "id", GOOGLE_CLIENT_SECRET: "s" }));
     const url = new URL(
       await authorizeUrl(cfg, "st", "verifier", "https://x/auth/google/callback"),
     );

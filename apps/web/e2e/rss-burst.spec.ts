@@ -1,4 +1,5 @@
 import { readFileSync, readdirSync } from "node:fs";
+import type { Page } from "@playwright/test";
 import { expect, open, test } from "./fixtures";
 import { SHA_MAIN, SHA_WORK, explained, uploadBuild } from "./api-upload";
 import { type Block, png } from "./png";
@@ -55,6 +56,7 @@ const viteRssMb = () => rssMb("node", `PIXELSLASH_E2E_PORT=${SERVER_PORT}`, "pre
  */
 function probeHome(): { stop: () => Promise<number[]> } {
   const times: Promise<number>[] = [];
+  // oxlint-disable-next-line no-restricted-globals -- a probe a second is the measurement (how GET / answers under the burst), not a wait on a state
   const timer = setInterval(() => {
     const t = Date.now();
     times.push(
@@ -102,6 +104,29 @@ function shots(blockAt: number) {
   }));
 }
 
+/** With `PIXELSLASH_RSS_MODEL=1`: give the project the e2e stub's model, so each changed shot is explained. */
+const setUpModel = MODEL
+  ? async (page: Page, projectId: string) => {
+      await open(page, `/projects/${projectId}/settings`);
+      const form = page.getByTestId("model-settings");
+      await form.getByTestId("model-base-url").fill(`${STUB}/v1`);
+      await form.getByTestId("model-name").fill("deepseek-flash");
+      await form.getByTestId("model-key").fill("sk-e2e-model");
+      await form.getByTestId("model-save").click();
+      await expect(form.getByTestId("model-key-set")).toBeVisible();
+    }
+  : async () => {};
+
+/** With the model: wait until every changed shot of the build is explained. */
+const awaitExplained = MODEL
+  ? async (page: Page, projectId: string, buildId: string) => {
+      await open(page, `/projects/${projectId}/builds/${buildId}`);
+      // The explanations took 31 to 43 s at 50 shots (bench/PERF.md, its RSS burst runs), past the
+      // helper's 30 s, and grow with the shot count.
+      await explained(page, 500_000);
+    }
+  : async () => {};
+
 test.skip(COUNT === 0, "PS-200 measurement: set PIXELSLASH_RSS_BURST to the shot count");
 
 test(`workerd RSS across a burst of ${COUNT} full-page shots`, async ({ page, provision }) => {
@@ -111,15 +136,7 @@ test(`workerd RSS across a burst of ${COUNT} full-page shots`, async ({ page, pr
   // count goes to 500.
   test.setTimeout(1_200_000);
   const { token, projectId } = await provision({ org: "Burst Co", project: "burst" });
-  if (MODEL) {
-    await open(page, `/projects/${projectId}/settings`);
-    const form = page.getByTestId("model-settings");
-    await form.getByTestId("model-base-url").fill(`${STUB}/v1`);
-    await form.getByTestId("model-name").fill("deepseek-flash");
-    await form.getByTestId("model-key").fill("sk-e2e-model");
-    await form.getByTestId("model-save").click();
-    await expect(form.getByTestId("model-key-set")).toBeVisible();
-  }
+  await setUpModel(page, projectId);
   const main = shots(200);
   const branch = shots(260);
 
@@ -129,6 +146,7 @@ test(`workerd RSS across a burst of ${COUNT} full-page shots`, async ({ page, pr
   const idle = workerdRssMb();
   // 0 means no workerd was found in /proc, not a small number: do not print it as a result.
   expect(idle).toBeGreaterThan(0);
+  // oxlint-disable-next-line no-restricted-globals -- sampling RSS every 250 ms is the measurement itself, not a wait on a state
   const sampler = setInterval(() => {
     const workerd = workerdRssMb();
     const vite = viteRssMb();
@@ -151,18 +169,14 @@ test(`workerd RSS across a burst of ${COUNT} full-page shots`, async ({ page, pr
   const rounds = await finaliseUntilMeasured(token, id, branch.length);
   const branchMs = Date.now() - t1;
   const t2 = Date.now();
-  if (MODEL) {
-    await open(page, `/projects/${projectId}/builds/${id}`);
-    // The explanations took 31 to 43 s at 50 shots (bench/PERF.md, its RSS burst runs), past the
-    // helper's 30 s, and grow with the shot count.
-    await explained(page, 500_000);
-  }
+  await awaitExplained(page, projectId, id);
   const explainMs = Date.now() - t2;
   clearInterval(sampler);
   const homeTimes = await home.stop();
   const afterBranch = workerdRssMb();
   // Not a sync: the reported `settled10s` figure is defined as workerd's RSS ten seconds after the
   // burst, so this wall-clock wait is the measurement itself.
+  // oxlint-disable-next-line playwright/no-wait-for-timeout -- settled10s is defined as the RSS ten seconds after the burst: the clock is the measurement
   await page.waitForTimeout(10_000);
   const settled = workerdRssMb();
   const peak = Math.max(...samples, afterBranch);

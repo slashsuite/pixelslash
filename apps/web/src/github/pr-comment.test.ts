@@ -7,6 +7,7 @@ import { prComments } from "#/db/schema-pr-comments";
 import { sha } from "#/diff/test-builds";
 import { type GithubApp, field } from "./app";
 import { syncCheckRuns } from "./check-run";
+import { plain } from "./pr-comment";
 import { CHANGED, PLAIN, world } from "./test-world";
 
 /** The PR comment on a build (PS-82), against a stand-in for GitHub's API. */
@@ -23,6 +24,40 @@ async function pullRequest(w: World, commit = sha(2)) {
 }
 
 const commentBodies = (w: World) => [...w.github.comments().values()];
+
+/**
+ * `w`'s GitHub, where right after our first comment is made another sync's comment lands and is
+ * stored before ours is.
+ */
+function racingFirstComment(w: World): GithubApp {
+  const inner = w.github.app({ timeoutMs: 50 });
+  return {
+    async request(repo, method, path, body) {
+      const made = await inner.request(repo, method, path, body);
+      if (method === "POST" && path.endsWith("/comments")) {
+        const winner = await inner.request(repo, method, path, body);
+        const commentId = Number(field(winner, "id"));
+        await w.db
+          .insert(prComments)
+          .values({ orgId: w.acme.org.id, repo: "acme/web", prNumber: 7, commentId });
+      }
+      return made;
+    },
+  };
+}
+
+describe("plain: text from outside defused for a Markdown comment", () => {
+  test.each([
+    ["a mention", "cc @octocat", "cc @\u200Boctocat"],
+    ["HTML", "<b>now</b>", "\\<b\\>now\\</b\\>"],
+    ["a link", "[x](https://evil.test)", "\\[x\\](https://evil.test)"],
+    ["code", "`rm -rf`", "\\`rm -rf\\`"],
+    ["a backslash", "a\\b", "a\\\\b"],
+    ["plain words", "The header moved down.", "The header moved down."],
+  ])("%s", (_, text, defused) => {
+    expect(plain(text)).toBe(defused);
+  });
+});
 
 describe("the PixelSlash PR comment", () => {
   test("the first build of a PR makes one comment: counts, shots as links, the build page", async () => {
@@ -95,7 +130,7 @@ describe("the PixelSlash PR comment", () => {
       .where(eq(builds.id, feature.id));
     await w.sync([feature.id]);
 
-    const body = commentBodies(w)[0] ?? "";
+    const [body] = commentBodies(w);
     expect(body).toContain("The header moved down, cc @​octocat \\<b\\>now\\</b\\>.");
     expect(body).toContain("Against the brief: It matches the brief.");
     expect(body).not.toContain("Summary skipped");
@@ -150,23 +185,8 @@ describe("the PixelSlash PR comment", () => {
     const feature = await pullRequest(w);
     await w.db.delete(prComments);
     w.github.deleteComment(900);
-    const inner = w.github.app({ timeoutMs: 50 });
-    const racing: GithubApp = {
-      async request(repo, method, path, body) {
-        const made = await inner.request(repo, method, path, body);
-        if (method === "POST" && path.endsWith("/comments")) {
-          // Another sync's comment lands, and is stored, before ours is.
-          const winner = await inner.request(repo, method, path, body);
-          const commentId = Number(field(winner, "id"));
-          await w.db
-            .insert(prComments)
-            .values({ orgId: w.acme.org.id, repo: "acme/web", prNumber: 7, commentId });
-        }
-        return made;
-      },
-    };
     await syncCheckRuns(
-      { db: w.db, app: racing, token: null, publicUrl: "https://pixelslash.test/" },
+      { db: w.db, app: racingFirstComment(w), token: null, publicUrl: "https://pixelslash.test/" },
       [feature.id],
     );
 
@@ -184,12 +204,13 @@ describe("the PixelSlash PR comment", () => {
     expect(await w.db.select().from(prComments)).toEqual([]);
   });
 
-  test("no GitHub connection, no call", async () => {
-    for (const setting of [{ repo: null }, { app: false }]) {
-      const w = await world(setting);
-      await pullRequest(w);
-      expect(w.github.calls).toEqual([]);
-    }
+  test.each([
+    ["no repo", { repo: null }],
+    ["no App", { app: false }],
+  ])("%s: no GitHub connection, no call", async (_, setting) => {
+    const w = await world(setting);
+    await pullRequest(w);
+    expect(w.github.calls).toEqual([]);
   });
 
   test("the token transport comments too", async () => {

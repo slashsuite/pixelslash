@@ -33,33 +33,28 @@ async function statuses(
 describe("native shots against their own baseline", () => {
   test("an android shot diffs against its own baseline and a web shot beside it is untouched; a new device is new, and the old one removed", async () => {
     const ctx = await context();
-    const build = (n: number, mergeBase: number | undefined, shots: Shot[]) =>
-      upload(ctx, {
-        branch: "main",
-        commit: sha(n),
-        ...(mergeBase ? { ancestors: [sha(mergeBase)] } : {}),
-        shots,
-      });
+    const build = (n: number, ancestors: number[], shots: Shot[]) =>
+      upload(ctx, { branch: "main", commit: sha(n), ancestors: ancestors.map(sha), shots });
 
-    const first = await build(1, undefined, [web, android(screen)]);
+    const first = await build(1, [], [web, android(screen)]);
     expect(await statuses(ctx, first)).toEqual([
       ["android", "Pixel 8 API 35", "new"],
       ["linux", "chromium", "new"],
     ]);
 
-    const second = await build(2, 1, [web, android(screen)]);
+    const second = await build(2, [1], [web, android(screen)]);
     expect(await statuses(ctx, second)).toEqual([
       ["android", "Pixel 8 API 35", "unchanged"],
       ["linux", "chromium", "unchanged"],
     ]);
 
-    const third = await build(3, 2, [web, android(moved)]);
+    const third = await build(3, [2], [web, android(moved)]);
     expect(await statuses(ctx, third)).toEqual([
       ["android", "Pixel 8 API 35", "changed"],
       ["linux", "chromium", "unchanged"],
     ]);
 
-    const fourth = await build(4, 3, [web, android(moved, "Pixel 6 API 34")]);
+    const fourth = await build(4, [3], [web, android(moved, "Pixel 6 API 34")]);
     expect(await statuses(ctx, fourth)).toEqual([
       ["android", "Pixel 6 API 34", "new"],
       ["android", "Pixel 8 API 35", "removed"],

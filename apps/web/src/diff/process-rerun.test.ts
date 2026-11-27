@@ -1,12 +1,14 @@
 import { diffPngs } from "@slashsuite/pixelslash-engine/diff";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
-import { ABANDONED_REASON } from "#/db/abandoned";
-import { getBuild } from "#/db/builds";
+import { ABANDONED_AFTER_MS, ABANDONED_REASON, sweepAbandoned } from "#/db/abandoned";
+import { createBuild, getBuild } from "#/db/builds";
+import { setDiffLocation } from "#/db/orgs";
 import { reviewSnapshot } from "#/db/review";
-import { builds, projects, snapshots } from "#/db/schema";
-import { NoRecoveryError } from "./claim";
+import { snapshots } from "#/db/schema";
+import { NoRecoveryError, claimForRerun } from "./claim";
 import { RerunError, rerunShots } from "./rerun";
+import { must } from "#/test/must";
 import { type Ctx, context, rows, sha, upload } from "./test-builds";
 import { RED, shot } from "./test-shots";
 
@@ -63,7 +65,9 @@ describe("partial re-runs (ob 1738)", () => {
     expect(result).toEqual({ status: "changes", error: null, unmeasured: 0 });
     expect(seen.calls).toBe(2);
     const after = await rows(ctx, errored);
-    expect(after.every((r) => r.diffStatus === "changed" && r.diffError === null)).toBe(true);
+    expect(after.map((r) => [r.diffStatus, r.diffError])).toEqual(
+      names.map(() => ["changed", null]),
+    );
     expect(await getBuild(ctx.db, ctx.projectId, errored.id)).toMatchObject({
       status: "changes",
       error: null,
@@ -72,13 +76,20 @@ describe("partial re-runs (ob 1738)", () => {
 
   test("a build swept before it was finalised is not re-run: its shots are a partial upload (PS-324)", async () => {
     const ctx = await context();
-    const errored = await tenShots(ctx, counted(2).diff);
-    await ctx.db
-      .update(builds)
-      .set({ error: ABANDONED_REASON, processingStartedAt: null })
-      .where(eq(builds.id, errored.id));
-    const swept = await getBuild(ctx.db, ctx.projectId, errored.id);
-    await expect(rerunShots(deps(ctx), swept, null)).rejects.toThrow(RerunError);
+    // Opened and never finalised, then ended by the sweep, as the scheduled job does.
+    const id = await createBuild(ctx.db, ctx.projectId, {
+      commitSha: sha(3),
+      branch: "feat/y",
+      mergeBaseSha: sha(1),
+      ancestorShas: [],
+      prNumber: null,
+      brief: null,
+    });
+    const later = new Date(Date.now() + ABANDONED_AFTER_MS + 60_000);
+    await sweepAbandoned(ctx.db, { now: later, limit: 10, projectId: ctx.projectId });
+    const swept = await getBuild(ctx.db, ctx.projectId, id);
+    expect(swept).toMatchObject({ status: "errored", error: ABANDONED_REASON });
+    await expect(rerunShots(deps(ctx), swept, null)).rejects.toThrow(/never finalised/);
   });
 
   test("a shot that errors again leaves the build errored, naming it", async () => {
@@ -93,8 +104,7 @@ describe("partial re-runs (ob 1738)", () => {
   test("a picked shot whose re-diff fails loses its review and errors the build", async () => {
     const ctx = await context();
     const build = await tenShots(ctx);
-    const [first] = await rows(ctx, build);
-    if (!first) throw new Error("no shots");
+    const first = must((await rows(ctx, build))[0], "shot");
     await reviewSnapshot(ctx.db, {
       projectId: ctx.projectId,
       userId: ctx.userId,
@@ -114,8 +124,9 @@ describe("partial re-runs (ob 1738)", () => {
   test("a picked shot measured the same keeps its review; the others are not measured", async () => {
     const ctx = await context();
     const build = await tenShots(ctx);
-    const [first, second] = await rows(ctx, build);
-    if (!first || !second) throw new Error("no shots");
+    const shots = await rows(ctx, build);
+    const first = must(shots[0], "first shot");
+    const second = must(shots[1], "second shot");
     const review = { projectId: ctx.projectId, userId: ctx.userId };
     await reviewSnapshot(ctx.db, { ...review, snapshotId: second.id, state: "accepted" });
     await reviewSnapshot(ctx.db, { ...review, snapshotId: first.id, state: "rejected" });
@@ -137,8 +148,8 @@ describe("partial re-runs (ob 1738)", () => {
   test("a picked shot whose result moved goes back to pending", async () => {
     const ctx = await context();
     const build = await tenShots(ctx);
-    const [first] = await rows(ctx, build);
-    if (!first?.diffResult) throw new Error("no measured shot");
+    const first = must((await rows(ctx, build))[0], "shot");
+    const measured = must(first.diffResult, "result");
     await reviewSnapshot(ctx.db, {
       projectId: ctx.projectId,
       userId: ctx.userId,
@@ -148,7 +159,7 @@ describe("partial re-runs (ob 1738)", () => {
     // A result the engine would not give these PNGs now: the re-run measures a different one.
     await ctx.db
       .update(snapshots)
-      .set({ diffResult: { ...first.diffResult, changedPixels: 1 } })
+      .set({ diffResult: { ...measured, changedPixels: 1 } })
       .where(eq(snapshots.id, first.id));
     const failed = await getBuild(ctx.db, ctx.projectId, build.id);
 
@@ -161,7 +172,7 @@ describe("partial re-runs (ob 1738)", () => {
   test("a CI-diff project is refused, and nothing is measured", async () => {
     const ctx = await context();
     const errored = await tenShots(ctx, counted(2).diff);
-    await ctx.db.update(projects).set({ diffLocation: "ci" }).where(eq(projects.id, ctx.projectId));
+    await setDiffLocation(ctx.db, ctx.userId, ctx.projectId, "ci");
     const { seen, diff } = counted();
     await expect(rerunShots(deps(ctx, diff), errored, null)).rejects.toBeInstanceOf(
       NoRecoveryError,
@@ -169,19 +180,24 @@ describe("partial re-runs (ob 1738)", () => {
     expect(seen.calls).toBe(0);
   });
 
-  test("a shot not in the build, a build with nothing errored and a held build are refused", async () => {
+  test("a shot not in the build is refused", async () => {
     const ctx = await context();
     const build = await tenShots(ctx);
     await expect(rerunShots(deps(ctx), build, "nope")).rejects.toBeInstanceOf(RerunError);
-    await expect(rerunShots(deps(ctx), build, null)).rejects.toThrow(/nothing errored/);
+  });
 
-    await ctx.db
-      .update(builds)
-      .set({ status: "processing", processingStartedAt: new Date() })
-      .where(eq(builds.id, build.id));
-    const held = await getBuild(ctx.db, ctx.projectId, build.id);
-    const [first] = await rows(ctx, build);
-    if (!first) throw new Error("no shots");
-    await expect(rerunShots(deps(ctx), held, first.id)).rejects.toThrow(/a diff run holds it/);
+  test("a build with nothing errored is refused", async () => {
+    const ctx = await context();
+    const build = await tenShots(ctx);
+    await expect(rerunShots(deps(ctx), build, null)).rejects.toThrow(/nothing errored/);
+  });
+
+  test("a build another re-run holds is refused", async () => {
+    const ctx = await context();
+    const build = await tenShots(ctx);
+    // Another reviewer's re-run took it first.
+    expect(await claimForRerun(ctx.db, build, new Date())).toBe(true);
+    const first = must((await rows(ctx, build))[0], "shot");
+    await expect(rerunShots(deps(ctx), build, first.id)).rejects.toThrow(/a diff run holds it/);
   });
 });

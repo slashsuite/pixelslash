@@ -136,13 +136,15 @@ describe("a re-run resumes", () => {
     expect(build.status).toBe("errored");
     const done = (await rows(ctx, build)).find((r) => r.diffStatus !== null);
     const theirs = (await rows(ctx, earlier)).find((r) => r.name === done?.name);
-    expect(done).toMatchObject({ diffStatus: "unchanged", carriedFrom: theirs?.id });
+    expect(done).toBeDefined();
+    expect(theirs).toBeDefined();
+    expect(done).toMatchObject({ diffStatus: "unchanged", carriedFrom: theirs!.id });
 
     // Between the runs, the earlier build's shot is rejected: that build fails and is no baseline,
     // so main's white shot is, and the red shot is changed against it.
     await reviewSnapshot(ctx.db, {
       projectId: ctx.projectId,
-      snapshotId: theirs?.id ?? "",
+      snapshotId: theirs!.id,
       state: "rejected",
       userId: ctx.userId,
     });
@@ -153,10 +155,7 @@ describe("a re-run resumes", () => {
     expect(left.slice(0, -1).every((n) => n > 0)).toBe(true);
     expect(left).toEqual(left.toSorted((a, b) => b - a));
 
-    const after = await ctx.db
-      .select()
-      .from(snapshots)
-      .where(eq(snapshots.id, done?.id ?? ""));
+    const after = await ctx.db.select().from(snapshots).where(eq(snapshots.id, done!.id));
     expect(after[0]).toMatchObject({
       diffStatus: "changed",
       carriedFrom: null,

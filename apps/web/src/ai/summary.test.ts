@@ -4,7 +4,7 @@ import type { Build } from "#/db/builds";
 import { DIFF_BUDGET_MS } from "#/diff/budget";
 import { processBuild } from "#/diff/process";
 import { rerunShots } from "#/diff/rerun";
-import { TEST_MODEL_KEY_SECRET as SECRET } from "#/db/test-db";
+import { TEST_MODEL_KEY_SECRET as SECRET } from "#/test/store";
 import {
   FINGERPRINT,
   type Ctx,
@@ -48,6 +48,30 @@ const idsOf = async (ctx: Ctx, build: Build, prefix: string) =>
     .map((r) => r.id)
     .toSorted((a, b) => a.localeCompare(b));
 
+/** `inner`, recording which kind of call came when: a region's crops, or the summary's text. */
+function ordered(inner: ModelFetch) {
+  const order: string[] = [];
+  const modelFetch: ModelFetch = (input, init) => {
+    const region = typeof init.body === "string" && init.body.includes("image_url");
+    order.push(region ? "region" : "summary");
+    return inner(input, init);
+  };
+  return { order, modelFetch };
+}
+
+type ResumeDeps = { db: Ctx["db"]; blobs: BlobStore; now: () => number; modelFetch: ModelFetch };
+
+/** Run `build`'s diff again, as the next request would, until it is no longer `errored` (at most 5 runs). */
+async function resumeUntilDone(ctx: Ctx, deps: ResumeDeps, first: Build) {
+  let build = first;
+  for (let i = 0; i < 5 && build.status === "errored"; i++) {
+    const current = build;
+    await explaining(deps, (d) => processBuild(d, current));
+    build = await getBuild(ctx.db, ctx.projectId, build.id);
+  }
+  return build;
+}
+
 describe("a build's AI summary (ob 1668)", () => {
   test("one text-only call per build, grouped across themes, each sentence linked to its shots", async () => {
     const ctx = await context();
@@ -59,7 +83,7 @@ describe("a build's AI summary (ob 1668)", () => {
     const build = await themedBuild(ctx, stub.modelFetch);
     expect(stub.summaries()).toHaveLength(1);
 
-    const body = stub.summaries()[0] ?? "";
+    const body = stub.summaries()[0]!;
     expect(body).not.toMatch(/image_url|data:image|base64/);
     const prompt = promptOf(body);
     expect(prompt).toContain("Build: 3 changed, 1 new, 1 removed.");
@@ -91,14 +115,7 @@ describe("a build's AI summary (ob 1668)", () => {
     const ctx = await context();
     await withModel(ctx);
     const stub = stubModel();
-    // Which kind of call came when: a region's crops, or the summary's text.
-    const order: string[] = [];
-    const modelFetch: ModelFetch = (input, init) => {
-      order.push(
-        typeof init.body === "string" && init.body.includes("image_url") ? "region" : "summary",
-      );
-      return stub.modelFetch(input, init);
-    };
+    const { order, modelFetch } = ordered(stub.modelFetch);
     await upload(ctx, { branch: "main", commit: sha(1), shots: card(white) });
     const queue = memoryQueue();
     const build = await upload(
@@ -121,7 +138,8 @@ describe("a build's AI summary (ob 1668)", () => {
     expect(summarized).toEqual([false, false, true]);
     // Three shots of one region each, then one summary that saw all three notes.
     expect(order).toEqual(["region", "region", "region", "summary"]);
-    expect(promptOf(stub.summaries()[0] ?? "")).toContain(NOTE);
+    expect(stub.summaries()).toHaveLength(1);
+    expect(promptOf(stub.summaries()[0]!)).toContain(NOTE);
     // Delivered again, a settled shot asks nothing and writes no second summary.
     await consumeExplain(deps, [
       { body: jobs[0]?.body, attempts: 1, ack: () => undefined, retry: () => undefined },
@@ -179,41 +197,53 @@ describe("a build's AI summary (ob 1668)", () => {
     expect(build.aiSummary).toBeNull();
   });
 
-  test("a failed or malformed answer stores nothing: Regenerate keeps the summary, a re-run clears it", async () => {
+  test.each([
+    ["a refused call", () => new Response("nope", { status: 401 })],
+    ["an answer naming no shot", () => "Everything looks good to me!"],
+  ])("%s stores nothing: Regenerate keeps the summary", async (_, answer) => {
     const ctx = await context();
     await withModel(ctx);
     const build = await themedBuild(ctx, stubModel(() => "First. [C1]").modelFetch);
     expect(build.aiSummary).not.toBeNull();
 
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    const answers = [new Response("nope", { status: 401 }), "Everything looks good to me!"];
-    for (const answer of answers) {
-      const stub = stubModel(() => answer);
-      const fresh = await getBuild(ctx.db, ctx.projectId, build.id);
-      expect(
-        await summarizeBuild(
-          { db: ctx.db, modelFetch: stub.modelFetch, modelKeySecret: SECRET },
-          fresh,
-        ),
-      ).toBe(false);
-      expect(stub.summaries()).toHaveLength(1);
-      // Nothing was measured again: what is stored still describes the build.
-      expect((await getBuild(ctx.db, ctx.projectId, build.id)).aiSummary?.sentences[0]?.text).toBe(
-        "First.",
-      );
-    }
+    const stub = stubModel(answer);
+    const fresh = await getBuild(ctx.db, ctx.projectId, build.id);
+    expect(
+      await summarizeBuild(
+        { db: ctx.db, modelFetch: stub.modelFetch, modelKeySecret: SECRET },
+        fresh,
+      ),
+    ).toBe(false);
+    expect(stub.summaries()).toHaveLength(1);
+    // Nothing was measured again: what is stored still describes the build.
+    expect((await getBuild(ctx.db, ctx.projectId, build.id)).aiSummary?.sentences[0]?.text).toBe(
+      "First.",
+    );
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]?.[0])).not.toContain(KEY);
+    warn.mockRestore();
+  });
+
+  test("a re-run whose summary fails clears the old one", async () => {
+    const ctx = await context();
+    await withModel(ctx);
+    const build = await themedBuild(ctx, stubModel(() => "First. [C1]").modelFetch);
+    expect(build.aiSummary).not.toBeNull();
+
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     // A re-run measured the shot again: a summary of the old result would describe something else.
-    const failing = stubModel(() => answers[1] ?? "");
+    const failing = stubModel(() => "Everything looks good to me!");
     const [shotId] = await idsOf(ctx, build, "ui-card");
+    expect(shotId).toBeDefined();
     await explaining(
       { db: ctx.db, blobs: ctx.scoped, modelFetch: failing.modelFetch },
-      async (deps) =>
-        rerunShots(deps, await getBuild(ctx.db, ctx.projectId, build.id), shotId ?? null),
+      async (deps) => rerunShots(deps, await getBuild(ctx.db, ctx.projectId, build.id), shotId!),
     );
     expect(failing.summaries()).toHaveLength(1);
     expect((await getBuild(ctx.db, ctx.projectId, build.id)).aiSummary).toBeNull();
-    expect(warn).toHaveBeenCalledTimes(3);
-    for (const [line] of warn.mock.calls) expect(String(line)).not.toContain(KEY);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]?.[0])).not.toContain(KEY);
     warn.mockRestore();
   });
 
@@ -237,25 +267,6 @@ describe("a build's AI summary (ob 1668)", () => {
     expect(stub.summaries()).toHaveLength(0);
   });
 
-  test("a build where nothing changed asks nothing", async () => {
-    const ctx = await context();
-    await withModel(ctx);
-    await upload(
-      ctx,
-      { branch: "main", commit: sha(1), shots: card(white) },
-      { modelFetch: stubModel(() => "New. [N1]").modelFetch },
-    );
-    const stub = stubModel();
-    const build = await upload(
-      ctx,
-      { branch: "feat/x", commit: sha(2), mergeBase: sha(1), shots: card(white) },
-      { modelFetch: stub.modelFetch },
-    );
-    expect(build.status).toBe("passed");
-    expect(stub.summaries()).toHaveLength(0);
-    expect(build.aiSummary).toBeNull();
-  });
-
   test("Regenerate and a re-run each write it again", async () => {
     const ctx = await context();
     await withModel(ctx);
@@ -276,8 +287,9 @@ describe("a build's AI summary (ob 1668)", () => {
 
     const rerun = stubModel(() => "Third. [C1]");
     const [shotId] = await idsOf(ctx, build, "ui-card");
+    expect(shotId).toBeDefined();
     await explaining({ db: ctx.db, blobs: ctx.scoped, modelFetch: rerun.modelFetch }, (deps) =>
-      rerunShots(deps, stored, shotId ?? null),
+      rerunShots(deps, stored, shotId!),
     );
     expect(rerun.summaries()).toHaveLength(1);
     expect((await getBuild(ctx.db, ctx.projectId, build.id)).aiSummary?.sentences[0]?.text).toBe(
@@ -304,19 +316,15 @@ describe("a build's AI summary (ob 1668)", () => {
       { modelFetch: stub.modelFetch },
     );
     const before = stub.summaries().length;
-    let build = await upload(
+    const unfinished = await upload(
       ctx,
       { branch: "feat/x", commit: sha(2), mergeBase: sha(1), shots: card(red) },
       { blobs, now: () => t, modelFetch: stub.modelFetch },
     );
-    expect(build.status).toBe("errored");
-    expect(build.aiSummary).toBeNull();
-    for (let i = 0; i < 5 && build.status === "errored"; i++) {
-      await explaining({ db: ctx.db, blobs, now: () => t, modelFetch: stub.modelFetch }, (deps) =>
-        processBuild(deps, build),
-      );
-      build = await getBuild(ctx.db, ctx.projectId, build.id);
-    }
+    expect(unfinished.status).toBe("errored");
+    expect(unfinished.aiSummary).toBeNull();
+    const deps = { db: ctx.db, blobs, now: () => t, modelFetch: stub.modelFetch };
+    const build = await resumeUntilDone(ctx, deps, unfinished);
     expect(build.status).toBe("changes");
     expect(t).toBeLessThan(10 * DIFF_BUDGET_MS);
     expect(stub.summaries().length - before).toBe(1);

@@ -65,10 +65,9 @@ describe("the minimum CLI version (ob 1729)", () => {
   test("a CLI at or above it, any other client, and no minimum are all served", async () => {
     const w = await world();
     const deps = { ...w.deps, minCliVersion: "0.2.0" };
-    for (const ua of ["pixelslash/0.2.0", "pixelslash/0.10.0", "pixelslash/1.0.0", "curl/8.0"])
-      expect(
-        (await get(deps, "/api/v1/projects", w.ada, { headers: { "user-agent": ua } })).status,
-      ).toBe(200);
+    // Which versions are below it is `cli-version.test.ts`'s table; this is the wiring.
+    const current = { "user-agent": "pixelslash/0.2.0" };
+    expect((await get(deps, "/api/v1/projects", w.ada, { headers: current })).status).toBe(200);
     const any = { "user-agent": "pixelslash/0.0.1" };
     expect((await get(w.deps, "/api/v1/projects", w.ada, { headers: any })).status).toBe(200);
   });

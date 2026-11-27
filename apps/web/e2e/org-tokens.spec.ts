@@ -1,4 +1,4 @@
-import { expect, open, test } from "./fixtures";
+import { expect, expectHydrated, open, test } from "./fixtures";
 
 test("mint an org token in the org settings, see it is live, revoke it", async ({
   page,
@@ -15,7 +15,7 @@ test("mint an org token in the org settings, see it is live, revoke it", async (
 
   await page.getByLabel("Org token name, e.g. monorepo CI").fill("monorepo CI");
   await page.getByRole("button", { name: "Issue org token" }).click();
-  const token = (await page.getByTestId("issued-org-token").locator("code").textContent()) ?? "";
+  const token = (await page.getByTestId("issued-org-token").getByRole("code").textContent()) ?? "";
   expect(token).toMatch(/^psorg_/);
   const row = page.getByTestId("org-token-row").filter({ hasText: "monorepo CI" });
   await expect(row).toContainText(token.slice(0, 8));
@@ -32,7 +32,7 @@ test("mint an org token in the org settings, see it is live, revoke it", async (
   await expect(page.getByText(token)).toHaveCount(0);
   await expect(row).toContainText(token.slice(0, 8));
 
-  await expect(page.locator("[data-hydrated=true]")).toHaveCount(1);
+  await expectHydrated(page);
   await row.getByRole("button", { name: "Revoke monorepo CI" }).click();
   await expect(row).toContainText("revoked");
   await expect(row.getByRole("button", { name: "Revoke monorepo CI" })).toHaveCount(0);

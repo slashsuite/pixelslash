@@ -6,7 +6,7 @@ import { operatorHealth, type HealthInputs } from "./admin-health";
 import { nowSection } from "./admin-health-now";
 import { build, setup, shot } from "./admin-health-kit";
 import { builds, orgs } from "./schema";
-import { testDb } from "./test-db";
+import { testDb } from "#/test/store";
 
 const now = new Date("2026-11-05T12:00:00Z");
 const MIN = 60 * 1000;

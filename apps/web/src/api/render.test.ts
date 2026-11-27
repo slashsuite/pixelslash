@@ -8,6 +8,7 @@ import { issueCiToken } from "#/db/tokens";
 import type { ApiDeps } from "./handler";
 import { renderActor } from "./render";
 import { renderToken } from "./render-token";
+import { must } from "#/test/must";
 import { call, idOf, newBuild, setup, snapshotForm } from "./test-support";
 
 const PLAN = { storybook: { include: ["ui-*"] }, viewports: [{ width: 1280, height: 720 }] };
@@ -105,7 +106,7 @@ describe("opening a bundle build", () => {
     const { db, deps, acme } = await renderingServer();
     const id = await openBundleBuild(deps, acme.token);
     const [row] = await db.select().from(builds).where(eq(builds.id, id));
-    expect(JSON.parse(row?.renderPlan ?? "null")).toEqual(PLAN);
+    expect(JSON.parse(must(row?.renderPlan))).toEqual(PLAN);
     const open = (render: unknown) =>
       call(deps, "POST /api/v1/builds", acme.token, newBuild({ render }));
     expect((await open({ kind: "pages", plan: PLAN })).status).toBe(400);

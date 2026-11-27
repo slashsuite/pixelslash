@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { createOrg, inviteMember, listOrgs } from "./orgs";
-import { testDb } from "./test-db";
+import { testDb } from "#/test/store";
 import { EmailInUseError, signInGithubUser, signInGoogleUser } from "./users";
 
 /** Sign in with Google beside GitHub (PS-274): one user per person, met on a verified email. */

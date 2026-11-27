@@ -16,8 +16,11 @@ function boot(system: "light" | "dark") {
     matches: query === "(prefers-color-scheme: dark)" && system === "dark",
   }));
   runInThisContext(THEME_SCRIPT);
-  return document.documentElement.classList.contains("dark") ? "dark" : "light";
+  return themeOn();
 }
+
+/** The theme the page is in: the dark theme is `.dark` on <html>, the state the script sets. */
+const themeOn = () => (document.documentElement.matches(".dark") ? "dark" : "light");
 
 const clearCookie = () => {
   document.cookie = `${THEME_COOKIE}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT`;
@@ -25,7 +28,7 @@ const clearCookie = () => {
 
 afterEach(() => {
   clearCookie();
-  document.documentElement.classList.remove("dark");
+  document.documentElement.removeAttribute("class");
   vi.unstubAllGlobals();
 });
 
@@ -55,6 +58,6 @@ describe("the theme before first paint", () => {
       throw new Error("no media queries");
     });
     expect(() => runInThisContext(THEME_SCRIPT)).not.toThrow();
-    expect(document.documentElement.classList.contains("dark")).toBe(false);
+    expect(themeOn()).toBe("light");
   });
 });

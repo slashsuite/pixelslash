@@ -16,40 +16,52 @@ const white = shot();
 const red = shot({ blocks: [{ x: 8, y: 8, w: 16, h: 12, rgb: RED }] });
 const redder = shot({ blocks: [{ x: 4, y: 4, w: 24, h: 20, rgb: RED }] });
 
+type Ran = Awaited<ReturnType<typeof run>>;
+
+/** What a reviewer reads of a shot, which the CLI and the server must agree on. */
+const view = (r: Ran) => ({
+  build: r.build?.status,
+  diffStatus: r.row.diffStatus,
+  // The server settles identical bytes without measuring (ob 1948), which the CLI's wire
+  // result never says; everything it does say is the same.
+  diffResult: r.row.diffResult && { ...r.row.diffResult, settledBy: undefined },
+  carries: r.row.carriedFrom !== null,
+  reviewState: r.row.reviewState,
+  baseline: r.row.baselineKey !== null,
+});
+
+/** Each build sent twice in turn: to the ci project (acme), measured by the CLI, and to the server one. */
+async function onBothSides(held: Awaited<ReturnType<typeof ciProject>>, sequence: Run[]) {
+  const ci = { ...held.deps, diff: noDiff };
+  const ran = [];
+  for (const spec of sequence) {
+    const onCi = await run(held, held.acme.token, spec, ci);
+    ran.push({ onCi, onServer: await run(held, held.other.token, spec) });
+  }
+  return ran;
+}
+
 describe("a project that diffs in CI", () => {
   test("the CLI and the server reach the same results, carry included; only measured_by differs", async () => {
     const held = await ciProject();
-    const ci = { ...held.deps, diff: noDiff };
-    const sequence = [
+    const ran = await onBothSides(held, [
       { branch: "main", commit: sha(1), png: white },
       branch(2, red), // changed against main
       branch(3, red), // identical to an undecided change: carries it
       branch(4, redder), // moved past the open change: measured against main's accepted shot
-    ];
-    const seen = [];
-    for (const spec of sequence) {
-      const onCi = await run(held, held.acme.token, spec, ci);
-      const onServer = await run(held, held.other.token, spec);
-      expect(onCi.done.status).toBe(200);
-      // A shot with nothing to compare against is measured by no one.
-      const measured = onServer.row.diffResult !== null;
-      expect(onCi.row.measuredBy).toBe(measured ? "ci" : null);
-      expect(onCi.row.engineVersion).toBe(measured ? ENGINE_VERSION : null);
-      expect(onServer.row.measuredBy).toBe(measured ? "server" : null);
-      const view = (r: typeof onCi) => ({
-        build: r.build?.status,
-        diffStatus: r.row.diffStatus,
-        // The server settles identical bytes without measuring (ob 1948), which the CLI's wire
-        // result never says; everything it does say is the same.
-        diffResult: r.row.diffResult && { ...r.row.diffResult, settledBy: undefined },
-        carries: r.row.carriedFrom !== null,
-        reviewState: r.row.reviewState,
-        baseline: r.row.baselineKey !== null,
-      });
-      expect(view(onCi)).toEqual(view(onServer));
-      seen.push(view(onCi));
-    }
-    expect(seen.map((s) => [s.diffStatus, s.carries])).toEqual([
+    ]);
+    expect(ran.map((r) => r.onCi.done.status)).toEqual([200, 200, 200, 200]);
+    // A shot with nothing to compare against is measured by no one.
+    expect(
+      ran.map((r) => [r.onCi.row.measuredBy, r.onCi.row.engineVersion, r.onServer.row.measuredBy]),
+    ).toEqual([
+      [null, null, null],
+      ["ci", ENGINE_VERSION, "server"],
+      ["ci", ENGINE_VERSION, "server"],
+      ["ci", ENGINE_VERSION, "server"],
+    ]);
+    expect(ran.map((r) => view(r.onCi))).toEqual(ran.map((r) => view(r.onServer)));
+    expect(ran.map((r) => [r.onCi.row.diffStatus, view(r.onCi).carries])).toEqual([
       ["new", false],
       ["changed", false],
       ["unchanged", true],
@@ -84,28 +96,23 @@ describe("a project that diffs in CI", () => {
     expect(squash.build?.status).toBe("passed");
   });
 
-  const errors: [string, Run["tamper"], RegExp][] = [
-    ["missing", () => undefined, /no result/],
-    [
-      "malformed",
-      (rs) => rs.map((r) => ({ ...r, diffResult: { ...r.diffResult, changedPixels: -1 } })),
-      /invalid result/,
-    ],
-    ["stale", (rs) => rs.map((r) => ({ ...r, baselineId: "an-older-baseline" })), /stale baseline/],
-  ];
-  for (const [what, tamper, reason] of errors) {
-    test(`a ${what} result errors the shot by name and the build`, async () => {
-      const held = await ciProject();
-      const deps = { ...held.deps, diff: noDiff };
-      await run(held, held.acme.token, { branch: "main", commit: sha(1), png: white }, deps);
-      const r = await run(held, held.acme.token, { ...branch(2, red), tamper }, deps);
-      expect(r.measured).toHaveLength(1);
-      expect(r.row.diffStatus).toBeNull();
-      expect(r.row.diffError).toMatch(reason);
-      expect(r.build?.status).toBe("errored");
-      expect(r.build?.error).toMatch(/re-run the CI job/);
-    });
-  }
+  // Which results are refused is `ci-result.test.ts`'s table; this is the reaction to one.
+  test("a result the server refuses errors the shot by name and the build", async () => {
+    const held = await ciProject();
+    const deps = { ...held.deps, diff: noDiff };
+    await run(held, held.acme.token, { branch: "main", commit: sha(1), png: white }, deps);
+    const r = await run(
+      held,
+      held.acme.token,
+      { ...branch(2, red), tamper: () => undefined },
+      deps,
+    );
+    expect(r.measured).toHaveLength(1);
+    expect(r.row.diffStatus).toBeNull();
+    expect(r.row.diffError).toMatch(/no result/);
+    expect(r.build?.status).toBe("errored");
+    expect(r.build?.error).toMatch(/re-run the CI job/);
+  });
 
   test("a shot that cannot reuse its own diff is not measured against main, and main is never diffed", async () => {
     const held = await ciProject();

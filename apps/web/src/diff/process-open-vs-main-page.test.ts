@@ -29,6 +29,18 @@ const onFeat = (commit: number): BuildSpec => ({
   shots: feat(),
 });
 
+/** The j/k walk from the first shot to the last, as [name, position, total]. */
+function walk(shots: Awaited<ReturnType<typeof buildView>>["snapshots"]) {
+  const [first] = shots;
+  if (!first) throw new Error("no shots");
+  const walked = [];
+  for (let at = walkAround(shots, first.id); at;) {
+    walked.push([at.shot.name, at.position, at.total]);
+    at = at.nextId ? walkAround(shots, at.nextId) : null;
+  }
+  return walked;
+}
+
 test("a build held open by differences from main says changes, states the carried shots, and the j/k walk visits them first", async () => {
   const ctx = await context();
   await upload(ctx, {
@@ -51,14 +63,7 @@ test("a build held open by differences from main says changes, states the carrie
   expect(line).not.toContain("Nothing changed");
 
   // The walk is the build's order: Changed, then New, then the rest.
-  const [first] = view.snapshots;
-  if (!first) throw new Error("no shots");
-  const walked = [];
-  for (let at = walkAround(view.snapshots, first.id); at;) {
-    walked.push([at.shot.name, at.position, at.total]);
-    at = at.nextId ? walkAround(view.snapshots, at.nextId) : null;
-  }
-  expect(walked).toEqual([
+  expect(walk(view.snapshots)).toEqual([
     ["about", 1, 3],
     ["pricing", 2, 3],
     ["home", 3, 3],

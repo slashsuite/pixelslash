@@ -58,12 +58,23 @@ describe("totalMs", () => {
 
 describe("summarise", () => {
   test("p50 and p95 per step over a fixed set, leaving out builds that did not run the step", () => {
-    const diffs = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
-    const rows = diffs.map((diffMs, i) =>
+    // Each build's diff and explain step; only the first four explained.
+    const steps: [diffMs: number, explainMs: number | null][] = [
+      [100, 1000],
+      [200, 2000],
+      [300, 3000],
+      [400, 4000],
+      [500, null],
+      [600, null],
+      [700, null],
+      [800, null],
+      [900, null],
+      [1000, null],
+    ];
+    const rows = steps.map(([diffMs, explainMs]) =>
       timed({
         diffMs,
-        // Only the first four explained.
-        explainMs: i < 4 ? (i + 1) * 1000 : null,
+        explainMs,
         processingStartedAt: at(0),
         finishedAt: at(diffMs * 2),
       }),

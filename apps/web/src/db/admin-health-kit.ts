@@ -1,26 +1,16 @@
-import { createOrg, createProject } from "./orgs";
 import { builds, snapshots } from "./schema";
-import { testDb } from "./test-db";
-import { signInGithubUser } from "./users";
+import { type TestDb, seededStore } from "#/test/store";
 
 /** The org, project and build rows the operator health tests start from. */
 
 export async function setup() {
-  const db = testDb();
-  const ada = await signInGithubUser(db, {
-    githubId: 1,
-    login: "ada",
-    name: null,
-    avatarUrl: null,
-  });
-  const org = await createOrg(db, ada.id, "Acme");
-  const project = await createProject(db, ada.id, org.id, "web");
+  const { db, org, project } = await seededStore();
   return { db, org, project };
 }
 
 type Row = Partial<typeof builds.$inferInsert> & { projectId: string };
 
-export async function build(db: ReturnType<typeof testDb>, row: Row) {
+export async function build(db: TestDb, row: Row) {
   const id = crypto.randomUUID();
   await db
     .insert(builds)
@@ -29,7 +19,7 @@ export async function build(db: ReturnType<typeof testDb>, row: Row) {
 }
 
 export async function shot(
-  db: ReturnType<typeof testDb>,
+  db: TestDb,
   buildId: string,
   over: Partial<typeof snapshots.$inferInsert> = {},
 ) {

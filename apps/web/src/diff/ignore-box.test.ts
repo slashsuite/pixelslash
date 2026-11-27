@@ -1,5 +1,4 @@
 import { type IgnoreRect, parseConfig } from "@slashsuite/pixelslash-engine";
-import { eq } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
 import { getBuild } from "#/db/builds";
 import { NotFoundError } from "#/db/db";
@@ -9,13 +8,13 @@ import {
   listIgnoreBoxes,
   uploadedIgnoreSource,
 } from "#/db/ignore-boxes";
-import { createOrg } from "#/db/orgs";
+import { createOrg, setDiffLocation } from "#/db/orgs";
 import { exportOverrides } from "#/db/override-export";
 import { OverrideError } from "#/db/overrides";
-import { projects } from "#/db/schema";
 import { resolveIgnore } from "../../../../packages/engine/src/config.ts";
 import { signInGithubUser } from "#/db/users";
 import { addBoxAndRediff, clearBoxAndRediff } from "./ignore-box";
+import { must } from "#/test/must";
 import { type Ctx, context, onlyShot, rows, sha, upload } from "./test-builds";
 import { RED, shot } from "./test-shots";
 
@@ -52,6 +51,40 @@ async function eve(ctx: Ctx) {
   });
   await createOrg(ctx.db, user.id, "Elsewhere");
   return user;
+}
+
+const config = {
+  baseUrl: "http://localhost:3000",
+  routes: [
+    { path: "/pricing", name: "pricing" },
+    { path: "/home", name: "home" },
+  ],
+};
+
+/** The boxes' export merged into `config`: each route's ignore areas, as the CLI would resolve them. */
+function exportedIgnore(
+  base: typeof config,
+  active: Awaited<ReturnType<typeof listIgnoreBoxes>>["active"],
+) {
+  const exported = exportOverrides([], active);
+  const merged = parseConfig({
+    baseUrl: base.baseUrl,
+    variants: exported.variants,
+    routes: base.routes.map((r) => {
+      const e = exported.routes.find((x) => x.name === r.name);
+      return { ...r, ignore: e?.ignore, variants: e?.variants };
+    }),
+  });
+  const as = must(merged.variants[0], "variant");
+  return (name: string): IgnoreRect[] =>
+    resolveIgnore(
+      merged,
+      must(
+        merged.routes.find((r) => r.name === name),
+        name,
+      ),
+      as,
+    ).filter((a): a is IgnoreRect => typeof a === "object" && "width" in a);
 }
 
 describe("review-UI ignore boxes (ob 1499)", () => {
@@ -124,8 +157,7 @@ describe("review-UI ignore boxes (ob 1499)", () => {
     const build = await changedBranch(ctx);
     const set = { userId: ctx.userId, build, target: wholeTest, rect: OVER_CHANGE };
     await addBoxAndRediff(deps(ctx), set);
-    const [box] = (await listIgnoreBoxes(ctx.db, ctx.userId, ctx.projectId)).active;
-    if (!box) throw new Error("no box");
+    const box = must((await listIgnoreBoxes(ctx.db, ctx.userId, ctx.projectId)).active[0], "box");
 
     const passed = await getBuild(ctx.db, ctx.projectId, build.id);
     const cleared = await clearBoxAndRediff(deps(ctx), {
@@ -173,7 +205,7 @@ describe("review-UI ignore boxes (ob 1499)", () => {
 
   test("a CI project refuses a box: its diff is the CLI's", async () => {
     const ctx = await context();
-    await ctx.db.update(projects).set({ diffLocation: "ci" }).where(eq(projects.id, ctx.projectId));
+    await setDiffLocation(ctx.db, ctx.userId, ctx.projectId, "ci");
     await expect(
       addIgnoreBox(ctx.db, ctx.userId, ctx.projectId, { ...wholeTest, rect: OVER_CHANGE }),
     ).rejects.toThrow(OverrideError);
@@ -188,9 +220,8 @@ describe("review-UI ignore boxes (ob 1499)", () => {
       target: wholeTest,
       rect: OVER_CHANGE,
     });
-    const [box] = (await listIgnoreBoxes(ctx.db, ctx.userId, ctx.projectId)).active;
-    if (!box) throw new Error("no box");
-    await ctx.db.update(projects).set({ diffLocation: "ci" }).where(eq(projects.id, ctx.projectId));
+    const box = must((await listIgnoreBoxes(ctx.db, ctx.userId, ctx.projectId)).active[0], "box");
+    await setDiffLocation(ctx.db, ctx.userId, ctx.projectId, "ci");
 
     // The clear is stored; a CI build is not measured here, so nothing is re-diffed.
     const open = await getBuild(ctx.db, ctx.projectId, build.id);
@@ -203,10 +234,7 @@ describe("review-UI ignore boxes (ob 1499)", () => {
       expect.objectContaining({ id: box.id, cleared: expect.objectContaining({ by: "ada" }) }),
     ]);
 
-    await ctx.db
-      .update(projects)
-      .set({ diffLocation: "server" })
-      .where(eq(projects.id, ctx.projectId));
+    await setDiffLocation(ctx.db, ctx.userId, ctx.projectId, "server");
     const later = await upload(ctx, {
       branch: "feat/y",
       commit: sha(3),
@@ -219,13 +247,6 @@ describe("review-UI ignore boxes (ob 1499)", () => {
   });
 
   test("the export, uploaded as config ignore instead of the boxes, gives the same verdicts", async () => {
-    const config = {
-      baseUrl: "http://localhost:3000",
-      routes: [
-        { path: "/pricing", name: "pricing" },
-        { path: "/home", name: "home" },
-      ],
-    };
     const names = ["pricing", "home"];
     const shots = (png: Uint8Array<ArrayBuffer>, ignoreOf: (name: string) => IgnoreRect[]) =>
       names.map((name) => ({ name, png, ignore: ignoreOf(name) }));
@@ -251,24 +272,7 @@ describe("review-UI ignore boxes (ob 1499)", () => {
 
     // Without: the export merged into the config, each shot uploaded with its resolved ignore.
     const { active } = await listIgnoreBoxes(withUi.db, withUi.userId, withUi.projectId);
-    const exported = exportOverrides([], active);
-    const merged = parseConfig({
-      baseUrl: config.baseUrl,
-      variants: exported.variants,
-      routes: config.routes.map((r) => {
-        const e = exported.routes.find((x) => x.name === r.name);
-        return { ...r, ignore: e?.ignore, variants: e?.variants };
-      }),
-    });
-    const [as] = merged.variants;
-    if (!as) throw new Error("no variant");
-    const ignoreOf = (name: string): IgnoreRect[] => {
-      const route = merged.routes.find((r) => r.name === name);
-      if (!route) throw new Error(`no route ${name}`);
-      return resolveIgnore(merged, route, as).filter(
-        (a): a is IgnoreRect => typeof a === "object" && "width" in a,
-      );
-    };
+    const ignoreOf = exportedIgnore(config, active);
     const withConfig = await context();
     await upload(withConfig, { branch: "main", commit: sha(1), shots: shots(white, ignoreOf) });
     const byConfig = await upload(withConfig, {

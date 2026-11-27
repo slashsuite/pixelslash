@@ -7,6 +7,7 @@ async function settledBox(page: Page, layer: Locator) {
   let settled = { x: 0, y: 0, width: 0, height: 0 };
   await expect
     .poll(async () => {
+      // oxlint-disable-next-line no-restricted-properties -- the box only aims the pointer for a drag (drawing an area, moving the divider); nothing asserts on it
       const box = await layer.boundingBox();
       if (!box || box.width === 0 || box.height === 0) return false;
       await page.evaluate(

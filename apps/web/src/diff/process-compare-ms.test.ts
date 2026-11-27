@@ -29,6 +29,10 @@ function timed(ctx: Ctx, cost: number) {
   return { blobs, now: () => t };
 }
 
+/** What a resumed run leaves: the first run's times kept, each shot it left measured at `ms`. */
+const resumedAt = (before: Record<string, number | null>, ms: number) =>
+  Object.fromEntries(Object.entries(before).map(([name, was]) => [name, was ?? ms]));
+
 const byName = async (ctx: Ctx, build: Parameters<typeof rows>[1]) =>
   Object.fromEntries((await rows(ctx, build)).map((r) => [r.name, r.diffMs]));
 
@@ -99,8 +103,7 @@ describe("per-shot compare time", () => {
     expect(Object.values(before).filter((ms) => ms === null)).toHaveLength(2);
     const second = timed(ctx, 7);
     await processBuild({ db: ctx.db, blobs: second.blobs, now: second.now }, errored);
-    const after = await byName(ctx, errored);
-    for (const name of NAMES) expect(after[name]).toBe(before[name] === null ? 7 : 10_000);
+    expect(await byName(ctx, errored)).toEqual(resumedAt(before, 7));
   });
 
   test("a re-run of one shot rewrites that shot's time and no other", async () => {
@@ -122,8 +125,9 @@ describe("per-shot compare time", () => {
     );
     expect(await byName(ctx, build)).toEqual({ a: 300, b: 300 });
     const picked = (await rows(ctx, build)).find((r) => r.name === "a");
+    expect(picked).toBeDefined();
     const clock = timed(ctx, 50);
-    await rerunShots({ db: ctx.db, blobs: clock.blobs, now: clock.now }, build, picked?.id ?? "");
+    await rerunShots({ db: ctx.db, blobs: clock.blobs, now: clock.now }, build, picked!.id);
     expect(await byName(ctx, build)).toEqual({ a: 50, b: 300 });
   });
 });

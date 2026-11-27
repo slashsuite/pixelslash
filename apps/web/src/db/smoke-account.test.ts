@@ -3,7 +3,7 @@ import { randomToken } from "#/lib/crypto";
 import { actorProjects, actorUser } from "./actor";
 import { orgs, members, projects, userTokens, users } from "./schema";
 import { SMOKE, smokeAccountSql } from "./smoke-account";
-import { testDb } from "./test-db";
+import { testDb } from "#/test/store";
 import { verifyUserToken } from "./tokens";
 
 /** A migrated database with the given SQL texts applied, in order, before the first query. */

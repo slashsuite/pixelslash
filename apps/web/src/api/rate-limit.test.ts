@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { sha256Hex } from "#/lib/crypto";
 import type { RateLimiter } from "#/server/rate-limit";
 import { call, setup } from "./test-support";
 
@@ -29,7 +30,8 @@ describe("the API's rate limit", () => {
     expect(await over.json()).toMatchObject({ error: { code: "rate_limited" } });
     expect((await call(limited, "GET /api/v1/projects", other.token)).status).toBe(200);
     // The counter is keyed by the token's hash, never the token.
-    expect(seen.every((k) => k.startsWith("token:") && !k.includes(acme.token))).toBe(true);
+    const key = `token:${await sha256Hex(acme.token)}`;
+    expect(seen).toEqual([key, key, key, `token:${await sha256Hex(other.token)}`]);
   });
 
   test("an upload endpoint's 429 is the plain-string error it always answers", async () => {

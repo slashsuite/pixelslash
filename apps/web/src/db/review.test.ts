@@ -17,6 +17,7 @@ import {
   reviewSnapshot,
 } from "./review";
 import { isFirstBuild } from "./first-build";
+import { must } from "#/test/must";
 
 const block = { x: 8, y: 8, w: 12, h: 12, rgb: RED };
 
@@ -137,8 +138,10 @@ describe("the review model reads", () => {
   test("accepting the changed and the new shot records the reviewer and passes the build", async () => {
     const { ctx, feature } = await twoBuilds();
     const view = await buildView(ctx.db, ctx.projectId, feature.id);
-    const about = view.snapshots.find((s) => s.name === "about");
-    if (!about) throw new Error("no about shot");
+    const about = must(
+      view.snapshots.find((s) => s.name === "about"),
+      "the about shot",
+    );
     const status = await reviewSnapshot(ctx.db, {
       projectId: ctx.projectId,
       snapshotId: about.id,
@@ -147,8 +150,10 @@ describe("the review model reads", () => {
     });
     // The new shot still waits (PS-284).
     expect(status).toBe("changes");
-    const pricing = view.snapshots.find((s) => s.name === "pricing");
-    if (!pricing) throw new Error("no pricing shot");
+    const pricing = must(
+      view.snapshots.find((s) => s.name === "pricing"),
+      "the pricing shot",
+    );
     expect(
       await reviewSnapshot(ctx.db, {
         projectId: ctx.projectId,
@@ -167,8 +172,10 @@ describe("the review model reads", () => {
   test("a rejection fails the build, and accept-all cannot undo it", async () => {
     const { ctx, feature } = await twoBuilds();
     const view = await buildView(ctx.db, ctx.projectId, feature.id);
-    const about = view.snapshots.find((s) => s.name === "about");
-    if (!about) throw new Error("no about shot");
+    const about = must(
+      view.snapshots.find((s) => s.name === "about"),
+      "the about shot",
+    );
     const status = await reviewSnapshot(ctx.db, {
       projectId: ctx.projectId,
       snapshotId: about.id,
@@ -211,8 +218,10 @@ describe("the review model reads", () => {
     expect(await listBuilds(ctx.db, ctx.other.project.id)).toEqual([]);
 
     const view = await buildView(ctx.db, ctx.projectId, feature.id);
-    const about = view.snapshots.find((s) => s.name === "about");
-    if (!about) throw new Error("no about shot");
+    const about = must(
+      view.snapshots.find((s) => s.name === "about"),
+      "the about shot",
+    );
     await expect(
       reviewSnapshot(ctx.db, {
         projectId: ctx.other.project.id,
@@ -261,8 +270,10 @@ describe("a decision needs a member of the project's org", () => {
     const { ctx, feature } = await twoBuilds();
     const eve = await outsider(ctx);
     const view = await buildView(ctx.db, ctx.projectId, feature.id);
-    const about = view.snapshots.find((s) => s.name === "about");
-    if (!about) throw new Error("no about shot");
+    const about = must(
+      view.snapshots.find((s) => s.name === "about"),
+      "the about shot",
+    );
     const before = await reviewStates(ctx);
     for (const state of ["accepted", "rejected"] as const)
       await expect(

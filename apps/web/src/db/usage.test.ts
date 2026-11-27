@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import { createOrg, createProject } from "./orgs";
 import { builds, orgs, snapshots } from "./schema";
 import { type Db } from "./db";
-import { testDb } from "./test-db";
+import { testDb } from "#/test/store";
 import { usageCounts } from "./usage";
 import { signInGithubUser } from "./users";
 

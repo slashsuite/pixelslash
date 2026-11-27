@@ -1,14 +1,16 @@
+// @vitest-environment happy-dom
 import { describe, expect, test, vi } from "vitest";
 import type { SnapshotView } from "#/db/review";
 import type { DiffResult } from "#/db/schema";
 import { shotLabeller } from "#/lib/shot-label";
-import { byTestId } from "#/test/by-test-id";
-import { renderRouted } from "#/test/render-routed";
+import { render, screen } from "#/test/render";
 import { snapshotView } from "#/test/snapshot-view";
 import type { Composition } from "./composition";
 import { ShotCard, measured } from "./shot-card";
 
-vi.mock("#/components/flake", () => ({ FlakyBadge: () => null }));
+// The card's flake badge imports a server function, which loads the Worker's env and session.
+vi.mock("#/server/env", () => import("#/test/render").then((m) => m.serverEnv));
+vi.mock("#/server/session", () => import("#/test/render").then((m) => m.serverSession));
 
 /**
  * The build page's card for one shot: that it carries a composition shot's findings line, and
@@ -31,7 +33,7 @@ const composition: Composition = {
 };
 
 const card = (s: SnapshotView) =>
-  renderRouted(
+  render(
     <ShotCard
       projectId="p1"
       buildId="b1"
@@ -44,13 +46,13 @@ const card = (s: SnapshotView) =>
 
 describe("the build page's card for a composition shot", () => {
   test("states the gaps the shot has", async () => {
-    expect(byTestId(await card(snapshotView({ composition })), "shot-gaps")).toBe(
-      "1 gap not from Hack Cove UI",
-    );
+    await card(snapshotView({ composition }));
+    expect(screen.getByText("1 gap not from Hack Cove UI")).toBeTruthy();
   });
 
   test("a shot without findings has no findings line", async () => {
-    expect(byTestId(await card(snapshotView({ composition: null })), "shot-gaps")).toBeNull();
+    await card(snapshotView({ composition: null }));
+    expect(screen.queryByText(/not from Hack Cove UI/)).toBeNull();
   });
 });
 

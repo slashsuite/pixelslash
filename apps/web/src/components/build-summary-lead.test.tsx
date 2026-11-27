@@ -1,17 +1,18 @@
 // @vitest-environment happy-dom
-import { cleanup, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import type { AiSummarySentence } from "#/db/diff-json";
 import { buildView } from "#/db/review";
 import { context, sha, upload } from "#/diff/test-builds";
+import { must } from "#/test/must";
 import { RED, shot } from "#/diff/test-shots";
-import { render } from "#/test/render";
+import { render, screen, within } from "#/test/render";
 import { BuildSummary } from "./build-summary";
 
 // happy-dom's URL cannot find the engine's diff.wasm; the diff runs here (`#/test/diff-module`).
 vi.mock("../../../../packages/engine/src/diff-module.bun.ts", () => import("#/test/diff-module"));
-// The Regenerate button's server function reads the Worker's env, which a test has none of.
-vi.mock("#/server/model", () => ({ regenerateBuildSummary: vi.fn<() => Promise<never>>() }));
+// The Regenerate button's server function loads the Worker's env and session: the render seam.
+vi.mock("#/server/env", () => import("#/test/render").then((m) => m.serverEnv));
+vi.mock("#/server/session", () => import("#/test/render").then((m) => m.serverSession));
 
 /**
  * The build page's AI summary is a lead, not the page (PS-419): three sentences and a button for
@@ -65,8 +66,6 @@ async function lead() {
   return user;
 }
 
-afterEach(cleanup);
-
 const sentences = () => screen.getAllByTestId("summary-sentence");
 const links = (el: HTMLElement) => within(el).queryAllByTestId("summary-shot-link");
 
@@ -81,8 +80,7 @@ describe("the AI summary's lead", () => {
 
   test("shows eight links after a sentence, and the other four on a click", async () => {
     const user = await lead();
-    const [first] = sentences();
-    if (!first) throw new Error("no sentence");
+    const first = must(sentences()[0], "a sentence");
     expect(links(first)).toHaveLength(8);
     await user.click(within(first).getByRole("button", { name: "+4 more" }));
     expect(links(first)).toHaveLength(12);

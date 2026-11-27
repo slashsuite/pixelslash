@@ -6,6 +6,7 @@ import { loadMetrics } from "#/server/metrics-read";
 import { orgBlobs } from "#/storage/blobs";
 import { verifySignedImagePath } from "#/storage/signed";
 import { get } from "./test-read";
+import { must } from "#/test/must";
 import { META, PNG, call, openBuild, setup } from "./test-support";
 
 /** A shot's layout metrics file (PS-294, `docs/metrics.md`): upload, storage and the read. */
@@ -101,7 +102,7 @@ describe("a shot's layout metrics", () => {
 
     const res = await get(deps, `/api/v1/snapshots/${withMetrics?.id}`, acme.token);
     expect(res.status).toBe(200);
-    const url = new URL(res.body.snapshot.metrics_url ?? "");
+    const url = new URL(must(res.body.snapshot.metrics_url));
     const key = `orgs/${acme.org.id}/${withMetrics?.metricsKey}`;
     expect(decodeURIComponent(url.pathname)).toBe(`/images/${key}`);
     expect(
@@ -126,7 +127,7 @@ describe("loadMetrics", () => {
     await scoped.put("bad.metrics.json", new TextEncoder().encode("{").buffer, "application/json");
     const m = await loadMetrics(blobs.store, acme.org.id, "m.metrics.json");
     expect(m?.root).toBe("button");
-    expect(Object.keys(m?.parts ?? {})).toEqual(["button", "button.label"]);
+    expect(Object.keys(must(m).parts)).toEqual(["button", "button.label"]);
     expect(await loadMetrics(blobs.store, acme.org.id, null)).toBeNull();
     expect(await loadMetrics(blobs.store, acme.org.id, "gone.metrics.json")).toBeNull();
     expect(await loadMetrics(blobs.store, acme.org.id, "bad.metrics.json")).toBeNull();

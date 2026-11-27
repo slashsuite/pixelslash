@@ -1,4 +1,4 @@
-import { expect, open, test } from "./fixtures";
+import { expect, expectHydrated, open, test } from "./fixtures";
 import { CHANGED, SHA_MAIN, SHA_WORK, WHITE, uploadBuild } from "./api-upload";
 import { openSection } from "./snapshot-viewer";
 
@@ -24,7 +24,7 @@ test("an override set on the snapshot screen flips the verdict and exports as co
   await expect(page.getByTestId("build-status")).toHaveText("changes");
   await page.getByTestId("snapshot-row").first().getByRole("link").click();
   await expect(page).toHaveURL(/\/snapshots\//);
-  await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
+  await expectHydrated(page);
   await openSection(page, "Tools");
   await expect(page.getByTestId("diff-override")).toBeVisible();
   await expect(page.getByTestId("option-minChangedPixels")).toHaveText("engine default");

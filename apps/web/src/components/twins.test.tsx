@@ -1,5 +1,6 @@
+// @vitest-environment happy-dom
 import { describe, expect, test } from "vitest";
-import { renderRouted, textOf } from "#/test/render-routed";
+import { render, screen } from "#/test/render";
 import { type BuildTwins, type Twin, type TwinEntry, noTwins, twinEntryOf } from "#/lib/twins";
 import { TwinsRow, UnlinkedShots } from "./twins";
 
@@ -44,22 +45,25 @@ const unlinkedEntry = entry({
   missing: ["web"],
 });
 
-const count = (html: string, testId: string) => html.split(`data-testid="${testId}"`).length - 1;
+const href = (name: string | RegExp) => screen.getByRole("link", { name }).getAttribute("href");
+const row = (of: TwinEntry | null) => render(<TwinsRow projectId="p1" buildId="b1" entry={of} />);
+const list = (of: BuildTwins) => render(<UnlinkedShots projectId="p1" buildId="b1" twins={of} />);
 
 describe("the Twins row of the side panel", () => {
   test("lists the twin labelled by platform and device, with where it was found", async () => {
-    const html = await renderRouted(<TwinsRow projectId="p1" buildId="b1" entry={entry()} />);
-    expect(count(html, "twins")).toBe(1);
-    expect(count(html, "twin")).toBe(1);
-    const text = textOf(html);
-    expect(text).toContain("android · Pixel 8 API 35");
-    expect(text).toContain("412x915 · same build");
-    expect(text).toContain("Compare platforms");
+    await row(entry());
+    expect(screen.getByRole("heading", { name: "Twins" })).toBeTruthy();
+    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    expect(screen.getByRole("link", { name: "android · Pixel 8 API 35" })).toBeTruthy();
+    expect(screen.getByText("412x915 · same build")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Compare platforms" })).toBeTruthy();
   });
 
   test("the twin is a link to its own shot", async () => {
-    const html = await renderRouted(<TwinsRow projectId="p1" buildId="b1" entry={entry()} />);
-    expect(html).toMatch(/<a [^>]*href="[^"]*\/projects\/p1\/builds\/b1\/snapshots\/android-1"/);
+    await row(entry());
+    expect(href("android · Pixel 8 API 35")).toMatch(
+      /\/projects\/p1\/builds\/b1\/snapshots\/android-1$/,
+    );
   });
 
   test("the android shot's row links back to the web shot", async () => {
@@ -70,24 +74,16 @@ describe("the Twins row of the side panel", () => {
       device: null,
       viewport: "1280x720",
     };
-    const html = await renderRouted(
-      <TwinsRow
-        projectId="p1"
-        buildId="b1"
-        entry={entry({ snapshotId: "android-1", platform: "android", twins: [back] })}
-      />,
-    );
-    expect(count(html, "twin")).toBe(1);
-    expect(textOf(html)).toContain("web 1280x720 · same build");
-    expect(html).toMatch(/href="[^"]*\/snapshots\/web-1"/);
+    await row(entry({ snapshotId: "android-1", platform: "android", twins: [back] }));
+    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    expect(screen.getByText("1280x720 · same build")).toBeTruthy();
+    expect(href("web")).toMatch(/\/snapshots\/web-1$/);
   });
 
   test("a platform with no shot under the key is named, not hidden", async () => {
-    const html = await renderRouted(
-      <TwinsRow projectId="p1" buildId="b1" entry={entry({ missing: ["ios"] })} />,
-    );
-    expect(textOf(html)).toContain("No ios twin");
-    expect(count(html, "twin-missing")).toBe(1);
+    await row(entry({ missing: ["ios"] }));
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    expect(screen.getByText("No ios twin")).toBeTruthy();
   });
 
   test("a stale twin carries the badge and who accepted the web change", async () => {
@@ -99,27 +95,22 @@ describe("the Twins row of the side panel", () => {
       acceptedBy: "E2E Octocat",
       acceptedAt: new Date("2026-11-03T10:00:00Z"),
     };
-    const html = await renderRouted(
-      <TwinsRow projectId="p1" buildId="b1" entry={entry({ twins: [{ ...android, stale }] })} />,
-    );
-    expect(count(html, "stale-badge")).toBe(1);
-    expect(count(html, "twin-stale-cause")).toBe(1);
-    expect(textOf(html)).toContain("web changed, accepted by E2E Octocat 2026-11-03");
+    await row(entry({ twins: [{ ...android, stale }] }));
+    expect(screen.getByText("Stale")).toBeTruthy();
+    expect(screen.getByText("web changed, accepted by E2E Octocat 2026-11-03")).toBeTruthy();
   });
 
   test("a fresh twin carries no badge", async () => {
-    const html = await renderRouted(<TwinsRow projectId="p1" buildId="b1" entry={entry()} />);
-    expect(count(html, "stale-badge")).toBe(0);
+    await row(entry());
+    expect(screen.queryByText("Stale")).toBeNull();
   });
 
   test("a build with no other platform in play has no row and no Compare platforms link", async () => {
     const none = noTwins();
     expect(twinEntryOf(none, "web-1")).toBeNull();
-    const html = await renderRouted(
-      <TwinsRow projectId="p1" buildId="b1" entry={twinEntryOf(none, "web-1")} />,
-    );
-    expect(html).not.toContain("compare-platforms");
-    expect(html).not.toContain('data-testid="twins"');
+    await row(twinEntryOf(none, "web-1"));
+    expect(screen.queryByRole("heading", { name: "Twins" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Compare platforms" })).toBeNull();
   });
 });
 
@@ -127,38 +118,28 @@ describe("the Unlinked list of the build page", () => {
   const twins: BuildTwins = { twinProject: null, linked: [entry()], unlinked: [unlinkedEntry] };
 
   test("names the shot that has no twin, and only that one", async () => {
-    const html = await renderRouted(<UnlinkedShots projectId="p1" buildId="b1" twins={twins} />);
-    expect(count(html, "unlinked")).toBe(1);
-    expect(count(html, "unlinked-shot")).toBe(1);
-    expect(textOf(html)).toContain("Button/loading dark has no web twin");
-    expect(textOf(html)).not.toContain("Button/primary");
+    await list(twins);
+    expect(screen.getByRole("heading", { name: "Unlinked" })).toBeTruthy();
+    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    expect(screen.getByRole("link", { name: "Button/loading dark has no web twin" })).toBeTruthy();
+    expect(screen.queryByText(/Button\/primary/)).toBeNull();
   });
 
   test("each unlinked shot opens the shot and the parity view of its key", async () => {
-    const html = await renderRouted(<UnlinkedShots projectId="p1" buildId="b1" twins={twins} />);
-    expect(html).toMatch(/href="[^"]*\/snapshots\/android-2"/);
-    const compare = html.match(/<a [^>]*data-testid="compare-platforms"[^>]*>/)?.[0] ?? "";
-    expect(compare).toMatch(/href="[^"]*\/parity\?/);
-    expect(decodeURIComponent(compare)).toContain("name");
-    expect(decodeURIComponent(compare)).toContain("Button/loading");
+    await list(twins);
+    expect(href("Button/loading dark has no web twin")).toMatch(/\/snapshots\/android-2$/);
+    const compare = decodeURIComponent(String(href("Compare platforms")));
+    expect(compare).toMatch(/\/parity\?/);
+    expect(compare).toContain("name");
+    expect(compare).toContain("Button/loading");
   });
 
-  test("a web-only build has no Unlinked list and no Compare platforms link", async () => {
-    const html = await renderRouted(
-      <UnlinkedShots projectId="p1" buildId="b1" twins={noTwins()} />,
-    );
-    expect(html).not.toContain("compare-platforms");
-    expect(html).not.toContain('data-testid="unlinked"');
-  });
-
-  test("nothing is drawn when every shot is linked", async () => {
-    const html = await renderRouted(
-      <UnlinkedShots
-        projectId="p1"
-        buildId="b1"
-        twins={{ twinProject: null, linked: [entry()], unlinked: [] }}
-      />,
-    );
-    expect(html).not.toContain("unlinked");
+  test.each<[string, BuildTwins]>([
+    ["a web-only build", noTwins()],
+    ["a build whose every shot is linked", { twinProject: null, linked: [entry()], unlinked: [] }],
+  ])("%s has no Unlinked list and no Compare platforms link", async (_, of) => {
+    await list(of);
+    expect(screen.queryByRole("heading", { name: "Unlinked" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Compare platforms" })).toBeNull();
   });
 });

@@ -71,6 +71,7 @@ test("an opted-in project's model auto-passes a noise-only shot and says why", a
     await expect(notes).toContainText("Text edges moved by a sub-pixel.");
     // Every pane that draws the region's box carries its label (the highlight is off when a shot opens).
     await highlightToggle(page).click();
+    // oxlint-disable-next-line playwright/no-raw-locators -- a region's box is an SVG rect inside the regions img: no role, name or text, and its label lives only in data-ai-label; no DOM test renders it
     await expect(page.locator('rect[data-ai-label="noise"]').first()).toBeAttached();
   });
 });

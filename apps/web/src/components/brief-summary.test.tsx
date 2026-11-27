@@ -1,14 +1,17 @@
+// @vitest-environment happy-dom
 import { describe, expect, test, vi } from "vitest";
 import { branchView } from "#/db/branch-view";
 import { buildView } from "#/db/review";
 import { context, sha, upload } from "#/diff/test-builds";
 import { card, red, stubModel, white, withModel } from "#/ai/summary-test-kit";
-import { byTestId } from "#/test/by-test-id";
-import { renderRouted, textOf } from "#/test/render-routed";
+import { render, screen } from "#/test/render";
 import { BuildSummary } from "./build-summary";
 
-// The Regenerate button's server function reads the Worker's env, which a Node test has none of.
-vi.mock("#/server/model", () => ({ regenerateBuildSummary: vi.fn<() => Promise<never>>() }));
+// happy-dom's URL cannot find the engine's diff.wasm; the diff runs here (`#/test/diff-module`).
+vi.mock("../../../../packages/engine/src/diff-module.bun.ts", () => import("#/test/diff-module"));
+// The Regenerate button's server function loads the Worker's env and session: the render seam.
+vi.mock("#/server/env", () => import("#/test/render").then((m) => m.serverEnv));
+vi.mock("#/server/session", () => import("#/test/render").then((m) => m.serverSession));
 
 /**
  * A build's brief (PS-232) in the build page's summary: the model's sentences, then its closing
@@ -28,7 +31,7 @@ async function draw(
   ctx: Awaited<ReturnType<typeof context>>,
 ) {
   const view = await buildView(ctx.db, ctx.projectId, build.id);
-  return renderRouted(
+  await render(
     <BuildSummary
       projectId={ctx.projectId}
       build={view.build}
@@ -64,13 +67,15 @@ describe("a summary read against the brief", () => {
     // The branch page draws the brief of the branch's newest build.
     expect((await branchView(ctx.db, ctx.projectId, "work"))?.build.brief).toBe(BRIEF);
 
-    const html = await draw(build, ctx);
-    expect(textOf(html)).toMatch(/The hero's text edges moved by a sub-pixel\./);
-    expect(byTestId(html, "summary-match")).toMatch(
+    await draw(build, ctx);
+    // The card's lines are plain text with no role of their own; their test ids name them.
+    expect(screen.getByText(/The hero's text edges moved by a sub-pixel\./)).toBeTruthy();
+    expect(screen.getByTestId("summary-match").textContent).toMatch(
       /^Against the brief: the hero changed as the brief says; nothing it describes is missing\./,
     );
-    expect(byTestId(html, "summary-model")).toContain("local-qwen");
-    expect(byTestId(html, "summary-model")).toContain("read against the brief");
+    expect(screen.getByTestId("summary-model").textContent).toMatch(
+      /local-qwen.* · read against the brief$/,
+    );
   });
 
   test("a brief with nothing changed is no match: the page says there was nothing to read against it", async () => {
@@ -89,9 +94,9 @@ describe("a summary read against the brief", () => {
       },
       { modelFetch: stubModel().modelFetch },
     );
-    const html = await draw(build, ctx);
-    expect(html).not.toContain('data-testid="summary-match"');
-    expect(byTestId(html, "summary-counts")).toMatch(
+    await draw(build, ctx);
+    expect(screen.queryByTestId("summary-match")).toBeNull();
+    expect(screen.getByTestId("summary-counts").textContent).toMatch(
       /^Nothing changed, so there is nothing to read against the brief\./,
     );
   });

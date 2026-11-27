@@ -1,8 +1,7 @@
 import type { Db } from "./db";
-import { createOrg, createProject } from "./orgs";
 import { type BuildStatus, builds, snapshots } from "./schema";
-import { testDb } from "./test-db";
-import { signInGithubUser } from "./users";
+import { seededStore } from "#/test/store";
+import { must } from "#/test/must";
 
 /**
  * Fixture for the twin tests (PS-295): shots are inserted as the upload leaves them, so the
@@ -25,8 +24,6 @@ export type Shot = {
 };
 
 export const PIXEL = "Pixel 8 API 35";
-let n = 0;
-const id = (prefix: string) => `${prefix}-${++n}`;
 const sha = (k: number) => k.toString(16).padStart(40, "0");
 
 /** What a shot of this platform is shot on and at, unless the test says otherwise. */
@@ -47,8 +44,12 @@ function review(s: Shot, userId: string, at: Date) {
   } as const;
 }
 
-async function insertShot(db: Db, where: { buildId: string; at: Date; userId: string }, s: Shot) {
-  const snapshotId = id("s");
+async function insertShot(
+  db: Db,
+  where: { buildId: string; at: Date; userId: string },
+  s: Shot,
+  snapshotId: string,
+) {
   await db.insert(snapshots).values({
     id: snapshotId,
     buildId: where.buildId,
@@ -67,16 +68,12 @@ async function insertShot(db: Db, where: { buildId: string; at: Date; userId: st
 
 /** A fresh database with Ada, her org Acme and its projects `web` and `native`. */
 export async function world() {
-  const db = testDb();
-  const user = await signInGithubUser(db, {
-    githubId: 1,
-    login: "ada",
-    name: null,
-    avatarUrl: null,
-  });
-  const org = await createOrg(db, user.id, "Acme");
-  const web = (await createProject(db, user.id, org.id, "web")).id;
-  const native = (await createProject(db, user.id, org.id, "native")).id;
+  const { db, user, org, project, projects } = await seededStore({ projects: ["web", "native"] });
+  const web = project.id;
+  const native = must(projects[1], "the native project").id;
+  // Row ids count up per world, so no two worlds share a counter.
+  let n = 0;
+  const id = (prefix: string) => `${prefix}-${++n}`;
 
   /** A build of `projectId` at commit number `commit` holding `shots`; a bigger `age` is older. */
   async function build(
@@ -95,7 +92,8 @@ export async function world() {
       status: extra.status ?? "passed",
       createdAt,
     });
-    for (const s of shots) await insertShot(db, { buildId, at: createdAt, userId: user.id }, s);
+    for (const s of shots)
+      await insertShot(db, { buildId, at: createdAt, userId: user.id }, s, id("s"));
     return buildId;
   }
 

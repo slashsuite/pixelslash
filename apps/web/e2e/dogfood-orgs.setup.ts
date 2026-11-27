@@ -18,6 +18,7 @@ async function waitFor(url: string) {
     } catch {
       // not up yet
     }
+    // oxlint-disable-next-line no-restricted-properties -- a readiness poll on a server this hand-run capture starts in the background (the capture's start takes one readyUrl, the app's), as Playwright's webServer url wait polls; no page state exists yet
     await Bun.sleep(250);
   }
   throw new Error(`the GitHub stand-in did not come up at ${url}`);

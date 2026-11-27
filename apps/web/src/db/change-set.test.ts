@@ -3,6 +3,7 @@ import { sha } from "#/diff/test-builds";
 import { CHANGED, PLAIN, world } from "#/github/test-world";
 import { changeSetOf, nextAfterDecision } from "./change-set";
 import { buildView } from "./review";
+import { must } from "#/test/must";
 
 /**
  * A review walks a commit's whole change set: the newest build of a project and of each of its
@@ -79,7 +80,7 @@ describe("a review across a commit's change set", () => {
     const after = await nextAfterDecision(w.db, {
       projectId,
       buildId: made.id,
-      snapshotId: shot?.id ?? "",
+      snapshotId: must(shot, "the build's shot").id,
     });
     expect(after).toEqual({ buildStatus: "passed", next: null, commit: null });
   });

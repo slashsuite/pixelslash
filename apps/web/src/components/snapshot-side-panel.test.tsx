@@ -1,10 +1,16 @@
-import { describe, expect, test } from "vitest";
+// @vitest-environment happy-dom
+import { describe, expect, test, vi } from "vitest";
 import { buildView } from "#/db/review";
 import { context, FINGERPRINT, sha, upload, type Shot } from "#/diff/test-builds";
+import { must } from "#/test/must";
 import { shot } from "#/diff/test-shots";
-import { renderRouted, textOf } from "#/test/render-routed";
+import { keyValues } from "#/test/key-values";
+import { render, screen } from "#/test/render";
 import { snapshotView } from "#/test/snapshot-view";
 import { SidePanel } from "./snapshot-side-panel";
+
+// happy-dom's URL cannot find the engine's diff.wasm; the diff runs here (`#/test/diff-module`).
+vi.mock("../../../../packages/engine/src/diff-module.bun.ts", () => import("#/test/diff-module"));
 
 /** The "Captured in" panel of a shot's review page, for a web shot and for a native one. */
 
@@ -17,13 +23,16 @@ const android: Shot = {
   fingerprint: { ...FINGERPRINT, platform: "android", device: "Pixel 8 API 35", scale: "3" },
 };
 
-async function panelOf(shotSpec: Shot, platform: string): Promise<string> {
+/** Uploads `shotSpec` to main, opens its review panel's Details, and returns what they list. */
+async function capturedIn(shotSpec: Shot, platform: string) {
   const ctx = await context();
   const build = await upload(ctx, { branch: "main", commit: sha(1), shots: [shotSpec] });
   const view = await buildView(ctx.db, ctx.projectId, build.id);
-  const snapshot = view.snapshots.find((s) => s.platform === platform);
-  if (!snapshot) throw new Error(`no ${platform} shot`);
-  const html = await renderRouted(
+  const snapshot = must(
+    view.snapshots.find((s) => s.platform === platform),
+    `a ${platform} shot`,
+  );
+  const { user } = await render(
     <SidePanel
       projectId={ctx.projectId}
       buildId={build.id}
@@ -33,29 +42,28 @@ async function panelOf(shotSpec: Shot, platform: string): Promise<string> {
       status={build.status}
     />,
   );
-  return /Captured in[\s\S]*?<\/section>/.exec(html)?.[0] ?? "";
+  await user.click(screen.getByRole("button", { name: "Details" }));
+  expect(screen.getByRole("heading", { name: "Captured in" })).toBeTruthy();
+  return keyValues();
 }
 
 describe("Captured in", () => {
   test("a native shot names its platform, its device and the scale, and no browser", async () => {
-    const text = textOf(await panelOf(android, "android"));
-    expect(text).toContain("Platform android");
-    expect(text).toContain("Device Pixel 8 API 35");
-    expect(text.replace(/\s+×/, "×")).toContain("Scale 3×");
-    expect(text).not.toContain("Browser");
+    const facts = await capturedIn(android, "android");
+    expect(facts).toMatchObject({ Platform: "android", Device: "Pixel 8 API 35", Scale: "3×" });
+    expect(facts).not.toHaveProperty("Browser");
   });
 
   test("a web shot names its browser and has no device or scale", async () => {
-    const text = textOf(await panelOf({ png }, "linux"));
-    expect(text).toContain("Platform linux");
-    expect(text).toContain("Browser chromium");
-    expect(text).not.toContain("Device");
-    expect(text).not.toContain("Scale");
+    const facts = await capturedIn({ png }, "linux");
+    expect(facts).toMatchObject({ Platform: "linux", Browser: "chromium" });
+    expect(facts).not.toHaveProperty("Device");
+    expect(facts).not.toHaveProperty("Scale");
   });
 });
 
-const approvedText = async (mainChangedSince: boolean) => {
-  const html = await renderRouted(
+const approvedEarlier = (mainChangedSince: boolean) =>
+  render(
     <SidePanel
       projectId="p1"
       buildId="b1"
@@ -77,19 +85,21 @@ const approvedText = async (mainChangedSince: boolean) => {
       status="passed"
     />,
   );
-  return textOf(/data-testid="approved-earlier"[\s\S]*?<\/section>/.exec(html)?.[0] ?? "");
-};
 
 describe("Approved earlier", () => {
   test("says main has changed since that approval when it has", async () => {
-    expect(await approvedText(true)).toContain(
-      "main has changed since that approval, so it was given against an older main",
-    );
+    await approvedEarlier(true);
+    expect(screen.getByRole("heading", { name: "Approved earlier" })).toBeTruthy();
+    expect(
+      screen.getByText(
+        /main has changed since that approval, so it was given against an older main/,
+      ),
+    ).toBeTruthy();
   });
 
   test("says nothing about main moving when it has not", async () => {
-    const text = await approvedText(false);
-    expect(text).toContain("this shot still differs from main");
-    expect(text).not.toContain("has changed since that approval");
+    await approvedEarlier(false);
+    expect(screen.getByText(/this shot still differs from main\./)).toBeTruthy();
+    expect(screen.queryByText(/has changed since that approval/)).toBeNull();
   });
 });

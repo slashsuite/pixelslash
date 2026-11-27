@@ -1,7 +1,7 @@
 import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import type { RenderJob, RenderOutcome } from "@slashsuite/pixelslash-engine";
 import { type Kept, MAX_QUEUED, MAX_STARTS, fileStore, renderWorker } from "./render-worker";
 
@@ -35,8 +35,6 @@ function memoryStore(start: Kept[] = []) {
   return store;
 }
 
-const tick = () => new Promise((r) => setTimeout(r, 0));
-
 describe("the render worker", () => {
   test("takes a job, answers 202 at once, and renders one build at a time in order", async () => {
     const gated = gatedRender();
@@ -51,9 +49,7 @@ describe("the render worker", () => {
     expect(await health.json()).toEqual({ queued: 1, rendering: ["a"] });
     expect(gated.events).toEqual(["start a"]);
     gated.release();
-    await Promise.resolve();
-    await new Promise((r) => setTimeout(r, 0));
-    expect(gated.events).toEqual(["start a", "end a", "start b"]);
+    await vi.waitFor(() => expect(gated.events).toEqual(["start a", "end a", "start b"]));
     gated.release();
     await worker.settled();
     expect(gated.events).toEqual(["start a", "end a", "start b", "end b"]);
@@ -107,10 +103,11 @@ describe("the render worker", () => {
     // A finalise retried while a is rendered again is still taken once.
     await second.handle(post({ buildId: "a", token: "psr_a.x" }));
     expect(store.saved).toHaveLength(3);
-    for (let i = 0; i < 3; i++) {
-      next.release();
-      await tick();
-    }
+    next.release();
+    await vi.waitFor(() => expect(next.events).toContain("start b"));
+    next.release();
+    await vi.waitFor(() => expect(next.events).toContain("start c"));
+    next.release();
     await second.settled();
     expect(next.events).toEqual(["start a", "end a", "start b", "end b", "start c", "end c"]);
     expect(store.saved).toEqual([]);
@@ -155,18 +152,20 @@ describe("the render worker", () => {
     const giveUp = () => new Promise<boolean>((answer) => answers.push(answer));
     const first = renderWorker(gatedRender().render, () => {}, { store, giveUp });
     void first.resume();
-    let stopped = false;
-    const stopping = first.stop().then(() => (stopped = true));
-    await tick();
-    expect(stopped).toBe(false);
+    const order: string[] = [];
+    const stopping = first.stop().then(() => order.push("stopped"));
+    await vi.waitFor(() => expect(answers).toHaveLength(1));
     expect(store.saved.map((j) => j.buildId)).toEqual(["killer"]);
+    order.push("answered");
     answers.shift()?.(false);
     await stopping;
+    // The stop resolved only after the server's answer, not while the give-up was in flight.
+    expect(order).toEqual(["answered", "stopped"]);
     expect(store.saved).toEqual([{ buildId: "killer", token: "psr_killer.x", starts: MAX_STARTS }]);
 
     const second = renderWorker(gatedRender().render, () => {}, { store, giveUp });
     const resumed = second.resume();
-    await tick();
+    await vi.waitFor(() => expect(answers).toHaveLength(1));
     answers.shift()?.(true);
     await resumed;
     expect(store.saved).toEqual([]);
@@ -178,14 +177,13 @@ describe("the render worker", () => {
     const worker = renderWorker(gated.render, () => {}, { store });
     await worker.handle(post({ buildId: "a", token: "t" }));
     await worker.handle(post({ buildId: "b", token: "t" }));
-    let stopped = false;
-    const stopping = worker.stop().then(() => (stopped = true));
+    const stopping = worker.stop().then(() => gated.events.push("stopped"));
     expect((await worker.handle(post({ buildId: "c", token: "t" }))).status).toBe(202);
-    await tick();
-    expect(stopped).toBe(false);
+    expect(store.saved.map((j) => j.buildId)).toEqual(["a", "b", "c"]);
     gated.release();
     await stopping;
-    expect(gated.events).toEqual(["start a", "end a"]);
+    // The stop waited for a to end, and b never started.
+    expect(gated.events).toEqual(["start a", "end a", "stopped"]);
     expect(store.saved.map((j) => j.buildId)).toEqual(["b", "c"]);
   });
 
@@ -209,18 +207,25 @@ describe("the render worker", () => {
     await worker.handle(post({ buildId: "b", token: "psr_b.x" }));
     expect(store.saved).toHaveLength(4);
     gated.release();
-    await tick();
-    expect(gated.events).toEqual(["start a", "start b", "end a", "start c"]);
+    await vi.waitFor(() =>
+      expect(gated.events).toEqual(["start a", "start b", "end a", "start c"]),
+    );
     expect(store.saved.map((j) => j.buildId)).toEqual(["b", "c", "d"]);
-    let stopped = false;
-    const stopping = worker.stop().then(() => (stopped = true));
+    const stopping = worker.stop().then(() => gated.events.push("stopped"));
     gated.release();
-    await tick();
-    // d is not started, and the stop waits for c, still rendering.
-    expect(gated.events).toEqual(["start a", "start b", "end a", "start c", "end b"]);
-    expect(stopped).toBe(false);
+    await vi.waitFor(() => expect(gated.events).toContain("end b"));
     gated.release();
     await stopping;
+    // d is never started, and the stop waited for c, still rendering when b ended.
+    expect(gated.events).toEqual([
+      "start a",
+      "start b",
+      "end a",
+      "start c",
+      "end b",
+      "end c",
+      "stopped",
+    ]);
     expect(store.saved.map((j) => j.buildId)).toEqual(["d"]);
   });
 
@@ -233,12 +238,12 @@ describe("the render worker", () => {
     ]);
     const worker = renderWorker(gated.render, () => {}, { store, builds: 2 });
     await worker.resume();
-    await tick();
-    expect(gated.events).toEqual(["start a"]);
+    await vi.waitFor(() => expect(gated.events).toEqual(["start a"]));
     gated.release();
-    await tick();
-    await tick();
-    expect(gated.events).toEqual(["start a", "end a", "start b", "start c"]);
+    // b and c start only after a ends: the order shows a rendered alone.
+    await vi.waitFor(() =>
+      expect(gated.events).toEqual(["start a", "end a", "start b", "start c"]),
+    );
     gated.release();
     gated.release();
     await worker.settled();
@@ -264,9 +269,8 @@ describe("the render worker", () => {
     expect(store.saved.map((j) => j.buildId)).toEqual(["a", "c"]);
     expect(await (await del("a")).json()).toEqual({ dropped: "rendering" });
     expect(signals.get("a")?.aborted).toBe(true);
-    await tick();
     // a stopped, so c, the next in the queue, starts; b never does.
-    expect(worker.rendering()).toEqual(["c"]);
+    await vi.waitFor(() => expect(worker.rendering()).toEqual(["c"]));
     expect(await (await del("zz")).json()).toEqual({ dropped: null });
     expect(
       (await worker.handle(new Request("http://127.0.0.1:3100/jobs/a", { method: "GET" }))).status,

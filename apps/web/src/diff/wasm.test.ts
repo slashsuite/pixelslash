@@ -25,7 +25,8 @@ describe("the Worker diffs through diff.wasm (PS-210)", () => {
       metafile: true,
     });
     expect(build.success).toBe(true);
-    const inputs = Object.keys(build.metafile?.inputs ?? {});
+    expect(build.metafile).toBeDefined();
+    const inputs = Object.keys(build.metafile!.inputs);
     expect(inputs.some((path) => path.endsWith("src/diff-module.workerd.ts"))).toBe(true);
     expect(inputs.some((path) => path.endsWith("src/diff-module.bun.ts"))).toBe(false);
     expect(inputs.some((path) => path.endsWith("wasm/diff.wasm"))).toBe(true);
@@ -45,6 +46,9 @@ type Case = {
 
 const sha256 = (bytes: Buffer) => createHash("sha256").update(bytes).digest("hex");
 const hashOf = (value: unknown) => sha256(Buffer.from(JSON.stringify(value))).slice(0, 16);
+/** The whole diff result hashed, its overlay as the overlay's sha256. */
+const resultHash = (got: ReturnType<typeof diffPngs>) =>
+  hashOf({ ...got, overlay: got.overlay && sha256(got.overlay) });
 
 const changed = [{ x: 10, y: 10, w: 10, h: 10, rgb: RED }];
 const burst = (n: number) => [{ x: 40 + n * 90, y: 300, w: 60, h: 400, rgb: RED }];
@@ -99,7 +103,7 @@ describe("the server diff gives pngjs's result byte for byte (PS-204, PS-210)", 
     "$name",
     ({ main, branch, ignore = {}, want }) => {
       const got = diffPngs(main, branch, {}, ignore);
-      expect(hashOf({ ...got, overlay: got.overlay && sha256(got.overlay) })).toBe(want);
+      expect(resultHash(got)).toBe(want);
     },
     60_000,
   );

@@ -1,19 +1,25 @@
-import { renderToStaticMarkup } from "react-dom/server";
+// @vitest-environment happy-dom
 import { expect, test } from "vitest";
-import { ok, unavailable } from "#/lib/reading";
+import { type Reading, ok, unavailable } from "#/lib/reading";
+import { render, screen } from "#/test/render";
 import { DbSizeMark } from "./operator-health";
 
-// The /_admin mark beside the database size: there past the alert line, absent under it.
-const mark = (reading: Parameters<typeof DbSizeMark>[0]["reading"]) =>
-  renderToStaticMarkup(<DbSizeMark reading={reading} />);
+/**
+ * The /_admin mark beside the database size: there past the alert line, absent under it or when
+ * the size was not read. Where the line sits and its words are `lib/size-alert.test.ts`'s tables.
+ */
 
-test("past 70% of the cap the size is marked", () => {
-  const html = mark(ok(7.1e9));
-  expect(html).toContain('data-testid="admin-db-alert"');
-  expect(html).toContain("7.1 GB, 71% of the 10 GB cap");
+test("past 70% of the cap the size is marked, with what happens at the cap", async () => {
+  await render(<DbSizeMark reading={ok(7.1e9)} />);
+  expect(
+    screen.getByText("Over the alert line: 7.1 GB, 71% of the 10 GB cap. Writes fail at the cap."),
+  ).toBeTruthy();
 });
 
-test("under the line, or unread, there is no mark", () => {
-  expect(mark(ok(6.9e9))).toBe("");
-  expect(mark(unavailable("no binding"))).toBe("");
+test.each<[string, Reading<number>]>([
+  ["under the line", ok(6.9e9)],
+  ["unread", unavailable("no binding")],
+])("%s, there is no mark", async (_, reading) => {
+  const { container } = await render(<DbSizeMark reading={reading} />);
+  expect(container.textContent).toBe("");
 });

@@ -5,6 +5,7 @@ import { RED, shot } from "#/diff/test-shots";
 import type { Db } from "./db";
 import { snapshots } from "./schema";
 import { SnapshotWrites, WRITES_PER_BATCH, changedFields } from "./snapshot-writes";
+import { must } from "#/test/must";
 
 /** `db`, with the size of every batch it is sent recorded; `fail` makes each batch throw. */
 function counted(db: Db, fail = false) {
@@ -27,6 +28,23 @@ const white = shot();
 const red = shot({ blocks: [{ x: 8, y: 8, w: 16, h: 12, rgb: RED }] });
 // Not white's bytes, so it is measured (identical bytes settle without a diff), and still unchanged.
 const whiteAgain = shot({ blocks: [{ x: 1, y: 1, w: 1, h: 1, rgb: [254, 254, 254] }] });
+/** Every other shot changed: odd ones red, even ones measured and unchanged. */
+const alternating = (i: number) => (i % 2 ? red : whiteAgain);
+
+/** A main build of one shot `a`, and that shot's stored row. */
+async function oneShot() {
+  const ctx = await context();
+  const build = await upload(ctx, {
+    branch: "main",
+    commit: sha(1),
+    shots: [{ name: "a", png: white }],
+  });
+  const row = must((await rows(ctx, build))[0], "the shot's row");
+  const errorOf = async () =>
+    must((await ctx.db.select().from(snapshots).where(eq(snapshots.id, row.id)))[0], "the row")
+      .diffError;
+  return { ctx, row, errorOf };
+}
 
 describe("a diff run's row writes", () => {
   test("go in batches, not one statement per shot, and store what one at a time stored", async () => {
@@ -45,7 +63,7 @@ describe("a diff run's row writes", () => {
         branch: "feat/a",
         commit: sha(2),
         mergeBase: sha(1),
-        shots: names.map((name, i) => ({ name, png: i % 2 ? red : whiteAgain })),
+        shots: names.map((name, i) => ({ name, png: alternating(i) })),
       },
       { db },
     );
@@ -62,48 +80,35 @@ describe("a diff run's row writes", () => {
     expect(stored.every((r) => r.mainDiffStatus === r.diffStatus)).toBe(true);
   });
 
-  test("what waits on a row runs after its batch is written, and not when the batch fails", async () => {
-    const ctx = await context();
-    const build = await upload(ctx, {
-      branch: "main",
-      commit: sha(1),
-      shots: [{ name: "a", png: white }],
-    });
-    const [row] = await rows(ctx, build);
-    if (!row) throw new Error("no row");
-    const errorOf = async () =>
-      (await ctx.db.select().from(snapshots).where(eq(snapshots.id, row.id)))[0]?.diffError;
-
-    const seen: (string | null | undefined)[] = [];
+  test("what waits on a row runs after its batch is written", async () => {
+    const { ctx, row, errorOf } = await oneShot();
+    const seen: (string | null)[] = [];
     const writes = new SnapshotWrites(ctx.db);
     writes.update(row, { diffError: "written" }, async () => void seen.push(await errorOf()));
     expect(seen).toEqual([]);
     await writes.flush();
     expect(seen).toEqual(["written"]);
+  });
 
+  test("what waits on a row does not run when its batch fails, and the row stays", async () => {
+    const { ctx, row, errorOf } = await oneShot();
+    const seen: string[] = [];
     const failing = new SnapshotWrites(counted(ctx.db, true).db);
     failing.update(row, { diffError: "never" }, async () => void seen.push("ran"));
     await expect(failing.flush()).rejects.toThrow(/the batch failed/);
-    expect(seen).toEqual(["written"]);
-    expect(await errorOf()).toBe("written");
+    expect(seen).toEqual([]);
+    expect(await errorOf()).toBeNull();
   });
 
   test("a write that leaves a row as it was sends nothing, and one sets only what moves", async () => {
-    const ctx = await context();
-    const build = await upload(ctx, {
-      branch: "main",
-      commit: sha(1),
-      shots: [{ name: "a", png: white }],
-    });
-    const [row] = await rows(ctx, build);
-    if (!row) throw new Error("no row");
+    const { ctx, row } = await oneShot();
     const { db, batches } = counted(ctx.db);
     const writes = new SnapshotWrites(db);
 
     // The own diff's fields as they are stored: nothing moves, so no statement.
     writes.update(row, {
       diffStatus: row.diffStatus,
-      diffResult: row.diffResult === null ? null : structuredClone(row.diffResult),
+      diffResult: structuredClone(row.diffResult),
       baselineKey: row.baselineKey,
       carriedFrom: null,
       diffError: null,

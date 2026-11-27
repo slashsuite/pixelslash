@@ -1,13 +1,13 @@
 import { randomUUID } from "node:crypto";
 import type { Page } from "@playwright/test";
-import { expect, open, test } from "./fixtures";
+import { expect, expectHydrated, open, test } from "./fixtures";
 import { createOrg, createProject, openSettings } from "./orgs-page";
 
 /** On a fresh project's settings: issue a CI token, see it once, revoke it, and save the default branch. */
 async function issueToken(page: Page) {
   await expect(page.getByRole("heading", { name: "storefront · settings" })).toBeVisible();
   await expect(page.getByTestId("no-tokens")).toBeVisible();
-  await expect(page.locator("[data-hydrated=true]")).toHaveCount(1);
+  await expectHydrated(page);
   // Empty, the button is grey and says why rather than doing nothing.
   const issue = page.getByRole("button", { name: "Issue token" });
   await expect(issue).toBeDisabled();
@@ -15,7 +15,7 @@ async function issueToken(page: Page) {
 
   await page.getByLabel("Token name, e.g. github-actions").fill("github-actions");
   await page.getByRole("button", { name: "Issue token" }).click();
-  const token = (await page.getByTestId("issued-token").locator("code").textContent()) ?? "";
+  const token = (await page.getByTestId("issued-token").getByRole("code").textContent()) ?? "";
   expect(token).toMatch(/^psci_/);
   const row = page.getByRole("row", { name: /github-actions/ });
   await expect(row).toContainText(token.slice(0, 9));
@@ -53,10 +53,10 @@ test("create an org, a project and a CI token by clicking; an empty org says wha
   const orgId = await createOrg(page, orgName);
   const empty = page.getByTestId("empty-org");
   await expect(empty).toContainText("No projects yet");
-  await expect(page.getByTestId("upload-command").locator("code")).toContainText(
+  await expect(page.getByTestId("upload-command").getByRole("code")).toContainText(
     "pixelslash upload",
   );
-  await expect(page.getByTestId("upload-command").locator("code")).toContainText("--server http");
+  await expect(page.getByTestId("upload-command").getByRole("code")).toContainText("--server http");
 
   // Creating with no name says why on the field and puts the focus back in it.
   await page.getByRole("button", { name: "+ New project" }).first().click();
@@ -82,7 +82,7 @@ test("create an org, a project and a CI token by clicking; an empty org says wha
   // A project with no builds says how to make one: the token, then the exact upload command.
   const emptyProject = page.getByTestId("empty-project");
   await expect(emptyProject).toContainText("No builds yet");
-  await expect(emptyProject.getByTestId("upload-command").locator("code")).toContainText(
+  await expect(emptyProject.getByTestId("upload-command").getByRole("code")).toContainText(
     `pixelslash upload DIR --server ${new URL(page.url()).origin}`,
   );
   await page.goBack();

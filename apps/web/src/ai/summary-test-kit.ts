@@ -1,5 +1,5 @@
 import { setProjectModel } from "#/db/models";
-import { TEST_MODEL_KEY_SECRET as SECRET } from "#/db/test-db";
+import { TEST_MODEL_KEY_SECRET as SECRET } from "#/test/store";
 import { FINGERPRINT, type Ctx, type Shot, sha, upload } from "#/diff/test-builds";
 import { RED, shot } from "#/diff/test-shots";
 import type { ModelFetch } from "./model";

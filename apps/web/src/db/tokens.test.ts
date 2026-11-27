@@ -1,9 +1,8 @@
 import { describe, expect, test } from "vitest";
 import { sha256Hex } from "#/lib/crypto";
 import { NotFoundError } from "./db";
-import { createOrg, createProject } from "./orgs";
 import { ciTokens, userTokens } from "./schema";
-import { testDb } from "./test-db";
+import { seededStore } from "#/test/store";
 import {
   LAST_USED_WINDOW_MS,
   issueCiToken,
@@ -21,15 +20,7 @@ import {
 import { signInGithubUser } from "./users";
 
 async function setup() {
-  const db = testDb();
-  const user = await signInGithubUser(db, {
-    githubId: 1,
-    login: "ada",
-    name: null,
-    avatarUrl: null,
-  });
-  const org = await createOrg(db, user.id, "Acme");
-  const project = await createProject(db, user.id, org.id, "web");
+  const { db, user, org, project } = await seededStore();
   return { db, user, org, project };
 }
 

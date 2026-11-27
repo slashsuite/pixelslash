@@ -189,7 +189,7 @@ describe("buildCompares", () => {
     expect(sql.snapshots).toBe(counted.shots);
     expect(sql.compared).toBe(counted.compares.server + counted.compares.ci);
     expect(sql.cacheHits).toBe(counted.cacheHits);
-    expect(sql.times?.n).toBe(rows.flatMap((r) => compareMsOf(r) ?? []).length);
+    expect(sql.times?.n).toBe(rows.map(compareMsOf).filter((ms) => ms !== null).length);
   });
 
   test("a result nobody is recorded as measuring, or a re-run cleared, is no compare", async () => {

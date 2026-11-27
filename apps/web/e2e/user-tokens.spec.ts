@@ -1,4 +1,4 @@
-import { SIGNED_OUT, expect, open, test } from "./fixtures";
+import { SIGNED_OUT, expect, expectHydrated, open, test } from "./fixtures";
 import { SERVER } from "./ports";
 import { rivalSession } from "./rival";
 
@@ -26,7 +26,7 @@ test("issue a personal token in settings, see it once, use it, revoke it", async
   await page.getByLabel("Token name, e.g. laptop").fill("laptop");
   await page.getByLabel("Expires").selectOption("30");
   await page.getByRole("button", { name: "Issue token" }).click();
-  const token = (await page.getByTestId("issued-token").locator("code").textContent()) ?? "";
+  const token = (await page.getByTestId("issued-token").getByRole("code").textContent()) ?? "";
   expect(token).toMatch(/^psu_/);
   const row = page.getByRole("row", { name: /laptop/ });
   await expect(row).toContainText(token.slice(0, 8));
@@ -45,7 +45,7 @@ test("issue a personal token in settings, see it once, use it, revoke it", async
   await expect(page.getByText(token)).toHaveCount(0);
   await expect(row).toContainText(token.slice(0, 8));
 
-  await expect(page.locator("[data-hydrated=true]")).toHaveCount(1);
+  await expectHydrated(page);
   await row.getByRole("button", { name: "Revoke laptop" }).click();
   await expect(row).toContainText("revoked");
   await expect(row.getByRole("button", { name: "Revoke laptop" })).toHaveCount(0);

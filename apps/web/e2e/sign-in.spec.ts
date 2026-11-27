@@ -45,12 +45,20 @@ test("sign in with GitHub, and a project's pages hydrate in the reader's own zon
   expect(hydrationErrors).toEqual([]);
 });
 
+/** Every `build-commit` meta's content in served HTML, read as scripts/check-commit.ts reads it. */
+const buildCommitsIn = (html: string) =>
+  [...html.matchAll(/<meta\s[^>]*>/gi)]
+    .map(([tag]) => tag)
+    .filter((tag) => /\sname\s*=\s*"build-commit"/i.test(tag))
+    .map((tag) => /\scontent\s*=\s*"([^"]*)"/i.exec(tag)?.[1] ?? "");
+
 // The root route's head carries it, so one page stands for every route (scripts/check-commit.ts reads it after a deploy).
 test("the page names the commit it was built from in a meta nobody sees", async ({ page }) => {
-  await open(page, "/");
-  const metas = page.locator('head meta[name="build-commit"]');
-  await expect(metas).toHaveCount(1);
-  const commit = (await metas.getAttribute("content")) ?? "";
+  // Read the way the deploy check reads it: from the served HTML.
+  const commits = buildCommitsIn(await (await page.request.get("/")).text());
+  expect(commits).toHaveLength(1);
+  const [commit = ""] = commits;
   expect(commit).toMatch(/^([0-9a-f]{40}(-dirty)?|unknown)$/);
-  await expect(page.locator("body")).not.toContainText(commit);
+  await open(page, "/");
+  await expect(page.getByText(new RegExp(commit))).toHaveCount(0);
 });

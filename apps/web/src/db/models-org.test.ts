@@ -15,7 +15,7 @@ import {
 } from "./models";
 import { NotFoundError } from "./db";
 import { orgModels } from "./schema-models";
-import { TEST_MODEL_KEY_SECRET as SECRET } from "./test-db";
+import { TEST_MODEL_KEY_SECRET as SECRET } from "#/test/store";
 import { signInGithubUser } from "./users";
 
 const settings = {

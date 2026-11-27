@@ -60,8 +60,8 @@ describe("the combined review of a commit", () => {
     const w = await group(["a", "b"]);
     const a = await w.on("a");
     const b = await w.on("b");
-    const aId = w.made.get("a") ?? "";
-    const bId = w.made.get("b") ?? "";
+    const aId = w.made.get("a")!;
+    const bId = w.made.get("b")!;
 
     // On a's build page: the decision is a's own row.
     await w.decide(a.id, "accepted", aId);
@@ -124,25 +124,21 @@ describe("the combined review of a commit", () => {
 });
 
 describe("one PR comment for the group", () => {
-  const orders: [string, (string | undefined)[]][] = [
-    ["top first", [undefined, "a", "b"]],
-    ["a subproject first", ["b", undefined, "a"]],
-    ["subprojects only", ["a", "b"]],
-  ];
-  for (const [label, order] of orders)
-    test(`names each subproject and links the commit's review, ${label}`, async () => {
-      const w = await group(["a", "b"]);
-      for (const subproject of order) await w.on(subproject);
-      const comments = [...w.github.comments().values()];
-      expect(comments).toHaveLength(1);
-      const [body] = comments;
-      expect(body).toContain("- a: ");
-      expect(body).toContain("- b: ");
-      expect(body).toContain(
-        `[Review every change](https://pixelslash.test/projects/${w.acme.project.id}/commits/${sha(2)})`,
-      );
-      expect(body).toContain(
-        order.includes(undefined) ? "- web: " : "- web: not run on this commit",
-      );
-    });
+  test.each<[string, (string | undefined)[], string]>([
+    ["top first", [undefined, "a", "b"], "- web: "],
+    ["a subproject first", ["b", undefined, "a"], "- web: "],
+    ["subprojects only", ["a", "b"], "- web: not run on this commit"],
+  ])("names each subproject and links the commit's review, %s", async (_, order, webLine) => {
+    const w = await group(["a", "b"]);
+    for (const subproject of order) await w.on(subproject);
+    const comments = [...w.github.comments().values()];
+    expect(comments).toHaveLength(1);
+    const [body] = comments;
+    expect(body).toContain("- a: ");
+    expect(body).toContain("- b: ");
+    expect(body).toContain(
+      `[Review every change](https://pixelslash.test/projects/${w.acme.project.id}/commits/${sha(2)})`,
+    );
+    expect(body).toContain(webLine);
+  });
 });

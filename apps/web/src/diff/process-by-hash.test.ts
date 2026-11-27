@@ -62,7 +62,8 @@ describe("a build sent by hash", () => {
     expect(a.diffKey).not.toBe(b.diffKey);
     expect(a.diffKey).toContain(`builds/${first.id}/`);
     expect(b.diffKey).toContain(`builds/${second.id}/`);
-    for (const row of [a, b]) expect(await ctx.scoped.get(row.diffKey ?? "")).not.toBeNull();
+    expect(await ctx.scoped.get(a.diffKey!)).not.toBeNull();
+    expect(await ctx.scoped.get(b.diffKey!)).not.toBeNull();
   });
 
   test("a project that holds no such image refuses the hash and stores nothing", async () => {

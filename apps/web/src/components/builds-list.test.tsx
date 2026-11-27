@@ -1,10 +1,10 @@
 // @vitest-environment happy-dom
-import { cleanup, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 import { emptyCounts } from "#/db/build-counts";
+import { must } from "#/test/must";
 import type { BuildSummary } from "#/db/build-list";
 import { formatRelative } from "#/lib/format";
-import { render } from "#/test/render";
+import { render, screen, within } from "#/test/render";
 import { BuildsList } from "./builds-list";
 
 /**
@@ -30,42 +30,39 @@ const build = (over: Partial<BuildSummary>): BuildSummary => ({
   ...over,
 });
 
-afterEach(cleanup);
+/** The card (a phone) and the row (`sm` up): every build is drawn as both. */
+const VIEWS = ["build-card", "build-row"] as const;
 
-async function list(builds: BuildSummary[]) {
+/** Draws `builds` and returns the first build's `view`, card or row. */
+async function first(builds: BuildSummary[], view: (typeof VIEWS)[number]): Promise<HTMLElement> {
   await render(<BuildsList projectId="p1" defaultBranch="main" builds={builds} now={NOW} />);
-  const [card] = screen.getAllByTestId("build-card");
-  const [row] = screen.getAllByTestId("build-row");
-  if (!card || !row) throw new Error("no build drawn");
-  return { card: within(card), row: within(row) };
+  return must(screen.getAllByTestId(view)[0], view);
 }
 
 describe("the builds list", () => {
-  test("the card and the row each carry every field of a build", async () => {
-    const { card, row } = await list([build({})]);
-    for (const view of [card, row]) {
-      expect(view.getByText("feature/a-long-branch-name")).toBeTruthy();
-      expect(view.getByText("bbbbbbb")).toBeTruthy();
-      expect(view.getByText("PR #12")).toBeTruthy();
-      expect(view.getByTestId("build-status").textContent).toBe("changes");
-      expect(view.getByTestId("snapshot-mix")).toBeTruthy();
-      expect(view.getByTestId("to-review").textContent).toMatch(/^3 to review$/);
-      expect(view.getByTestId("rel-time").textContent).toBe(formatRelative(CREATED, NOW));
-    }
+  test.each(VIEWS)("the %s carries every field of a build", async (view) => {
+    const el = await first([build({})], view);
+    expect(within(el).getByText("feature/a-long-branch-name")).toBeTruthy();
+    expect(within(el).getByText("bbbbbbb")).toBeTruthy();
+    expect(within(el).getByText("PR #12")).toBeTruthy();
+    expect(within(el).getByTestId("build-status").textContent).toBe("changes");
+    expect(within(el).getByTestId("snapshot-mix")).toBeTruthy();
+    expect(within(el).getByTestId("to-review").textContent).toMatch(/^3 to review$/);
+    expect(within(el).getByTestId("rel-time").textContent).toBe(formatRelative(CREATED, NOW));
   });
 
-  test("a passed build with shots to review reads changes, on the card and the row", async () => {
-    const { card, row } = await list([build({ status: "passed" })]);
-    for (const view of [card, row]) {
-      expect(view.getByTestId("build-status").textContent).toBe("changes");
-      expect(view.queryByText("passed")).toBeNull();
-    }
+  test.each(VIEWS)("on the %s, a passed build with shots to review reads changes", async (view) => {
+    const el = await first([build({ status: "passed" })], view);
+    expect(within(el).getByTestId("build-status").textContent).toBe("changes");
+    expect(within(el).queryByText("passed")).toBeNull();
   });
 
-  test("a passed build with nothing to review reads passed", async () => {
-    const counts = { ...emptyCounts(), unchanged: 4 };
-    const { card, row } = await list([build({ status: "passed", counts })]);
-    for (const view of [card, row])
-      expect(view.getByTestId("build-status").textContent).toBe("passed");
-  });
+  test.each(VIEWS)(
+    "on the %s, a passed build with nothing to review reads passed",
+    async (view) => {
+      const counts = { ...emptyCounts(), unchanged: 4 };
+      const el = await first([build({ status: "passed", counts })], view);
+      expect(within(el).getByTestId("build-status").textContent).toBe("passed");
+    },
+  );
 });

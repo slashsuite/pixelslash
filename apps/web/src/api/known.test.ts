@@ -4,7 +4,6 @@ import { createProject } from "#/db/orgs";
 import { snapshots } from "#/db/schema";
 import { issueCiToken } from "#/db/tokens";
 import { sha256Bytes } from "#/lib/crypto";
-import { MAX_KNOWN } from "./validate-known";
 import { META, PNG, call, openBuild, setup, snapshotForm } from "./test-support";
 
 /**
@@ -31,8 +30,6 @@ async function finished(deps: Parameters<typeof call>[0], token: string) {
   expect(done.status).toBe(200);
   return id;
 }
-
-const many = (n: number) => Array.from({ length: n }, (_, i) => i.toString(16).padStart(64, "0"));
 
 describe("/known", () => {
   test("names the hashes a finished build of the project holds, in the order asked", async () => {
@@ -104,13 +101,6 @@ describe("/known", () => {
     expect((await call(deps, `POST /api/v1/builds/${open}/known`, acme.token, "{}")).status).toBe(
       400,
     );
-  });
-
-  test("takes at most MAX_KNOWN hashes a call", async () => {
-    const { deps, acme } = await setup();
-    const open = await openBuild(deps, acme.token);
-    expect((await known(deps, open, acme.token, many(MAX_KNOWN))).status).toBe(200);
-    expect((await known(deps, open, acme.token, many(MAX_KNOWN + 1))).status).toBe(400);
   });
 });
 

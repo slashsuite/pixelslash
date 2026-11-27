@@ -13,12 +13,25 @@ const white = shot();
 const red = shot({ blocks: [{ x: 8, y: 8, w: 16, h: 12, rgb: RED }] });
 const MOVED = { ...META.fingerprint, image: "sha256:new-image" };
 
+type Held = Awaited<ReturnType<typeof ciProject>>;
+
+/** Who measures: the CLI (acme's project diffs in CI, the server stores what it sent), or the server. */
+const sides = [
+  {
+    where: "ci",
+    token: (h: Held) => h.acme.token,
+    deps: (h: Held) => ({ ...h.deps, diff: noDiff }),
+  },
+  { where: "server", token: (h: Held) => h.other.token, deps: (h: Held) => h.deps },
+];
+
 describe("an environment change in a project that diffs in CI", () => {
-  for (const where of ["ci", "server"] as const) {
-    test(`main re-captured in the new environment is the next branch build's baseline (${where})`, async () => {
+  test.each(sides)(
+    "main re-captured in the new environment is the next branch build's baseline ($where)",
+    async (side) => {
       const held = await ciProject();
-      const token = where === "ci" ? held.acme.token : held.other.token;
-      const deps = where === "ci" ? { ...held.deps, diff: noDiff } : held.deps;
+      const token = side.token(held);
+      const deps = side.deps(held);
       const go = (spec: Parameters<typeof run>[2]) => run(held, token, spec, deps);
       await go({ branch: "main", commit: sha(1), png: white });
       expect((await go(branch(2, white))).build?.status).toBe("passed");
@@ -44,6 +57,6 @@ describe("an environment change in a project that diffs in CI", () => {
         diffStatus: "changed",
         baselineKey: unchanged.row.imageKey,
       });
-    });
-  }
+    },
+  );
 });

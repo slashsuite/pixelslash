@@ -69,6 +69,19 @@ async function erroredBuild(ctx: Ctx) {
 
 type Loaded = { projectId: string; buildId: string; status: string; error: string | null };
 
+/** The route's loader: the build as the store has it now, so a reload reads the re-run's verdict. */
+const loadBuild =
+  (ctx: Ctx) =>
+  async ({ params }: { params: Record<string, string | undefined> }): Promise<Loaded> => {
+    const build = await getBuild(ctx.db, params["projectId"] ?? "", params["buildId"] ?? "");
+    return {
+      projectId: build.projectId,
+      buildId: build.id,
+      status: build.status,
+      error: build.error,
+    };
+  };
+
 /** The build page's status and its real error callout, which holds the Re-run button. */
 function BuildStatus({ data }: { data: Loaded }) {
   return (
@@ -91,15 +104,7 @@ test("an errored build's shots are re-run from its page, and the build gets its 
   const { user } = await render(
     {
       path: "/projects/$projectId/builds/$buildId",
-      loader: async ({ params }) => {
-        const build = await getBuild(ctx.db, params["projectId"] ?? "", params["buildId"] ?? "");
-        return {
-          projectId: build.projectId,
-          buildId: build.id,
-          status: build.status,
-          error: build.error,
-        };
-      },
+      loader: loadBuild(ctx),
       component: BuildStatus,
     },
     { url: `/projects/${ctx.projectId}/builds/${errored.id}` },

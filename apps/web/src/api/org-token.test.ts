@@ -179,8 +179,8 @@ describe("POST /api/v1/projects (ob 1787)", () => {
 
   test("a bad name is a 400 and creates nothing", async () => {
     const { db, deps, acmeOrg } = await orgs();
-    for (const body of [{}, { name: "" }, { name: "   " }, { name: 3 }, { name: "x".repeat(101) }])
-      expect((await create(deps, acmeOrg.token, body)).status).toBe(400);
+    // Which names are refused is `validate.test.ts`'s projectName table; this is the wiring.
+    expect((await create(deps, acmeOrg.token, { name: "   " })).status).toBe(400);
     expect((await call(deps, "POST /api/v1/projects", acmeOrg.token, "nope")).status).toBe(400);
     expect(await count(db)).toBe(2);
   });

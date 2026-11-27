@@ -73,7 +73,7 @@ describe("baseline selection", () => {
       rebaselineNeeded: false,
     });
     // The same bytes as main's: settled without a diff, so there is no overlay (ob 1948).
-    expect(branchShot?.diffKey).toBeNull();
+    expect(branchShot.diffKey).toBeNull();
   });
 
   test("an acceptance on the branch carries forward after a rebase", async () => {
@@ -90,7 +90,7 @@ describe("baseline selection", () => {
     expect(
       await reviewSnapshot(ctx.db, {
         projectId: ctx.projectId,
-        snapshotId: firstShot?.id ?? "",
+        snapshotId: firstShot.id,
         state: "accepted",
         userId: ctx.userId,
       }),
@@ -107,7 +107,7 @@ describe("baseline selection", () => {
     const secondShot = await onlyShot(ctx, second);
     expect(secondShot).toMatchObject({
       diffStatus: "unchanged",
-      baselineKey: firstShot?.imageKey,
+      baselineKey: firstShot.imageKey,
     });
     expect(second.status).toBe("passed");
   });
@@ -152,7 +152,7 @@ describe("baseline selection", () => {
       diffResult: null,
       rebaselineNeeded: true,
     });
-    expect(branchShot?.diffKey).toBeNull();
+    expect(branchShot.diffKey).toBeNull();
   });
 });
 
@@ -170,12 +170,12 @@ describe("build status", () => {
     const branchShot = await onlyShot(ctx, branch);
     await reviewSnapshot(ctx.db, {
       projectId: ctx.projectId,
-      snapshotId: branchShot?.id ?? "",
+      snapshotId: branchShot.id,
       state: "accepted",
       userId: ctx.userId,
     });
     expect((await getBuild(ctx.db, ctx.projectId, branch.id)).status).toBe("passed");
-    expect(branchShot?.diffStatus).toBe("changed");
+    expect(branchShot.diffStatus).toBe("changed");
   });
 
   test("the happy path writes the verdict once and blocks on it", async () => {
@@ -245,7 +245,7 @@ describe("build status", () => {
     const firstShot = await onlyShot(ctx, first);
     const verdict = await reviewSnapshot(ctx.db, {
       projectId: ctx.projectId,
-      snapshotId: firstShot?.id ?? "",
+      snapshotId: firstShot.id,
       state: "rejected",
       userId: ctx.userId,
     });
@@ -279,8 +279,8 @@ describe("build status", () => {
       shots: [{ png: noisy }],
     });
     const branchShot = await onlyShot(ctx, branch);
-    expect(branchShot?.diffStatus).toBe("unchanged");
-    expect(branchShot?.diffResult?.regions.every((r) => r.kind !== "change")).toBe(true);
+    expect(branchShot.diffStatus).toBe("unchanged");
+    expect(branchShot.diffResult?.regions.every((r) => r.kind !== "change")).toBe(true);
     expect(branch.status).toBe("passed");
   });
 });

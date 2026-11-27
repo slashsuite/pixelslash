@@ -12,14 +12,17 @@ import {
   BOTTOM_RIGHT,
   branchBuild,
   H,
+  inOrder,
   KEY,
   pixel,
   stubModel,
   TOP_LEFT,
   W,
   white,
+  type Sent,
   withModel,
 } from "./explain-test-kit";
+import type { Ctx } from "#/diff/test-builds";
 import type { ModelFetch } from "./model";
 
 /**
@@ -37,18 +40,52 @@ const rows = (top: number) =>
     rgb: [(n * 37) % 256, (n * 91) % 256, 200] as [number, number, number],
   }));
 
+/** The one call whose crops are `region`'s box, checked to be cut from the same place in all three. */
+function callFor(sent: Sent[], region: Parameters<typeof cropBox>[0]) {
+  const box = cropBox(region, W, H);
+  if (!box) throw new Error("region outside the shot");
+  const call = sent.find((c) => c.images[0]?.width === box.w && c.images[0].height === box.h);
+  if (!call) throw new Error(`no call sent a ${box.w}x${box.h} crop`);
+  const [main, branch, diff] = call.images;
+  if (!main || !branch || !diff) throw new Error("missing crop");
+  return { call, box, main, branch, diff };
+}
+
+/** `answer`, but before the first region call a reviewer rejects the changed shot. */
+function decidingOnFirstRegion(ctx: Ctx, answer: ModelFetch): ModelFetch {
+  let decided = false;
+  return async (input, init) => {
+    if (!decided && typeof init.body === "string" && init.body.includes("image_url")) {
+      decided = true;
+      const [row] = await ctx.db
+        .select()
+        .from(snapshots)
+        .where(eq(snapshots.diffStatus, "changed"));
+      if (!row) throw new Error("no changed shot to decide");
+      await reviewSnapshot(ctx.db, {
+        projectId: ctx.projectId,
+        userId: ctx.userId,
+        snapshotId: row.id,
+        state: "rejected",
+      });
+    }
+    return answer(input, init);
+  };
+}
+
 describe("explaining changed regions (ob 1473)", () => {
   test("one call per change region, each with that region's three crops only", async () => {
     const ctx = await context();
     await withModel(ctx, false);
-    const { sent, sessions, modelFetch } = stubModel((n) =>
-      n === 0 ? "LABEL intended\nWHY A red block was added." : "LABEL unintended\nWHY Overlap.",
+    const { sent, sessions, modelFetch } = stubModel(
+      inOrder("LABEL intended\nWHY A red block was added.", "LABEL unintended\nWHY Overlap."),
     );
     const build = await branchBuild(ctx, modelFetch);
     const row = await onlyShot(ctx, build);
     // Both region calls and the summary call name the build as their session.
     expect(sessions).toEqual([build.id, build.id, build.id]);
-    const regions = (row.diffResult?.regions ?? []).filter((r) => r.kind === "change");
+    expect(row.diffResult).not.toBeNull();
+    const regions = row.diffResult!.regions.filter((r) => r.kind === "change");
     expect(regions).toHaveLength(2);
     expect(sent).toHaveLength(2);
 
@@ -60,15 +97,10 @@ describe("explaining changed regions (ob 1473)", () => {
     }
     // Each call's crops are its region plus the padding, cut from the same place in all three.
     const asked = regions.map((region) => {
-      const box = cropBox(region, W, H);
-      if (!box) throw new Error("region outside the shot");
-      const call = sent.find((c) => c.images[0]?.width === box.w && c.images[0].height === box.h);
-      if (!call) throw new Error(`no call sent a ${box.w}x${box.h} crop`);
-      const [main, branch, diff] = call.images;
+      const { call, box, main, branch, diff } = callFor(sent, region);
       for (const img of [main, branch, diff])
-        expect([img?.width, img?.height]).toEqual([box.w, box.h]);
+        expect([img.width, img.height]).toEqual([box.w, box.h]);
       const inside = { x: region.x - box.x + 1, y: region.y - box.y + 1 };
-      if (!main || !branch) throw new Error("missing crop");
       expect(pixel(main, inside.x, inside.y)).toEqual([255, 255, 255]);
       expect(pixel(branch, inside.x, inside.y)).toEqual(RED);
       return call;
@@ -168,8 +200,8 @@ describe("explaining changed regions (ob 1473)", () => {
   test("one region that is not noise keeps the shot for a person, opted in or not", async () => {
     const ctx = await context();
     await withModel(ctx, true);
-    const { modelFetch } = stubModel((n) =>
-      n === 0 ? "LABEL noise\nWHY Jitter." : "LABEL unintended\nWHY The button is clipped.",
+    const { modelFetch } = stubModel(
+      inOrder("LABEL noise\nWHY Jitter.", "LABEL unintended\nWHY The button is clipped."),
     );
     const build = await branchBuild(ctx, modelFetch);
     const row = await onlyShot(ctx, build);
@@ -190,9 +222,7 @@ describe("explaining changed regions (ob 1473)", () => {
   test("a shot with one region explained keeps that note and is never auto-passed", async () => {
     const ctx = await context();
     await withModel(ctx, true);
-    const { modelFetch } = stubModel((n) =>
-      n === 0 ? "LABEL noise\nWHY Jitter." : new Error("500"),
-    );
+    const { modelFetch } = stubModel(inOrder("LABEL noise\nWHY Jitter.", new Error("500")));
     const build = await branchBuild(ctx, modelFetch);
     const row = await onlyShot(ctx, build);
     expect(row.aiReview?.regions).toHaveLength(1);
@@ -226,24 +256,7 @@ describe("explaining changed regions (ob 1473)", () => {
   test("a reviewer's decision made while the model was asked stands", async () => {
     const ctx = await context();
     await withModel(ctx, true);
-    let decided = false;
-    const { modelFetch: answer } = stubModel();
-    const modelFetch: ModelFetch = async (input, init) => {
-      if (!decided && typeof init.body === "string" && init.body.includes("image_url")) {
-        decided = true;
-        const [row] = await ctx.db
-          .select()
-          .from(snapshots)
-          .where(eq(snapshots.diffStatus, "changed"));
-        await reviewSnapshot(ctx.db, {
-          projectId: ctx.projectId,
-          userId: ctx.userId,
-          snapshotId: row?.id ?? "",
-          state: "rejected",
-        });
-      }
-      return answer(input, init);
-    };
+    const modelFetch = decidingOnFirstRegion(ctx, stubModel().modelFetch);
     const build = await branchBuild(ctx, modelFetch);
     const row = await onlyShot(ctx, build);
     expect(row).toMatchObject({ reviewState: "rejected", reviewedBy: ctx.userId, aiReview: null });

@@ -13,7 +13,7 @@ import type { Db } from "#/db/db";
 import type { SentFlake } from "#/db/flakes";
 import { type FlakyPolicy, snapshots } from "#/db/schema";
 import { snapshotStem } from "#/db/stem";
-import { TEST_MODEL_KEY_SECRET } from "#/db/test-db";
+import { TEST_MODEL_KEY_SECRET } from "#/test/store";
 import { sha256Bytes } from "#/lib/crypto";
 import { type BlobStore, orgBlobs } from "#/storage/blobs";
 import type { ConsumerDeps } from "#/ai/explain-queue";

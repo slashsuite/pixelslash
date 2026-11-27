@@ -1,4 +1,4 @@
-import { expect, open, test } from "./fixtures";
+import { expect, expectHydrated, open, test } from "./fixtures";
 import { CHANGED, SHA_MAIN, SHA_WORK, WHITE, uploadBuild } from "./api-upload";
 import { showPanel } from "./snapshot-viewer";
 
@@ -50,21 +50,21 @@ test("a flaky shot under each policy: badge, summary line, config line, resolve 
     .first()
     .click();
   await expect(page).toHaveURL(/\/snapshots\//);
-  await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
+  await expectHydrated(page);
   await showPanel(page);
   const panel = page.getByTestId("flake-panel");
   await expect(panel.getByTestId("flaky-badge")).toHaveText("skipped: flaky");
   await expect(panel.getByTestId("flake-differed")).toHaveText("1 of 3 runs differed (run 2)");
   await expect(panel.getByTestId("flake-run")).toHaveCount(3);
-  await expect(panel.locator('[data-testid="flake-run"][data-differed="true"]')).toHaveCount(1);
+  await expect(panel.getByTestId("flake-run").filter({ hasText: "· differed" })).toHaveCount(1);
   await expect(panel.getByTestId("flaky-policy")).toContainText("skip: it does not wait");
 
   // The policy control offers the other policy and copies its line; nothing changes on the server.
   const control = panel.getByTestId("flaky-policy-control");
-  await expect(control.getByTestId("flaky-route-line").locator("code")).toHaveText(
+  await expect(control.getByTestId("flaky-route-line").getByRole("code")).toHaveText(
     '"flaky": "review"',
   );
-  await expect(control.getByTestId("flaky-story-tag").locator("code")).toHaveText(
+  await expect(control.getByTestId("flaky-story-tag").getByRole("code")).toHaveText(
     "pixelslash-flaky-review",
   );
   await expect(control).toContainText("takes effect from the next build");
@@ -76,7 +76,7 @@ test("a flaky shot under each policy: badge, summary line, config line, resolve 
   // The Flakes list: both open; resolve one with a note, then reopen it.
   await panel.getByTestId("flaky-badge").click();
   await expect(page).toHaveURL(/\/flakes#flake-/);
-  await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
+  await expectHydrated(page);
   const flakes = page.getByTestId("flake");
   await expect(flakes).toHaveCount(2);
   const ticker = flakes.filter({ hasText: "ticker" });

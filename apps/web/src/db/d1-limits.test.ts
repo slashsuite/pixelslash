@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { describe, expect, onTestFinished, test } from "vitest";
 import { memoryStore } from "#/api/test-support";
 import { rediffShots } from "#/diff/rerun";
 import { type Uploads, rows, sha, upload } from "#/diff/test-builds";
@@ -11,12 +11,12 @@ import { listBuilds } from "./build-list";
 import type { Db } from "./db";
 import { snapshotIgnoreBoxes, snapshotOverrides } from "./override-export";
 import { overrideChanges } from "./overrides";
-import { createOrg, createProject, listOrgs } from "./orgs";
+import { listOrgs } from "./orgs";
 import { acceptAllSnapshots, buildView } from "./review";
-import { d1Db } from "./test-d1";
+import { d1Db, seededStore } from "#/test/store";
 import { twinsOfBuild } from "./twins";
 import { baselinesOf } from "./twins-read";
-import { signInGithubUser } from "./users";
+import { must } from "#/test/must";
 
 /**
  * A build bigger than D1's 100 bound parameters per statement (ob 1773). In-memory SQLite allows
@@ -36,28 +36,18 @@ const every = (png: typeof white) => names.map((name) => ({ name, png }));
  */
 const frozen = { now: () => 0 };
 
-let held: { db: Db; dispose: () => Promise<void> };
-let ctx: Uploads & { userId: string };
-
-beforeAll(async () => {
-  held = await d1Db();
-  const { db } = held;
-  const user = await signInGithubUser(db, {
-    githubId: 1,
-    login: "ada",
-    name: null,
-    avatarUrl: null,
-  });
-  const org = await createOrg(db, user.id, "Acme");
-  const project = await createProject(db, user.id, org.id, { name: "web", diffLocation: "server" });
+/** The test's own local D1, seeded with Ada's org and its `web` project; disposed when the test ends. */
+async function localD1(): Promise<Uploads & { userId: string }> {
+  const held = await d1Db();
+  onTestFinished(() => held.dispose());
+  const { db, user, org, project } = await seededStore<Db>({ db: held.db });
   const { store } = memoryStore();
-  ctx = { db, projectId: project.id, userId: user.id, scoped: orgBlobs(store, org.id) };
-}, 60_000);
-
-afterAll(() => held?.dispose());
+  return { db, projectId: project.id, userId: user.id, scoped: orgBlobs(store, org.id) };
+}
 
 describe(`a build of ${SHOTS} shots on a local D1 (ob 1773)`, () => {
   test("the build page, its snapshot pages and a re-diff load without error", async () => {
+    const ctx = await localD1();
     await upload(ctx, { branch: "main", commit: sha(1), shots: every(white) }, frozen);
     const first = await upload(
       ctx,
@@ -97,8 +87,8 @@ describe(`a build of ${SHOTS} shots on a local D1 (ob 1773)`, () => {
     expect(wide.length).toBeGreaterThan(0);
 
     // The snapshot pages: the first, a middle and the last shot.
-    for (const snapshot of [view.snapshots[0], view.snapshots[SHOTS >> 1], view.snapshots.at(-1)]) {
-      if (!snapshot) throw new Error("no shot");
+    const picked = [view.snapshots[0], view.snapshots[SHOTS >> 1], view.snapshots.at(-1)];
+    for (const snapshot of picked.map((s) => must(s, "a picked shot"))) {
       await snapshotDiffOptions(ctx.db, snapshot.id);
       await snapshotOverrides(ctx.db, ctx.userId, ctx.projectId, snapshot);
       await snapshotIgnoreBoxes(ctx.db, ctx.userId, ctx.projectId, snapshot);
@@ -117,6 +107,7 @@ describe(`a build of ${SHOTS} shots on a local D1 (ob 1773)`, () => {
   }, 300_000);
 
   test("the merge-base and 200 ancestors reach the baseline query in parts (ob 1788)", async () => {
+    const ctx = await localD1();
     const old = await upload(ctx, { branch: "main", commit: sha(1001), shots: [{ png: white }] });
     const history = Array.from({ length: 200 }, (_, i) => sha(1150 - i));
     const branch = await upload(ctx, {
@@ -133,6 +124,7 @@ describe(`a build of ${SHOTS} shots on a local D1 (ob 1773)`, () => {
   }, 60_000);
 
   test("150 hashes are looked up in parts, the held one found (PS-424)", async () => {
+    const ctx = await localD1();
     await upload(ctx, { branch: "main", commit: sha(7001), shots: [{ png: white }] });
     const real = await sha256Bytes(white.buffer);
     const absent = Array.from({ length: 150 }, (_, i) => i.toString(16).padStart(64, "0"));

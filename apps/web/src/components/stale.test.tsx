@@ -1,20 +1,23 @@
+// @vitest-environment happy-dom
 import { describe, expect, test, vi } from "vitest";
 import type { SnapshotView } from "#/db/review";
 import type { DiffResult } from "#/db/schema";
 import type { StaleItem } from "#/lib/stale";
-import { renderRouted, textOf } from "#/test/render-routed";
+import { must } from "#/test/must";
+import { render, screen } from "#/test/render";
 import { snapshotView } from "#/test/snapshot-view";
 import { toReviewText } from "./build-header";
 import { measured } from "./shot-card";
-import { StaleBadge, StaleList } from "./stale";
+import { StaleList } from "./stale";
 
-// `flake` reaches a server function, and with it the Worker's bindings, which Node does not have;
-// the line under test never draws a flake badge.
-vi.mock("#/components/flake", () => ({ FlakyBadge: () => null }));
+// The shot card's flake badge imports a server function, which loads the Worker's env and session.
+vi.mock("#/server/env", () => import("#/test/render").then((m) => m.serverEnv));
+vi.mock("#/server/session", () => import("#/test/render").then((m) => m.serverSession));
 
 /**
- * A stale native twin as the screens say it: the project page's list, the badge, and the line on
- * the native shot itself. When a key goes stale and when it clears is `db/stale.test.ts`.
+ * A stale native twin as the screens say it: the project page's list and the line on the native
+ * shot itself. The badge on a twin row is `twins.test.tsx`'s. When a key goes stale and when it
+ * clears is `db/stale.test.ts`.
  */
 
 const item = (over: Partial<StaleItem> = {}): StaleItem => ({
@@ -41,52 +44,48 @@ const item = (over: Partial<StaleItem> = {}): StaleItem => ({
   ...over,
 });
 
-const count = (html: string, testId: string) => html.split(`data-testid="${testId}"`).length - 1;
+/** The list's one line per stale key. A row has no role of its own; its test id names it. */
+const lines = () => screen.queryAllByTestId("stale-item");
 
 describe("the project page's Stale list", () => {
   test("says which twin is stale, which build changed it, and who accepted it", async () => {
-    const html = await renderRouted(<StaleList items={[item()]} />);
-    expect(count(html, "stale-item")).toBe(1);
-    // Tags dropped with no space left, so the link reads as part of the sentence it sits in.
-    expect(html.replace(/<[^>]+>/g, "")).toContain(
-      "Button/md-primary dark on android is stale: web changed in build 01234567, accepted by E2E Octocat 2026-11-03",
-    );
+    await render(<StaleList items={[item()]} />);
+    expect(lines()).toHaveLength(1);
+    expect(
+      screen.getByText(
+        (_, el) =>
+          el?.textContent ===
+          "Button/md-primary dark on android is stale: web changed in build 01234567, accepted by E2E Octocat 2026-11-03",
+      ),
+    ).toBeTruthy();
   });
 
   test("the cause is a link to the build's web shot, named by the first eight characters", async () => {
-    const html = await renderRouted(<StaleList items={[item()]} />);
-    const cause = html.match(/<a [^>]*data-testid="stale-cause"[^>]*>([^<]*)</);
-    expect(cause?.[1]).toBe("01234567");
-    expect(cause?.[0]).toMatch(/href="[^"]*\/builds\/0123456789abcdef\/snapshots\/web-9"/);
+    await render(<StaleList items={[item()]} />);
+    expect(screen.getByRole("link", { name: "01234567" }).getAttribute("href")).toMatch(
+      /\/builds\/0123456789abcdef\/snapshots\/web-9$/,
+    );
   });
 
   test("offers the native shot a reviewer accepts", async () => {
-    const html = await renderRouted(<StaleList items={[item()]} />);
-    expect(textOf(html)).toContain("Review the android shot");
-    expect(html).toMatch(/href="[^"]*\/builds\/b2\/snapshots\/android-1"/);
+    await render(<StaleList items={[item()]} />);
+    expect(
+      screen.getByRole("link", { name: "Review the android shot" }).getAttribute("href"),
+    ).toMatch(/\/builds\/b2\/snapshots\/android-1$/);
   });
 
   test("several devices and sizes of one key are one line that says so", async () => {
-    const shot = item().shots[0];
-    if (!shot) throw new Error("fixture has a shot");
+    const shot = must(item().shots[0], "the fixture's shot");
     const two = item({ shots: [shot, { ...shot, snapshotId: "android-2", viewport: "800x1280" }] });
-    const html = await renderRouted(<StaleList items={[two]} />);
-    expect(count(html, "stale-item")).toBe(1);
-    expect(textOf(html)).toContain("2 devices and sizes");
+    await render(<StaleList items={[two]} />);
+    expect(lines()).toHaveLength(1);
+    expect(screen.getByText("2 devices and sizes")).toBeTruthy();
   });
 
   test("a project with nothing stale draws no list", async () => {
-    const html = await renderRouted(<StaleList items={[]} />);
-    expect(html).not.toContain("stale-item");
-    expect(textOf(html)).not.toContain("Stale");
-  });
-});
-
-describe("the Stale badge", () => {
-  test("is the one marker, worded Stale", async () => {
-    const html = await renderRouted(<StaleBadge />);
-    expect(count(html, "stale-badge")).toBe(1);
-    expect(textOf(html)).toBe("Stale");
+    await render(<StaleList items={[]} />);
+    expect(lines()).toEqual([]);
+    expect(screen.queryByRole("heading", { name: /Stale/ })).toBeNull();
   });
 });
 

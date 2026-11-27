@@ -23,13 +23,8 @@ describe("the Server-Timing header on /api/v1", () => {
     expect(Object.keys(got)).toEqual(
       expect.arrayContaining(["auth", "build", "form", "digest", "blob", "db", "flake", "total"]),
     );
+    // How long each part reads is `server/server-timing.test.ts`'s, on a fake clock; this is which parts.
     expect(Object.keys(got).at(-1)).toBe("total");
-    for (const ms of Object.values(got)) expect(ms).toBeGreaterThanOrEqual(0);
-    // The parts are inside the whole.
-    const { total, ...inside } = got;
-    expect(Object.values(inside).reduce((n, ms) => n + ms, 0)).toBeLessThanOrEqual(
-      (total ?? 0) + 1,
-    );
   });
 
   test("a finalize names the finalise, the check-run sync, the baseline pick, the measuring and the removed markers", async () => {

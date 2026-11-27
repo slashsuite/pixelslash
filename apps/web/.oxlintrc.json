@@ -1,0 +1,12 @@
+{
+  "$schema": "../../node_modules/oxlint/configuration_schema.json",
+  "extends": ["../../.oxlintrc.json", "../../node_modules/@hackcove/oxlint-testing/.oxlintrc.json"],
+  "overrides": [
+    {
+      "files": ["src/lib/log.ts"],
+      "rules": {
+        "no-console": "off"
+      }
+    }
+  ]
+}

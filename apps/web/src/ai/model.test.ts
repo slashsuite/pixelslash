@@ -49,10 +49,13 @@ const errorOf = async (fetcher: ModelFetch) => {
 describe("a reply cut off by the token ceiling (ob 1833)", () => {
   const RAN_OUT = "the model ran out of tokens before answering (finish_reason length)";
 
-  test("empty, null or missing content with finish_reason length names the cause", async () => {
-    for (const message of [{ content: "" }, { content: null }, { content: "  " }, {}]) {
-      expect(await errorOf(replying({ finish_reason: "length", message }))).toBe(RAN_OUT);
-    }
+  test.each([
+    ["empty", { content: "" }],
+    ["null", { content: null }],
+    ["blank", { content: "  " }],
+    ["missing", {}],
+  ])("%s content with finish_reason length names the cause", async (_, message) => {
+    expect(await errorOf(replying({ finish_reason: "length", message }))).toBe(RAN_OUT);
   });
 
   test("kimi's null content beside reasoning_content is no content, not a crash", async () => {
@@ -77,14 +80,15 @@ describe("a reply cut off by the token ceiling (ob 1833)", () => {
 });
 
 describe("explainRegion", () => {
-  test("a refused call and an unreachable endpoint fail without the key in the message", async () => {
-    for (const fetcher of [refused, down]) {
-      const error = await explainRegion(endpoint, images, { buildId: "build-1", fetcher }).catch(
-        (e: unknown) => e,
-      );
-      expect(error).toBeInstanceOf(ModelError);
-      expect(error instanceof Error ? error.message : "").not.toContain("sk-secret-value");
-    }
+  test.each([
+    ["a refused call", refused],
+    ["an unreachable endpoint", down],
+  ])("%s fails without the key in the message", async (_, fetcher) => {
+    const error = await explainRegion(endpoint, images, { buildId: "build-1", fetcher }).catch(
+      (e: unknown) => e,
+    );
+    expect(error).toBeInstanceOf(ModelError);
+    expect(String(error)).not.toContain("sk-secret-value");
   });
 });
 

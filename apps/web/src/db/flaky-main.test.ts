@@ -4,6 +4,7 @@ import { RED, shot } from "#/diff/test-shots";
 import type { SentFlake } from "./flakes";
 import { reviewSnapshot } from "./review";
 import { saveAndRediff } from "#/diff/override";
+import { must } from "#/test/must";
 
 const block = { x: 8, y: 8, w: 12, h: 12, rgb: RED };
 const before = () => shot();
@@ -150,7 +151,7 @@ describe("a flaky shot on the default branch becomes the baseline once its image
     const [prAbout] = await rows(ctx, pr);
     await reviewSnapshot(ctx.db, {
       projectId: ctx.projectId,
-      snapshotId: prAbout?.id ?? "",
+      snapshotId: must(prAbout, "the PR's about shot").id,
       state: "accepted",
       userId: ctx.userId,
     });

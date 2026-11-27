@@ -1,5 +1,5 @@
 import { createOrg, createProject } from "#/db/orgs";
-import { TEST_MODEL_KEY_SECRET, testDb } from "#/db/test-db";
+import { TEST_MODEL_KEY_SECRET, testDb } from "#/test/store";
 import { issueCiToken } from "#/db/tokens";
 import { signInGithubUser } from "#/db/users";
 import type { SweepBlobStore } from "#/storage/blobs";
