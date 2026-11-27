@@ -33,18 +33,21 @@ export type OrgToken = {
 
 /**
  * The org's CI tokens (ob 1787): one `psorg_` token reaches every project of the org, so a
- * monorepo's CI holds one secret, not one per package. Any member mints and revokes.
+ * monorepo's CI holds one secret, not one per package. Only an owner mints and revokes.
  */
 export function OrgTokensPanel({
   orgId,
   orgName,
   tokens,
   hydrated,
+  isOwner,
 }: {
   orgId: string;
   orgName: string;
   tokens: OrgToken[];
   hydrated: boolean;
+  /** The viewer owns the org: only then are Issue and Revoke shown. */
+  isOwner: boolean;
 }) {
   const [issued, setIssued] = useState<string | null>(null);
   return (
@@ -61,8 +64,12 @@ export function OrgTokensPanel({
             <CopyLine label="token" text={issued} data-testid="issued-org-token" />
           </Callout>
         )}
-        <IssueForm orgId={orgId} onIssued={setIssued} />
-        <TokenTable tokens={tokens} hydrated={hydrated} />
+        {isOwner ? (
+          <IssueForm orgId={orgId} onIssued={setIssued} />
+        ) : (
+          <Caption>Only an owner issues and revokes org tokens.</Caption>
+        )}
+        <TokenTable tokens={tokens} hydrated={hydrated} canRevoke={isOwner} />
       </Stack>
     </Card>
   );
@@ -119,14 +126,26 @@ function IssueForm({ orgId, onIssued }: { orgId: string; onIssued: (token: strin
 }
 
 /** Every token of the org: a revoked one stays listed, greyed. */
-function TokenTable({ tokens, hydrated }: { tokens: OrgToken[]; hydrated: boolean }) {
+function TokenTable({
+  tokens,
+  hydrated,
+  canRevoke,
+}: {
+  tokens: OrgToken[];
+  hydrated: boolean;
+  canRevoke: boolean;
+}) {
   const router = useRouter();
   const [revoking, setRevoking] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const revoke = async (tokenId: string) => {
+    setError(null);
     setRevoking(tokenId);
     try {
       await revokeOrgTokenFn({ data: { tokenId } });
       await router.invalidate();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setRevoking(null);
     }
@@ -134,59 +153,86 @@ function TokenTable({ tokens, hydrated }: { tokens: OrgToken[]; hydrated: boolea
   if (tokens.length === 0) {
     return (
       <Text tone="muted" data-testid="no-org-tokens">
-        No org tokens yet. Issue one above to use a single secret across a monorepo's CI.
+        No org tokens yet.
+        {canRevoke && " Issue one above to use a single secret across a monorepo's CI."}
       </Text>
     );
   }
   return (
-    <Table label="Org tokens">
-      <TableHead>
-        <TableRow>
-          <TableHeaderCell>Name</TableHeaderCell>
-          <TableHeaderCell>Token</TableHeaderCell>
-          <TableHeaderCell>Created</TableHeaderCell>
-          <TableHeaderCell>Last used</TableHeaderCell>
-          <TableHeaderCell>Status</TableHeaderCell>
-          <TableHeaderCell align="end" label="Actions" />
-        </TableRow>
-      </TableHead>
-      <TableBody>
-        {tokens.map((t) => {
-          const active = !t.revokedAt;
-          const tone = active ? undefined : "muted";
-          return (
-            <TableRow key={t.id} data-testid="org-token-row">
-              <TableCell tone={active ? "strong" : "muted"}>{t.name}</TableCell>
-              <TableCell mono tone={tone}>
-                {t.prefix}…
-              </TableCell>
-              <TableCell tone={tone}>{formatDateTime(t.createdAt)}</TableCell>
-              <TableCell tone={tone}>
-                {t.lastUsedAt ? formatDateTime(t.lastUsedAt) : "never"}
-              </TableCell>
-              <TableCell>
-                <Pill dot tone={active ? "positive" : "neutral"}>
-                  {active ? "active" : "revoked"}
-                </Pill>
-              </TableCell>
-              <TableCell align="end">
-                {active && (
-                  <Button
-                    variant="ghost"
-                    disabled={!hydrated}
-                    busy={revoking === t.id && "Revoking…"}
-                    onClick={() => void revoke(t.id)}
-                    tone="danger"
-                    aria-label={`Revoke ${t.name}`}
-                  >
-                    Revoke
-                  </Button>
-                )}
-              </TableCell>
-            </TableRow>
-          );
-        })}
-      </TableBody>
-    </Table>
+    <Stack gap="xs">
+      {error && (
+        <div role="alert">
+          <Text tone="danger">{error}</Text>
+        </div>
+      )}
+      <Table label="Org tokens">
+        <TableHead>
+          <TableRow>
+            <TableHeaderCell>Name</TableHeaderCell>
+            <TableHeaderCell>Token</TableHeaderCell>
+            <TableHeaderCell>Created</TableHeaderCell>
+            <TableHeaderCell>Last used</TableHeaderCell>
+            <TableHeaderCell>Status</TableHeaderCell>
+            <TableHeaderCell align="end" label="Actions" />
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {tokens.map((t) => (
+            <TokenRow
+              key={t.id}
+              token={t}
+              revoke={canRevoke && hydrated ? () => void revoke(t.id) : undefined}
+              canRevoke={canRevoke}
+              busy={revoking === t.id}
+            />
+          ))}
+        </TableBody>
+      </Table>
+    </Stack>
+  );
+}
+
+/** One token; an owner gets its Revoke button while it is active. */
+function TokenRow({
+  token: t,
+  canRevoke,
+  revoke,
+  busy,
+}: {
+  token: OrgToken;
+  canRevoke: boolean;
+  revoke: (() => void) | undefined;
+  busy: boolean;
+}) {
+  const active = !t.revokedAt;
+  const tone = active ? undefined : "muted";
+  return (
+    <TableRow data-testid="org-token-row">
+      <TableCell tone={active ? "strong" : "muted"}>{t.name}</TableCell>
+      <TableCell mono tone={tone}>
+        {t.prefix}…
+      </TableCell>
+      <TableCell tone={tone}>{formatDateTime(t.createdAt)}</TableCell>
+      <TableCell tone={tone}>{t.lastUsedAt ? formatDateTime(t.lastUsedAt) : "never"}</TableCell>
+      <TableCell>
+        <Pill dot tone={active ? "positive" : "neutral"}>
+          {active ? "active" : "revoked"}
+        </Pill>
+      </TableCell>
+      <TableCell align="end">
+        {active && canRevoke && (
+          <Button
+            variant="ghost"
+            disabled={!revoke}
+            busy={busy && "Revoking…"}
+            onClick={revoke}
+            tone="danger"
+            aria-label={`Revoke ${t.name}`}
+          >
+            Revoke
+          </Button>
+        )}
+      </TableCell>
+    </TableRow>
   );
 }

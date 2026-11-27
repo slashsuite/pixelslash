@@ -14,12 +14,11 @@ import {
   createOrg,
   createProject,
   getProjectWithOrg,
-  inviteMember,
   listOrgs,
   setDefaultBranch,
   setDiffLocation,
-  withdrawInvite,
 } from "#/db/orgs";
+import { inviteMember, withdrawInvite } from "#/db/invites";
 import { listBuilds } from "#/db/build-list";
 import { NotReviewableError, buildView, decideAll, decideShot } from "#/db/review";
 import { type NextStep, changeSetOf, nextAfterDecision, positionInSet } from "#/db/change-set";

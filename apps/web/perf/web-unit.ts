@@ -62,7 +62,7 @@ function seed(projects: Project[]): void {
     [
       "INSERT INTO users (id, login) VALUES ('load-user', 'load-bot');",
       "INSERT INTO orgs (id, name, is_smoke) VALUES ('load-org', 'Load', 1);",
-      "INSERT INTO members (org_id, user_id) VALUES ('load-org', 'load-user');",
+      "INSERT INTO members (org_id, user_id, role) VALUES ('load-org', 'load-user', 'owner');",
       ...rows,
     ].join("\n"),
   );

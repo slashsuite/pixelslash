@@ -45,7 +45,7 @@ export async function rivalSession(
   );
   const made = sql(`INSERT OR IGNORE INTO orgs (id, name) VALUES ('${id}-org', '${org}')`);
   const member = sql(
-    `INSERT OR IGNORE INTO members (org_id, user_id) VALUES ('${id}-org', '${id}-user')`,
+    `INSERT OR IGNORE INTO members (org_id, user_id, role) VALUES ('${id}-org', '${id}-user', 'owner')`,
   );
   const session = sql(
     `INSERT OR REPLACE INTO sessions (id, user_id, expires_at) VALUES ('${hash}', '${id}-user', ${Date.now() + 3_600_000})`,

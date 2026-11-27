@@ -54,6 +54,14 @@ export const orgs = sqliteTable("orgs", {
   isSmoke: isSmoke(),
 });
 
+/**
+ * What a member may do in their org. An `owner` alone removes members, changes roles, issues and
+ * revokes org tokens and sets the org's model; billing and deleting the org will be theirs too. An
+ * org may have several owners, and never none: the last one cannot be removed, step down or leave.
+ */
+export const MEMBER_ROLES = ["owner", "member"] as const;
+export type MemberRole = (typeof MEMBER_ROLES)[number];
+
 export const members = sqliteTable(
   "members",
   {
@@ -63,6 +71,7 @@ export const members = sqliteTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    role: text("role", { enum: MEMBER_ROLES }).notNull().default("member"),
     createdAt: createdAt(),
   },
   (t) => [primaryKey({ columns: [t.orgId, t.userId] }), index("members_user_idx").on(t.userId)],

@@ -80,7 +80,7 @@ function provisionRows({ org = "Flake Co", project = "flaky", into }: ProvisionO
     ...(made
       ? [
           `INSERT INTO orgs (id, name) VALUES (${q(ids.orgId)}, ${q(orgName)})`,
-          `INSERT INTO members (org_id, user_id) VALUES (${q(ids.orgId)}, ${VIEWER})`,
+          `INSERT INTO members (org_id, user_id, role) VALUES (${q(ids.orgId)}, ${VIEWER}, 'owner')`,
         ]
       : []),
     // `newProject` (src/server/fns.ts) gives a new project the deployment's DEFAULT_DIFF_LOCATION,

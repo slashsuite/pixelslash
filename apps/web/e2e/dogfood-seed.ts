@@ -226,6 +226,28 @@ const baselineKey = (b: Build, i: number) => `seed/${b.id}-${i}-main.png`;
 const q = (s: string) => `'${s.replaceAll("'", "''")}'`;
 const VIEWER = "(SELECT id FROM users WHERE login = 'e2e-octocat')";
 
+/**
+ * An org's users and memberships. The earliest member is the owner, as migration 0042 made of every
+ * org that had members. `at` keeps each GitHub id unique across the whole seed.
+ */
+function membersSql(org: (typeof ORGS)[number], at: number): string[] {
+  const out: string[] = [];
+  const owner = Math.max(...org.members.map((m) => m.daysAgo));
+  for (const m of org.members) {
+    const user = m.login === "e2e-octocat" ? VIEWER : q(`user-${m.login}`);
+    if (m.login !== "e2e-octocat") {
+      out.push(
+        `INSERT OR IGNORE INTO users (id, github_id, login, name, created_at) VALUES (${user}, ${1000 + at + out.length}, ${q(m.login)}, ${m.name ? q(m.name) : "NULL"}, ${T0 - 200 * DAY});`,
+      );
+    }
+    const role = m.daysAgo === owner ? "owner" : "member";
+    out.push(
+      `INSERT INTO members (org_id, user_id, role, created_at) VALUES (${q(org.id)}, ${user}, '${role}', ${T0 - m.daysAgo * DAY});`,
+    );
+  }
+  return out;
+}
+
 /** The INSERTs for every org above. Ids and times are fixed; the viewer is whoever the stub signed in. */
 export function seedSql(): string {
   const out: string[] = [];
@@ -233,17 +255,7 @@ export function seedSql(): string {
     out.push(
       `INSERT INTO orgs (id, name, created_at) VALUES (${q(org.id)}, ${q(org.name)}, ${T0 - 100 * DAY});`,
     );
-    for (const m of org.members) {
-      const user = m.login === "e2e-octocat" ? VIEWER : q(`user-${m.login}`);
-      if (m.login !== "e2e-octocat") {
-        out.push(
-          `INSERT OR IGNORE INTO users (id, github_id, login, name, created_at) VALUES (${user}, ${1000 + out.length}, ${q(m.login)}, ${m.name ? q(m.name) : "NULL"}, ${T0 - 200 * DAY});`,
-        );
-      }
-      out.push(
-        `INSERT INTO members (org_id, user_id, created_at) VALUES (${q(org.id)}, ${user}, ${T0 - m.daysAgo * DAY});`,
-      );
-    }
+    out.push(...membersSql(org, out.length));
     for (const login of org.invites) {
       out.push(
         `INSERT INTO invites (id, org_id, github_login, invited_by, created_at) VALUES (${q(`inv-${login}`)}, ${q(org.id)}, ${q(login)}, ${VIEWER}, ${T0 - DAY});`,

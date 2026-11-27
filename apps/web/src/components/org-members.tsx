@@ -11,27 +11,8 @@ import {
   Text,
 } from "@slashsuite/ui-react";
 import { useState } from "react";
-import type { OrgInvite, OrgMember, OrgOverview } from "#/db/orgs";
-import { formatDay } from "#/lib/format";
-
-function MemberRow({ member, isViewer }: { member: OrgMember; isViewer: boolean }) {
-  return (
-    <ListRow
-      data-testid="member-row"
-      leading={<Avatar name={member.login} />}
-      trailing={
-        <Text as="span" tone="muted">
-          joined {formatDay(member.joinedAt)}
-        </Text>
-      }
-    >
-      <Text strong as="b">
-        {member.login}
-      </Text>
-      <Caption>{[member.name, isViewer ? "you" : null].filter(Boolean).join(" · ") || " "}</Caption>
-    </ListRow>
-  );
-}
+import type { OrgInvite, OrgOverview } from "#/db/orgs";
+import { type MemberActions, MemberRow } from "./org-member-row";
 
 function InviteRow({
   invite,
@@ -169,23 +150,31 @@ export function MembersPanel({
   hydrated,
   onInvite,
   onWithdraw,
+  actions,
 }: {
   org: OrgOverview;
   viewerLogin: string | null;
   hydrated: boolean;
   onInvite: (login: string) => Promise<unknown>;
   onWithdraw: (invite: OrgInvite) => Promise<unknown>;
+  actions: MemberActions;
 }) {
+  const owners = org.members.filter((m) => m.role === "owner").length;
+  const viewerIsOwner = org.members.some((m) => m.login === viewerLogin && m.role === "owner");
   return (
     <Stack>
-      <InviteForm hydrated={hydrated} onInvite={onInvite} />
+      <InviteForm key={org.id} hydrated={hydrated} onInvite={onInvite} />
       <Card flush>
         <Stack divided>
           {org.members.map((member) => (
             <MemberRow
-              key={member.userId}
+              key={`${org.id}:${member.userId}`}
               member={member}
               isViewer={member.login === viewerLogin}
+              viewerIsOwner={viewerIsOwner}
+              owners={owners}
+              hydrated={hydrated}
+              actions={actions}
             />
           ))}
           {org.invites.map((invite) => (

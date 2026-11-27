@@ -3,7 +3,8 @@ import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 import { randomToken, sha256Hex } from "#/lib/crypto";
 import { type Db, NotFoundError } from "./db";
 import { refuseOnSubproject } from "./effective";
-import { getProject, requireMember } from "./orgs";
+import { requireOwner } from "./members";
+import { getProject } from "./orgs";
 import { ciTokens, members, projects, userTokens } from "./schema";
 import { orgTokens } from "./schema-org-tokens";
 
@@ -84,9 +85,9 @@ export async function verifyCiToken(db: Db, token: string, now = new Date()) {
 
 const ORG_PREFIX = "psorg_";
 
-/** An org CI token (ob 1787): any member may issue one. The plaintext is returned here and nowhere else. */
+/** An org CI token (ob 1787): only an owner may issue one. The plaintext is returned here and nowhere else. */
 export async function issueOrgToken(db: Db, userId: string, orgId: string, name: string) {
-  await requireMember(db, userId, orgId);
+  await requireOwner(db, userId, orgId);
   const token = randomToken(ORG_PREFIX);
   const id = crypto.randomUUID();
   await db.insert(orgTokens).values({
@@ -121,14 +122,15 @@ export async function listOrgTokens(db: Db, userId: string) {
     .orderBy(desc(orgTokens.createdAt), desc(orgTokens.id));
 }
 
-/** Another org's token is the same 404 as a missing one. */
+/** Only an owner may revoke one; another org's token is the same 404 as a missing one. */
 export async function revokeOrgToken(db: Db, userId: string, tokenId: string): Promise<void> {
   const [row] = await db
-    .select({ id: orgTokens.id })
+    .select({ orgId: orgTokens.orgId })
     .from(orgTokens)
     .innerJoin(members, and(eq(members.orgId, orgTokens.orgId), eq(members.userId, userId)))
     .where(eq(orgTokens.id, tokenId));
   if (!row) throw new NotFoundError("token");
+  await requireOwner(db, userId, row.orgId);
   await db
     .update(orgTokens)
     .set({ revokedAt: new Date() })

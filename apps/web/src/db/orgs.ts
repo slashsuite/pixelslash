@@ -15,16 +15,15 @@ export {
 import { nestProjects } from "./project-tree";
 import { type DiffLocation, builds, members, orgs, projects, users } from "./schema";
 import { invites } from "./schema-invites";
-import type { User } from "./users";
 
 export type Org = typeof orgs.$inferSelect;
 export type Project = typeof projects.$inferSelect;
 
-/** The creator is the first member. */
+/** The creator is the first member, and its owner. */
 export async function createOrg(db: Db, userId: string, name: string): Promise<Org> {
   const [org] = await db.insert(orgs).values({ id: crypto.randomUUID(), name }).returning();
   if (!org) throw new Error("org insert returned nothing");
-  await db.insert(members).values({ orgId: org.id, userId });
+  await db.insert(members).values({ orgId: org.id, userId, role: "owner" });
   return org;
 }
 
@@ -49,6 +48,7 @@ export type OrgMember = {
   login: string;
   name: string | null;
   avatarUrl: string | null;
+  role: (typeof members.$inferSelect)["role"];
   joinedAt: Date;
 };
 
@@ -143,6 +143,7 @@ export async function listOrgs(db: Db, userId: string): Promise<OrgOverview[]> {
           login: users.login,
           name: users.name,
           avatarUrl: users.avatarUrl,
+          role: members.role,
           joinedAt: members.createdAt,
         })
         .from(members)
@@ -205,41 +206,6 @@ export async function requireMember(db: Db, userId: string, orgId: string): Prom
     .from(members)
     .where(and(eq(members.orgId, orgId), eq(members.userId, userId)));
   if (!row) throw new NotFoundError("org");
-}
-
-/** `who` is a GitHub login, or an email when it holds an `@` (no GitHub login can, PS-274). */
-export async function inviteMember(
-  db: Db,
-  inviter: User,
-  orgId: string,
-  who: string,
-): Promise<void> {
-  await requireMember(db, inviter.id, orgId);
-  const name = who.trim().toLowerCase();
-  await db
-    .insert(invites)
-    .values({
-      id: crypto.randomUUID(),
-      orgId,
-      ...(name.includes("@") ? { email: name } : { githubLogin: name }),
-      invitedBy: inviter.id,
-    })
-    .onConflictDoNothing();
-}
-
-/** Takes back an invite that has not been taken up. An id from another org is the same 404 as a missing one. */
-export async function withdrawInvite(
-  db: Db,
-  userId: string,
-  orgId: string,
-  inviteId: string,
-): Promise<void> {
-  await requireMember(db, userId, orgId);
-  const gone = await db
-    .delete(invites)
-    .where(and(eq(invites.id, inviteId), eq(invites.orgId, orgId)))
-    .returning({ id: invites.id });
-  if (gone.length === 0) throw new NotFoundError("invite");
 }
 
 /**
@@ -317,7 +283,7 @@ export async function ensureProject(
   }
 }
 
-/** Which branch auto-accepts (ob 1559). Any member may change it, as any member may issue a token. */
+/** Which branch auto-accepts (ob 1559). Any member may change it. */
 export async function setDefaultBranch(
   db: Db,
   userId: string,
