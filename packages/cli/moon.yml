@@ -31,8 +31,9 @@ tasks:
       runFromWorkspaceRoot: true
   # The built bundle against pages it serves itself on 127.0.0.1, with every PIXELSLASH_* var stripped:
   # nothing leaves the machine, so a pass can be cached. A failed run is never cached.
-  smoke:
-    command: "bun --bun vitest run -c vitest.smoke.config.ts"
+  # Integration, not smoke: a smoke test runs the deployed build, and this is a local one (docs/testing.md).
+  test-built:
+    command: "bun --bun vitest run -c vitest.built.config.ts"
     inputs:
       # Vitest refuses a `.only` when CI is set.
       - "$CI"

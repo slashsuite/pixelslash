@@ -44,51 +44,8 @@ async function rivalIsRefused(browser: Browser, n: number, urls: string[], reque
   await rival.close();
 }
 
-test("a box drawn over the change flips the verdict, exports as config, and stays in its org", async ({
-  page,
-  browser,
-  provision,
-}, testInfo) => {
-  const { token, projectId } = await provision({ org: "Ignore Co", project: "ignores" });
-  await uploadBuild(token, { branch: "main", commitSha: SHA_MAIN }, [{ name: "hero", png: WHITE }]);
-  const buildId = await uploadBuild(
-    token,
-    { branch: "work", commitSha: SHA_WORK, mergeBaseSha: SHA_MAIN, ancestorShas: [SHA_MAIN] },
-    [{ name: "hero", png: CHANGED }],
-  );
-
-  await open(page, `/projects/${projectId}/builds/${buildId}`);
-  await expect(page.getByTestId("build-status")).toHaveText("changes");
-  await page.getByTestId("snapshot-row").first().getByRole("link").click();
-  await expect(page).toHaveURL(/\/snapshots\//);
-  await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
-  await openSection(page, "Tools");
-  await expect(page.getByTestId("ignore-boxes")).toBeVisible();
-  await expect(page.getByTestId("ignore-box")).toHaveCount(0);
-  const snapshotPath = new URL(page.url()).pathname;
-
-  // The change is 10x10 at (10,10); the box covers it with room to spare.
-  await page.getByTestId("ignore-draw").click();
-  await drag(page, 6, 24);
-  await expect(page.getByTestId("ignore-pending")).toContainText("18×18 px at 6,6");
-  const added = page.waitForRequest((r) => isAdd(r.url(), r.method()));
-  await page.getByTestId("ignore-save-variant").click();
-  const request = await added;
-  await expect(page.getByTestId("ignore-note")).toHaveText(
-    "Saved. Re-diffed 1 shot; the build is passed.",
-  );
-  // Hatched on both panes, labelled as drawn in the UI.
-  await expect(page.locator('[data-testid="ignore-box"][data-source="UI"]')).toHaveCount(2);
-  await expect(page.getByTestId("ignore-box-row")).toHaveCount(1);
-  await expect(page.getByTestId("ignore-snippet")).toContainText('"chromium-40x40-light"');
-  await expect(page.getByTestId("ignore-edge-warning")).toHaveCount(0);
-
-  await open(page, `/projects/${projectId}/builds/${buildId}`);
-  await expect(page.getByTestId("build-status")).toHaveText("passed");
-
-  await open(page, `/projects/${projectId}/settings`);
-  await expect(page.getByTestId("ignore-row")).toHaveCount(1);
-  await expect(page.getByTestId("ignore-trail-row")).toHaveCount(1);
+/** Export as config gives exactly the box drawn, under the shot's variant. */
+async function expectExportedConfig(page: Page) {
   await page
     .getByTestId("override-export")
     .getByRole("button", { name: "Export as config" })
@@ -112,13 +69,74 @@ test("a box drawn over the change flips the verdict, exports as config, and stay
       },
     ],
   });
+}
 
-  await rivalIsRefused(
-    browser,
-    testInfo.repeatEachIndex,
-    [`/projects/${projectId}/settings`, snapshotPath],
-    request,
+test("a box drawn over the change flips the verdict, exports as config, and stays in its org", async ({
+  page,
+  browser,
+  provision,
+}, testInfo) => {
+  const { token, projectId } = await provision({ org: "Ignore Co", project: "ignores" });
+  await uploadBuild(token, { branch: "main", commitSha: SHA_MAIN }, [{ name: "hero", png: WHITE }]);
+  const buildId = await uploadBuild(
+    token,
+    { branch: "work", commitSha: SHA_WORK, mergeBaseSha: SHA_MAIN, ancestorShas: [SHA_MAIN] },
+    [{ name: "hero", png: CHANGED }],
   );
-  await open(page, `/projects/${projectId}/settings`);
-  await expect(page.getByTestId("ignore-row")).toHaveCount(1);
+  let snapshotPath = "";
+  let request: Request | undefined;
+
+  await test.step("the changed shot's Tools hold no box yet", async () => {
+    await open(page, `/projects/${projectId}/builds/${buildId}`);
+    await expect(page.getByTestId("build-status")).toHaveText("changes");
+    await page.getByTestId("snapshot-row").first().getByRole("link").click();
+    await expect(page).toHaveURL(/\/snapshots\//);
+    await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
+    await openSection(page, "Tools");
+    await expect(page.getByTestId("ignore-boxes")).toBeVisible();
+    await expect(page.getByTestId("ignore-box")).toHaveCount(0);
+    snapshotPath = new URL(page.url()).pathname;
+  });
+
+  await test.step("a box drawn over the change and saved re-diffs the build to passed", async () => {
+    // The change is 10x10 at (10,10); the box covers it with room to spare.
+    await page.getByTestId("ignore-draw").click();
+    await drag(page, 6, 24);
+    await expect(page.getByTestId("ignore-pending")).toContainText("18×18 px at 6,6");
+    const added = page.waitForRequest((r) => isAdd(r.url(), r.method()));
+    await page.getByTestId("ignore-save-variant").click();
+    request = await added;
+    await expect(page.getByTestId("ignore-note")).toHaveText(
+      "Saved. Re-diffed 1 shot; the build is passed.",
+    );
+    // Hatched on both panes, labelled as drawn in the UI.
+    await expect(page.locator('[data-testid="ignore-box"][data-source="UI"]')).toHaveCount(2);
+    await expect(page.getByTestId("ignore-box-row")).toHaveCount(1);
+    await expect(page.getByTestId("ignore-snippet")).toContainText('"chromium-40x40-light"');
+    await expect(page.getByTestId("ignore-edge-warning")).toHaveCount(0);
+
+    await open(page, `/projects/${projectId}/builds/${buildId}`);
+    await expect(page.getByTestId("build-status")).toHaveText("passed");
+  });
+
+  await test.step("the settings list it, and it exports as config", async () => {
+    await open(page, `/projects/${projectId}/settings`);
+    await expect(page.getByTestId("ignore-row")).toHaveCount(1);
+    await expect(page.getByTestId("ignore-trail-row")).toHaveCount(1);
+    await expectExportedConfig(page);
+  });
+
+  await test.step("another org can neither see it nor replay the write", async () => {
+    await rivalIsRefused(
+      browser,
+      testInfo.repeatEachIndex,
+      [`/projects/${projectId}/settings`, snapshotPath],
+      request ??
+        (() => {
+          throw new Error("no write captured");
+        })(),
+    );
+    await open(page, `/projects/${projectId}/settings`);
+    await expect(page.getByTestId("ignore-row")).toHaveCount(1);
+  });
 });

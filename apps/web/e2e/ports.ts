@@ -45,6 +45,7 @@ export const STUB_PORT = pick(STUB_PORT_VAR, stubFree);
 /** The Sentry ingest stand-in's (PS-227): `e2e/sentry-ingest.ts`, which the Worker and the browser report to. */
 export const SENTRY_PORT = pick(SENTRY_PORT_VAR, sentryFree);
 
-export const SERVER = `http://localhost:${SERVER_PORT}`;
+/** On 127.0.0.1, which the app server binds (playwright.config.ts): no `localhost` lookup to IPv6 first. */
+export const SERVER = `http://127.0.0.1:${SERVER_PORT}`;
 export const STUB = `http://localhost:${STUB_PORT}`;
 export const SENTRY_INGEST = `http://localhost:${SENTRY_PORT}`;

@@ -182,7 +182,7 @@ are not part of `test` (they build, and `web` needs a local build and a port). L
 cached: a pass replays while the repo, `bun.lock` and the env vars their `moon.yml` lists are unchanged:
 
 ```bash
-bunx moon run cli:smoke              # builds packages/cli/dist, then runs it as a child process
+bunx moon run cli:test-built        # integration: builds packages/cli/dist, then runs it as a child process
 bunx moon run web:test-local-build   # integration: builds the web app, a fresh local D1 in .wrangler/local-build, drives /api/v1 and the CLI
 ```
 
@@ -190,7 +190,7 @@ bunx moon run web:test-local-build   # integration: builds the web app, a fresh 
 server, after every deploy of pixelslash.dev and of a self-host (`apps/web/README.md`), and is never cached.
 `web:test-local-build` runs in CI's `web` job. Each of its tests seeds its own synthetic (`is_smoke`)
 org; one proves `usageCounts` is unchanged by its uploads, and nothing runs against production
-(`docs/testing.md`). `cli:smoke` keeps its name for now. Run both after a change to the CLI's bundle (`scripts/build-cli.ts`, its dependencies) or to the web
+(`docs/testing.md`). Run both after a change to the CLI's bundle (`scripts/build-cli.ts`, its dependencies) or to the web
 build, the upload API or the synthetic-org filter (`src/db/synthetic.ts`).
 
 The `web` job installs no .NET SDK and runs only web tasks; only `gate` has it.

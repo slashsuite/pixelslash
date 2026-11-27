@@ -6,36 +6,62 @@ cannot see.
 
 | Layer | Question | Runs against | Where | Command |
 | --- | --- | --- | --- | --- |
-| **Smoke** | Does the thing we ship start and do its one job? | the built artifact: the bundled CLI; the deployed web app | `packages/cli/smoke`, `apps/web/smoke` | `bunx moon run cli:smoke`, `SMOKE_BASE_URL=... bunx moon run web:smoke` |
+| **Smoke** | Does the deployed thing start and do its one job? | the deployed web app | `apps/web/smoke` | `SMOKE_BASE_URL=... bunx moon run web:smoke` |
 | **E2E** | Does a user's happy path work through the real UI or CLI? | a real browser on a local build, local D1, GitHub stubbed | `apps/web/e2e` | `bunx moon run web:test-e2e` |
-| **Integration** | Do the parts agree with each other and with the store? | real SQLite (D1's engine), real files, real HTTP on loopback, a real child process, a local build of the web app on a local D1 | `*/test`, `apps/web/src/{db,api,diff,github,storage,server}`, `apps/web/local-build` | `bunx moon run <project>:test`, `bunx moon run web:test-local-build` |
+| **Integration** | Do the parts agree with each other and with the store? | real SQLite (D1's engine), real files, real HTTP on loopback, a real child process, a local build of the web app on a local D1 | `*/test`, `apps/web/src/{db,api,diff,github,storage,server}`, the DOM tests in `apps/web/src/components`, `apps/web/local-build`, `packages/cli/built` | `bunx moon run <project>:test`, `bunx moon run web:test-local-build`, `bunx moon run cli:test-built` |
 | **Unit** | Is this function right on the cases that are easy to get wrong? | one module, no I/O | the rest of `*/test` and `apps/web/src/{lib,auth,ai}` | `bunx moon run <project>:test` |
 
 Integration and unit share a runner (Vitest under Bun) and the `test` target, so the split between them
-is by what a test touches, not by a folder. The one integration suite outside `test` is the web app's
-local build (below), because it builds the app first.
+is by what a test touches, not by a folder. The two integration suites outside `test` are the web app's
+local build and the CLI's built artifact (below), because each builds first.
 
 A check of a local build on local data is integration, whatever its folder is called (Jacobus,
 2026-11-15). Smoke is for the deployed build only: the web app's is `web:smoke`, run after each deploy. A unit test is added only for a gap: logic with branches the
 layers above do not reach.
 
+## Which layer a test belongs to
+
+A test's layer is set by what it proves, not by the tool it was written with:
+
+- **E2E** proves a journey a user takes through the real UI: one test per feature, its stages named with
+  `test.step`, its elements found by role and accessible name (a `data-testid` only where no role
+  fits). An edge case of that journey (an empty state, a refusal, a count, a second variant of the same
+  form) is not a journey and goes down a layer.
+- **Integration** proves the parts agree: a component rendered in happy-dom with its server functions
+  bound to a temp store (`src/test/render.tsx`), a query on real SQLite, the API over a real `Db`, a
+  local build over HTTP, the built CLI as a child process.
+- **Unit** proves one function on the cases that are easy to get wrong.
+- **How a page looks** is the visual job's (`ci.yml`, the dogfood shots), not an e2e assertion on a
+  class or a pixel. **Whether a page fits a phone** is the page loop's (`e2e/pages.spec.ts`): every page,
+  on the phone project, has no horizontal scroll. A spec does not repeat either.
+
+An e2e test that stays has a reason a lower layer cannot meet: the HTTP hop to a server function, a
+browser's own geometry (the slider's handle), a cookie across a reload, or a security check that
+replays a real request from another org's session.
+
 Real-browser tests run on Chromium only; Firefox and WebKit are never used in testing, at any layer,
-local or CI. Every Playwright config's projects are Chromium devices (`Desktop Chrome`, `Pixel 7`), and a
-phone project that ever uses an iPhone device sets `browserName: "chromium"`.
+local or CI. Every Playwright config's projects are Chromium devices: the web app's are `Desktop Chrome`
+and `iPhone 15` with `browserName: "chromium"`. A phone
+project on an iPhone device always sets `browserName: "chromium"`.
 
-## Smoke
+The web app's config (`apps/web/playwright.config.ts`) has the standard values: one worker (one local
+D1), no retry, `forbidOnly` in CI, the `list` reporter locally and `github` with `html` in CI (CI uploads
+the report and `test-results` when a run fails), a trace kept on failure, and the server bound to
+`127.0.0.1`. Its `phone` project
+runs `pages.spec.ts` alone; every other spec runs on `desktop`.
 
-A smoke test runs the **released shape**, not the source: the CLI smoke imports nothing from `src/`. A
-failure means the artifact is broken, not that one function is.
+## The CLI's built artifact
 
-- **`cli`** (`packages/cli/smoke/cli.smoke.test.ts`, 4 tests, about 2 s). `moon run cli:smoke` builds
+This suite runs the **released shape**, not the source: it imports nothing from `src/`. A failure means
+the artifact is broken, not that one function is. It was called the CLI smoke; it runs a local build on
+this machine, so by the rule above it is integration, and its task and folder say so.
+
+- **`cli`** (`packages/cli/built/cli.built.test.ts`, 4 tests, about 2 s). `moon run cli:test-built` builds
   `packages/cli/dist/index.js` and runs it as a child process, as the npm package runs: a PNG pair with
   100 changed pixels (stdout, manifest, overlay, report), an identical pair, a pair of static pages
   captured in a real browser from a loopback server, and a page that is down (exit 1, no report). The
   child's environment has every `PIXELSLASH_*` variable removed, so no token, server or error sink can
   reach it from the shell.
-The CLI smoke runs the bundle on this machine, so by the rule above it is integration too; moving it is
-its own change.
 
 ## The web app's local build
 
@@ -60,7 +86,7 @@ Each test owns its data: `seed()` (`local-build/harness.ts`) makes a user, an or
 and a CI token with ids unique to the test, synthetic unless asked for a real org. Store writes a test
 needs (a revoke, a diff location) go through the app's own store functions, not SQL.
 
-The smoke, the local build and both e2e suites are cached like any other test: a pass replays only while every input is
+The CLI's built suite, the local build and both e2e suites are cached like any other test: a pass replays only while every input is
 the same (the whole repo minus build and test output, `bun.lock` for the Playwright build, and the env vars
 each `moon.yml` lists), and a failure is never cached. A change the run could see re-runs it.
 
@@ -108,9 +134,9 @@ by group; a group is one layer unless a row says otherwise. Counts are from the 
 
 | Group | Files | Layer | Notes |
 | --- | --- | --- | --- |
-| `packages/cli/smoke` | 1 | smoke | new |
+| `packages/cli/built` | 1 | integration | the bundled CLI as a child process; was `packages/cli/smoke` |
 | `apps/web/local-build` | 3 | integration | the local build over HTTP and the real CLI, each test on its own org (above). Moved out of e2e: `stub-refusal.spec.ts` (no page), `upload.spec.ts` (the page only provisioned, revoked and set the diff location) and the CLI and API half of `layout-metrics.spec.ts` |
-| `apps/web/e2e` | 24 specs and the sign-in setup, 48 tests with it (`playwright test --list`; 34 specs and 68 tests before the cuts below) | e2e | one happy path per feature, in a real browser (the operator health page's 404 for everyone else and the page for a listed login, `admin.spec.ts`; its empty state is a unit test, since the e2e database always has the stub's seed). Every spec starts signed in from one `setup` project and builds its org, project and CI token with `provision` (`e2e/fixtures.ts`), a write to the D1; `orgs.spec.ts` is the one test that makes them by clicking, and `admin.spec.ts`'s figures test is the one that reads the whole D1. `rss-burst.spec.ts` is a memory check and is outside the gate. `layout-metrics.spec.ts` keeps only the side panel; the diff location form is `orgs.spec.ts` |
+| `apps/web/e2e` | 23 specs and the sign-in setup, 30 tests with it (`playwright test --list`: 28 on `desktop`, one of them `rss-burst.spec.ts`'s skipped measurement, 1 on `phone`, the setup; 28 files and 55 tests, counted the same way, before the cuts in "E2E specs cut to journeys") | e2e | one journey per feature, in a real browser, its stages in `test.step`. Every spec starts signed in from one `setup` project and builds its org, project and CI token with `provision` (`e2e/fixtures.ts`), a write to the D1; `orgs.spec.ts` is the one test that makes them by clicking, and `admin.spec.ts` (the operator health page: a 404 for the signed out and for an unlisted login, the page for a listed one) is the one that reads the whole D1. `pages.spec.ts` is the page loop, on the phone project only: every page opens with no horizontal scroll. `rss-burst.spec.ts` is a memory check and is outside the gate |
 | `packages/cli/test` | 30 | integration | the `pixelslash` commands run in-process or as a child, against a fake server and real temp dirs. The `*-support.ts` files are helpers |
 | `packages/engine/test` | 50 | integration + unit | store, upload, capture (real Chromium), report and DS judge are integration; `diff*`, `regions`, `fingerprint`, `sentry-scrub`, `route-names`, `change-note`, `config*` are unit |
 | `apps/web/src/db` | 29 | integration | every query against real SQLite with the real migrations (`test-db.ts`, `test-d1.ts`) |
@@ -129,7 +155,7 @@ Each cut names where the behaviour is still proved.
 | Removed | Why it was a duplicate | Still proved by |
 | --- | --- | --- |
 | `packages/engine/test/diff.test.ts` "identical → changedPixels 0" | the same pair as the byte-equal test, one layer lower | "byte-equal PNGs are unchanged without a decode, a diff or an overlay" (which now also asserts `antialiased` is 0) |
-| `packages/engine/test/diff.test.ts` "one pixel differs" | a one-pixel case of the counting the region tests and the smoke's 100-pixel pair assert | `regions.test.ts`, the other `diffPngs` cases, and `cli.smoke.test.ts` (100 changed pixels, exact) |
+| `packages/engine/test/diff.test.ts` "one pixel differs" | a one-pixel case of the counting the region tests and the built CLI's 100-pixel pair assert | `regions.test.ts`, the other `diffPngs` cases, and `cli.built.test.ts` (100 changed pixels, exact) |
 | `apps/web/src/diff/process-recovery.test.ts` "a build the Worker ceiling stopped is resumed on retry, and the retry gives the verdict" | the resume path and the verdict-on-retry path are each tested alone | `process-resume.test.ts` (resume) and "a diff that errored is re-diffed to a real verdict" in the same file |
 | `apps/web/src/api/handler.test.ts`, the `GET /api/v1/nope` 404 line | the same refusal is asserted for the other unknown path and method in the same test | the remaining assertions of "unknown paths and methods are refused" |
 | `apps/web/e2e/deep-history.spec.ts` (the whole file, one test) | a browserless upload test dressed as an e2e; nothing it asserts is in the UI | `process-deep-history.test.ts` (a main build 150 commits back is the baseline, a newer one is not used, the nearest wins, past 200 ancestors the shot is new) and `packages/engine/test/upload.test.ts` (the CLI sends up to 200 first-parent ancestors) |
@@ -177,11 +203,40 @@ The two merges planned beside this cut: `admin-health-now.test.ts` is folded int
 (its fixtures moved to `admin-health-kit.ts` so the file stays under the 300-line lint cap).
 `ai/summary-parse.test.ts` stays its own file: `summary.test.ts` is at the cap, and merging would break it.
 
+### E2E specs cut to journeys
+
+The web e2e was brought to journeys only: one test per feature, its stages in `test.step`, its
+elements found by role. Five specs went whole, eight more shrank to their journey, and every phone
+test went to the page loop (`pages.spec.ts`, the `phone` project, which opens every page and its
+folded parts on an iPhone 15 viewport in Chromium and fails on horizontal scroll). How a page looks
+is the visual job's. The count goes from 28 files (the specs and the sign-in setup) and 55 tests (54 and 1 skipped) to 24 files and 30 tests (29 and 1 skipped),
+and the run from 178 s to 99 s (below).
+
+| Removed or cut | Still proved by |
+| --- | --- |
+| `rerun.spec.ts` | `components/rerun.test.tsx` (the button re-runs an errored build's shot against a seeded store and the page reloads with its verdict), `diff/process-rerun.test.ts` (which shots a re-run measures) |
+| `layout-metrics.spec.ts` | `components/metrics-panel.test.tsx` (the side panel's figures), `api/metrics.test.ts` (`loadMetrics` and the API read). The one line of `getSnapshotPage` that hands the loaded metrics to the page is not run by a test |
+| `env-refused.spec.ts` | `diff/process-unmeasured.test.ts` (the refusal and its message, both environments and the way out), `components/build-error.test.tsx` (the build page prints that message in full, with the re-run the diff location allows) |
+| `action-row.spec.ts` | it measured layout only: that Accept keeps its place as j walks shots of different title widths, and the review chip stays on screen. That is the visual job's (the shot review page, light and dark); the j/k walk itself is `lib/review-walk.test.ts` and `lib/use-review-keys.hook.test.tsx` |
+| `compare-header.spec.ts` | the page loop (the phone's header and bar fit), `components/snapshot-viewer.test.tsx` (each pane's label names its side); the sticky labels and rail are looks, the visual job's |
+| `theme.spec.ts`, all but the reload | `lib/theme.test.ts` (a remembered choice beats the system, no choice follows it, a bad cookie is ignored); the spec keeps the choice surviving a reload, rendered by the server, and that a visitor gets no theme cookie until they pick one |
+| `builds-list.spec.ts`, all but the fold | `components/builds-list.test.tsx` (every field on the card and the row; a passed build with shots to review reads changes), `lib/build-folds.test.ts` (which builds fold) |
+| `build-page.spec.ts`, the summary lead, the thumbnails and the phone | `components/build-summary-lead.test.tsx` (three sentences and eight links, the rest on a click), `lib/thumb-crop.test.ts` (the 16:10 crop), the page loop |
+| `compare-view.spec.ts`, eight tests: five into one journey, three cut | the journey (counters, the share of changed pixels of the compared area, highlight, modes across a theme toggle, the opacity range, the folding panel, a flag); the overlay's opacity style is `components/snapshot-overlay.test.tsx`'s; a failed judge saying so and why is `ai/explain-queue.test.ts` (the failure is stored) and `components/ai-notes.test.tsx` (its text); the slider divider's look in both themes and the panes taking the width at Fit are looks, the visual job's; the phone test is the page loop's |
+| `compare-base.spec.ts`, the phone test | the page loop |
+| `admin.spec.ts`, four tests into one, the theme and phone loop | the journey (a 404 signed out and for an unlisted login, no link from a customer page, every group for a listed one, each window read per build and per snapshot), `db/admin-health.test.ts` and `db/admin-health-compares.test.ts` (the figures), the page loop |
+| `review.spec.ts`, "a decision moves the reviewer on" and "re-deciding a shot" | `lib/use-decision.hook.test.tsx` (accept moves on, reject goes to the build page, a refused decision stays and says why), `db/after-decision.test.ts` (an accept names the next shot awaiting a decision, and reads decisions made since the page opened). A reject after an accept is a reject like any other: the hook goes to the build page, and `review.spec.ts` still rejects a shot and lands on the failed build |
+
+Kept, with the reason: `ai-review.spec.ts`'s org fallback (no render test reaches the model-in-use
+line with the org's settings behind it), `ignore-boxes.spec.ts`'s rival (it replays the owner's real
+server function request from another org's session), and `slider.spec.ts`'s geometry (both shots at
+one scale is a browser's layout).
+
 ### Gaps filled
 
 - **No test ran the shipped CLI.** Everything in `packages/cli/test` imports `src/`; a broken bundle (a
-  missing `diff.wasm`, a bad shebang, a dependency that did not bundle) passed the gate. `cli:smoke` is
-  that test.
+  missing `diff.wasm`, a bad shebang, a dependency that did not bundle) passed the gate. `cli:test-built`
+  is that test.
 - **No test ran the production build of the web app without a browser.** `web:test-local-build` does,
   and is the first test to state the isolation rule above as an assertion.
 
@@ -210,13 +265,20 @@ by group. The differences of a second or two in untouched projects (`cli`, `benc
 run, so read them as "unchanged". The tests cut are 2 in `engine`, 1 in `web` and 3 e2e; the layers
 gain 8 smoke tests.
 
-That table is the four-layer cut's own record. The web e2e has moved since: today it is 24 specs and the
-sign-in setup, 48 tests (`playwright test --list`), and the local build is 3 files and 10 tests.
+That table is the four-layer cut's own record (its smoke rows are integration now: the CLI's is
+`cli:test-built`, the web app's the local build). The local build is 3 files and 10 tests today.
+
+The cut to journeys, measured as `bun scripts/moon.ts run web:test-e2e --force` (the build, then
+Playwright, 1 worker), the same desktop, the same day, at a load average under 2:
+
+| Project | Specs | Tests | Playwright | Task |
+| --- | --- | --- | --- | --- |
+| `web` e2e | 28 → 24 files (the specs and the setup) | 55 (54 + 1 skipped) → 30 (29 + 1 skipped: 27 desktop, 1 phone, the setup, and `rss-burst.spec.ts`'s measurement, skipped) | 3.0 min → 1.6 min | 178 s → 99 s |
 
 ## Running them
 
 ```bash
-bunx moon run cli:smoke              # builds the CLI first
+bunx moon run cli:test-built         # builds the CLI first
 bunx moon run web:test-local-build   # builds the web app and starts it on a fresh local D1
 bunx moon run web:test-e2e     # the happy paths in a real browser
 bunx moon run <project>:test   # integration + unit

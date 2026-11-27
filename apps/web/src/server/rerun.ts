@@ -1,11 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getBuild } from "#/db/builds";
-import { getProjectWithOrg } from "#/db/orgs";
-import { NoRecoveryError } from "#/diff/claim";
-import { RerunError, rerunShots } from "#/diff/rerun";
-import { orgBlobs } from "#/storage/blobs";
-import { blobStore, syncChecks, database, diffLimitMpx, explainQueue, modelKeySecret } from "./env";
-import { field, or404 } from "./input";
+import { database } from "./env";
+import { field } from "./input";
+import { rerunFor } from "./rerun-for";
 import { requireViewer } from "./session";
 
 /* Partial re-runs on the page (ob 1738): the build page's "Re-run errored shots" and a shot's "Re-run diff". */
@@ -16,36 +12,14 @@ function pickedInput(d: unknown): string | null {
   return raw === undefined || raw === null ? null : field(d, "snapshotId");
 }
 
+export const rerunInput = (d: unknown) => ({
+  projectId: field(d, "projectId"),
+  buildId: field(d, "buildId"),
+  snapshotId: pickedInput(d),
+});
+
+export type RerunInput = ReturnType<typeof rerunInput>;
+
 export const rerunBuildShots = createServerFn({ method: "POST" })
-  .validator((d: unknown) => ({
-    projectId: field(d, "projectId"),
-    buildId: field(d, "buildId"),
-    snapshotId: pickedInput(d),
-  }))
-  .handler(async ({ data }) => {
-    const user = await requireViewer();
-    const db = database();
-    const { project } = await or404(getProjectWithOrg(db, user.id, data.projectId));
-    const build = await or404(getBuild(db, project.id, data.buildId));
-    const blobs = orgBlobs(blobStore(), project.orgId);
-    try {
-      const rerun = await rerunShots(
-        {
-          db,
-          blobs,
-          diffLimitMpx: diffLimitMpx(),
-          modelKeySecret: modelKeySecret(),
-          explainQueue: explainQueue(),
-        },
-        build,
-        data.snapshotId,
-      );
-      await syncChecks(db, [build.id]);
-      return rerun;
-    } catch (error) {
-      // A refusal is a message the page states, not a 500.
-      if (error instanceof RerunError || error instanceof NoRecoveryError)
-        throw new Error(error.message, { cause: error });
-      throw error;
-    }
-  });
+  .validator(rerunInput)
+  .handler(async ({ data }) => rerunFor(database(), await requireViewer(), data));

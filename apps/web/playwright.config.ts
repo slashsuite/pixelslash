@@ -11,26 +11,37 @@ const SERVER_TMP = fileURLToPath(new URL(".wrangler/e2e/tmp", import.meta.url));
 // (the wasm diff in workerd) is also run through the dev module graph (ob 1625).
 const dev = process.env["PIXELSLASH_E2E_DEV"] === "1";
 
-// Happy paths only, against a local production build signing in through a GitHub stub.
-// Each run starts from an empty local D1 (`.wrangler/e2e`).
+// Journeys only, against a local production build signing in through a GitHub stub (docs/testing.md
+// says what goes here and what goes lower). Each run starts from an empty local D1 (`.wrangler/e2e`).
 export default defineConfig({
   testDir: "./e2e",
   globalSetup: "../../scripts/test-tmp-scope.ts",
   forbidOnly: !!process.env["CI"],
-  reporter: "list",
+  // A failure is a bug or a flake to fix, never retried past (AGENTS.md, "Flaky tests come first").
+  retries: 0,
+  reporter: process.env["CI"] ? [["github"], ["html", { open: "never" }]] : "list",
   // One local D1 holds every spec's rows: concurrent writers fail with SQLITE_BUSY.
   workers: 1,
-  // A failure keeps its trace and `error-context.md` in test-results, which CI uploads (ci.yml). There
-  // are no retries, so `on-first-retry` never recorded anything.
+  // A failure keeps its trace and `error-context.md` in test-results, which CI uploads with
+  // playwright-report (ci.yml). There are no retries, so `on-first-retry` would never record anything.
   use: { baseURL: SERVER, trace: "retain-on-failure" },
   projects: [
     // Signs in once and saves the session. Not `/.*\.setup\.ts/`: dogfood-orgs.setup.ts is a capture
     // setup, not part of this run.
     { name: "setup", testMatch: /signed-in\.setup\.ts/, use: { ...devices["Desktop Chrome"] } },
     {
-      name: "chromium",
+      name: "desktop",
       dependencies: ["setup"],
+      // pages.spec.ts is the phone's page loop.
+      testIgnore: /pages\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], storageState: SIGNED_IN },
+    },
+    // Chromium at a phone's size and touch: only the page loop, which opens every route once.
+    {
+      name: "phone",
+      dependencies: ["setup"],
+      testMatch: /pages\.spec\.ts/,
+      use: { ...devices["iPhone 15"], browserName: "chromium", storageState: SIGNED_IN },
     },
   ],
   webServer: [
@@ -52,7 +63,7 @@ export default defineConfig({
         "mkdir -p .wrangler/e2e/tmp",
         ...(dev ? [] : ["bun run build"]),
         "wrangler d1 migrations apply DB --local --env e2e --persist-to .wrangler/e2e",
-        `vite ${dev ? "dev" : "preview"} --port ${SERVER_PORT} --strictPort`,
+        `vite ${dev ? "dev" : "preview"} --host 127.0.0.1 --port ${SERVER_PORT} --strictPort`,
       ].join(" && "),
       env: {
         PIXELSLASH_E2E: "1",
@@ -69,7 +80,7 @@ export default defineConfig({
       // ERR_CONNECTION_REFUSED once that server exits (PS-327). So both runs are ready when vite
       // itself says it listens on this port, which nothing else prints: `vite preview` prints the
       // same `Local:` line as `vite dev` (vite's `server.printUrls()` in `dist/node/cli.js`).
-      wait: { stdout: new RegExp(`Local:\\s+http://localhost:${SERVER_PORT}/`) },
+      wait: { stdout: new RegExp(`Local:\\s+http://127\\.0\\.0\\.1:${SERVER_PORT}/`) },
       reuseExistingServer: false,
       timeout: 300_000,
     },

@@ -1,14 +1,14 @@
-import { Breadcrumbs, Callout, ListLayout, Stack, Text } from "@slashsuite/ui-react";
+import { Breadcrumbs, Callout, ListLayout, Text } from "@slashsuite/ui-react";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { BuildBrief } from "#/components/build-brief";
+import { BuildError } from "#/components/build-error";
 import { BuildHeader } from "#/components/build-header";
 import { BuildTimings } from "#/components/build-timings";
 import { BuildSummary } from "#/components/build-summary";
 import { BuildTabs, TabBody } from "#/components/build-shots";
 import { buildCrumbLabel, orgCrumb, projectCrumbs } from "#/components/crumbs";
 import { BuildOverrideChanges } from "#/components/override-trail";
-import { RerunErrored } from "#/components/rerun";
 import { UnlinkedShots } from "#/components/twins";
 import { Page } from "#/components/ui";
 import { BUILD_TABS, type BuildTab, defaultTab, setsBaseline, tabCounts } from "#/lib/build-tabs";
@@ -30,30 +30,6 @@ export const Route = createFileRoute("/projects/$projectId/builds/$buildId")({
 });
 
 type Loaded = ReturnType<typeof Route.useLoaderData>;
-
-/** Why the build has no verdict, and how to measure it again. */
-function BuildError({ project, build }: Pick<Loaded, "project" | "build">) {
-  if (!build.error) return null;
-  return (
-    <Callout
-      tone="danger"
-      actions={
-        project.diffLocation === "server" && build.status === "errored" ? (
-          <RerunErrored projectId={project.id} buildId={build.id} />
-        ) : undefined
-      }
-    >
-      <Stack gap="xs">
-        <span>{build.error}</span>
-        {project.diffLocation === "ci" && build.status === "errored" && (
-          <Text strong tone="danger" data-testid="rerun-ci">
-            This project diffs in CI, so the server cannot measure it again: re-run the CI job.
-          </Text>
-        )}
-      </Stack>
-    </Callout>
-  );
-}
 
 /** Accept every shot of the build, and why it could not be. */
 function useAcceptAll(projectId: string, buildId: string) {

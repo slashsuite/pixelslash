@@ -14,16 +14,18 @@ test("an opted-in project's model auto-passes a noise-only shot and says why", a
   provision,
 }) => {
   const { token, projectId } = await provision({ org: "Model Co", project: "modelled" });
-  await open(page, `/projects/${projectId}/settings`);
-  const form = page.getByTestId("model-settings");
-  await form.getByTestId("model-base-url").fill(`${STUB}/v1`);
-  await form.getByTestId("model-name").fill("deepseek-flash");
-  await form.getByTestId("model-key").fill("sk-e2e-model");
-  await form.getByTestId("model-auto-pass").check();
-  await form.getByTestId("model-save").click();
-  await expect(form.getByTestId("model-key-set")).toHaveText(`Key set for ${STUB}/v1`);
-  await expect(form.getByTestId("model-key")).toHaveValue("");
-  await expect(page.getByText("sk-e2e-model")).toHaveCount(0);
+  await test.step("the model is saved, and its key is never shown again", async () => {
+    await open(page, `/projects/${projectId}/settings`);
+    const form = page.getByTestId("model-settings");
+    await form.getByTestId("model-base-url").fill(`${STUB}/v1`);
+    await form.getByTestId("model-name").fill("deepseek-flash");
+    await form.getByTestId("model-key").fill("sk-e2e-model");
+    await form.getByTestId("model-auto-pass").check();
+    await form.getByTestId("model-save").click();
+    await expect(form.getByTestId("model-key-set")).toHaveText(`Key set for ${STUB}/v1`);
+    await expect(form.getByTestId("model-key")).toHaveValue("");
+    await expect(page.getByText("sk-e2e-model")).toHaveCount(0);
+  });
 
   await uploadBuild(token, { branch: "main", commitSha: SHA_MAIN }, [{ name: "hero", png: WHITE }]);
   const buildId = await uploadBuild(
@@ -31,42 +33,46 @@ test("an opted-in project's model auto-passes a noise-only shot and says why", a
     { branch: "work", commitSha: SHA_WORK, mergeBaseSha: SHA_MAIN, ancestorShas: [SHA_MAIN] },
     [{ name: "hero", png: CHANGED }],
   );
-
-  await open(page, `/projects/${projectId}/builds/${buildId}`);
-  await explained(page);
-  await expect(page.getByTestId("build-status")).toHaveText("passed");
   const filtered = page.getByTestId("group-ai-filtered");
-  await expect(filtered).toContainText("AI-filtered (1)");
-  await expect(filtered.getByTestId("shot-ai-labels")).toHaveText("AI: 1 noise");
 
-  // The build's summary (ob 1668) sits in the header: the model's sentence, linked to the shot, and
-  // the counts the page states itself.
-  const summary = page.getByTestId("build-summary");
-  await expect(summary.getByTestId("summary-sentence")).toHaveText(
-    /^The hero's text edges moved by a sub-pixel\./,
-  );
-  await expect(summary.getByTestId("summary-shot-link")).toHaveAttribute(
-    "href",
-    new RegExp(`/builds/${buildId}/snapshots/`),
-  );
-  await expect(summary.getByTestId("summary-counts")).toHaveText(
-    "0 unchanged · 1 region labelled likely noise.",
-  );
-  await expect(summary.getByTestId("summary-model")).toContainText("deepseek-flash");
-  await summary.getByTestId("summary-regenerate").click();
-  await expect(summary.getByTestId("summary-regenerate")).toHaveText("Regenerate");
-  await expect(summary.getByTestId("summary-sentence")).toHaveCount(1);
-  await expect(summary.getByRole("alert")).toHaveCount(0);
+  await test.step("the build passes, listing the shot as AI-filtered with a summary", async () => {
+    await open(page, `/projects/${projectId}/builds/${buildId}`);
+    await explained(page);
+    await expect(page.getByTestId("build-status")).toHaveText("passed");
+    await expect(filtered).toContainText("AI-filtered (1)");
+    await expect(filtered.getByTestId("shot-ai-labels")).toHaveText("AI: 1 noise");
 
-  await filtered.getByTestId("snapshot-row").getByRole("link").click();
-  await showPanel(page);
-  const notes = page.getByTestId("ai-explanation");
-  await expect(notes.getByTestId("ai-auto-passed")).toBeVisible();
-  await expect(notes.getByTestId("ai-label")).toHaveText("noise");
-  await expect(notes).toContainText("Text edges moved by a sub-pixel.");
-  // Every pane that draws the region's box carries its label (the highlight is off when a shot opens).
-  await highlightToggle(page).click();
-  await expect(page.locator('rect[data-ai-label="noise"]').first()).toBeAttached();
+    // The build's summary (ob 1668) sits in the header: the model's sentence, linked to the shot, and
+    // the counts the page states itself.
+    const summary = page.getByTestId("build-summary");
+    await expect(summary.getByTestId("summary-sentence")).toHaveText(
+      /^The hero's text edges moved by a sub-pixel\./,
+    );
+    await expect(summary.getByTestId("summary-shot-link")).toHaveAttribute(
+      "href",
+      new RegExp(`/builds/${buildId}/snapshots/`),
+    );
+    await expect(summary.getByTestId("summary-counts")).toHaveText(
+      "0 unchanged · 1 region labelled likely noise.",
+    );
+    await expect(summary.getByTestId("summary-model")).toContainText("deepseek-flash");
+    await summary.getByTestId("summary-regenerate").click();
+    await expect(summary.getByTestId("summary-regenerate")).toHaveText("Regenerate");
+    await expect(summary.getByTestId("summary-sentence")).toHaveCount(1);
+    await expect(summary.getByRole("alert")).toHaveCount(0);
+  });
+
+  await test.step("the shot's page shows the label and the model's sentence", async () => {
+    await filtered.getByTestId("snapshot-row").getByRole("link").click();
+    await showPanel(page);
+    const notes = page.getByTestId("ai-explanation");
+    await expect(notes.getByTestId("ai-auto-passed")).toBeVisible();
+    await expect(notes.getByTestId("ai-label")).toHaveText("noise");
+    await expect(notes).toContainText("Text edges moved by a sub-pixel.");
+    // Every pane that draws the region's box carries its label (the highlight is off when a shot opens).
+    await highlightToggle(page).click();
+    await expect(page.locator('rect[data-ai-label="noise"]').first()).toBeAttached();
+  });
 });
 
 /**
@@ -79,54 +85,62 @@ test("a project without its own model uses the org's, and its own overrides it",
 }) => {
   const { token, projectId } = await provision({ org: "Shared Co", project: "shared" });
   const settings = `/projects/${projectId}/settings`;
-  await open(page, settings);
   const inUse = page.getByTestId("model-in-use");
-  await expect(inUse).toHaveAttribute("data-source", "none");
 
-  await inUse.getByRole("link", { name: "org settings" }).click();
-  await expect(page).toHaveURL(/tab=model/);
-  // The link is a client navigation: the project's form stays up until the org page replaces it,
-  // and only the project's form says which model is in use.
-  await expect(inUse).toHaveCount(0);
-  const orgForm = page.getByTestId("model-settings");
-  await orgForm.getByTestId("model-base-url").fill(`${STUB}/v1`);
-  await orgForm.getByTestId("model-name").fill("org-flash");
-  await orgForm.getByTestId("model-key").fill("sk-e2e-model");
-  await orgForm.getByTestId("model-auto-pass").check();
-  await orgForm.getByTestId("model-save").click();
-  await expect(orgForm.getByTestId("model-key-set")).toHaveText(`Key set for ${STUB}/v1`);
-  await expect(orgForm.getByTestId("model-key")).toHaveValue("");
-  await expect(page.getByText("sk-e2e-model")).toHaveCount(0);
+  await test.step("the project has none, and links to the org's settings, where one is saved", async () => {
+    await open(page, settings);
+    await expect(inUse).toHaveAttribute("data-source", "none");
 
-  await open(page, settings);
-  await expect(inUse).toHaveAttribute("data-source", "org");
-  await expect(inUse).toContainText("Using the org's model (org-flash)");
-  await expect(page.getByText("sk-e2e-model")).toHaveCount(0);
-  await expect(page.getByTestId("model-key-set")).toHaveCount(0);
+    await inUse.getByRole("link", { name: "org settings" }).click();
+    await expect(page).toHaveURL(/tab=model/);
+    // The link is a client navigation: the project's form stays up until the org page replaces it,
+    // and only the project's form says which model is in use.
+    await expect(inUse).toHaveCount(0);
+    const orgForm = page.getByTestId("model-settings");
+    await orgForm.getByTestId("model-base-url").fill(`${STUB}/v1`);
+    await orgForm.getByTestId("model-name").fill("org-flash");
+    await orgForm.getByTestId("model-key").fill("sk-e2e-model");
+    await orgForm.getByTestId("model-auto-pass").check();
+    await orgForm.getByTestId("model-save").click();
+    await expect(orgForm.getByTestId("model-key-set")).toHaveText(`Key set for ${STUB}/v1`);
+    await expect(orgForm.getByTestId("model-key")).toHaveValue("");
+    await expect(page.getByText("sk-e2e-model")).toHaveCount(0);
+  });
 
-  // The org's model reads the project's builds: the stub calls the region noise, auto-pass accepts.
-  await uploadBuild(token, { branch: "main", commitSha: SHA_MAIN }, [{ name: "hero", png: WHITE }]);
-  const buildId = await uploadBuild(
-    token,
-    { branch: "work", commitSha: SHA_WORK, mergeBaseSha: SHA_MAIN, ancestorShas: [SHA_MAIN] },
-    [{ name: "hero", png: CHANGED }],
-  );
-  await open(page, `/projects/${projectId}/builds/${buildId}`);
-  await explained(page);
-  await expect(page.getByTestId("build-status")).toHaveText("passed");
-  await expect(page.getByTestId("group-ai-filtered")).toContainText("AI-filtered (1)");
-  await expect(page.getByTestId("summary-model")).toContainText("org-flash");
+  await test.step("the project reports the org's model, and its builds are explained by it", async () => {
+    await open(page, settings);
+    await expect(inUse).toHaveAttribute("data-source", "org");
+    await expect(inUse).toContainText("Using the org's model (org-flash)");
+    await expect(page.getByText("sk-e2e-model")).toHaveCount(0);
+    await expect(page.getByTestId("model-key-set")).toHaveCount(0);
 
-  // A project's own model wins, and removing it falls back to the org's.
-  await open(page, settings);
-  const form = page.getByTestId("model-settings");
-  await form.getByTestId("model-base-url").fill(`${STUB}/v1`);
-  await form.getByTestId("model-name").fill("project-flash");
-  await form.getByTestId("model-key").fill("sk-e2e-project");
-  await form.getByTestId("model-save").click();
-  await expect(inUse).toHaveAttribute("data-source", "project");
-  await expect(inUse).toHaveText("This project's model");
-  await form.getByRole("button", { name: "Use the org's model instead" }).click();
-  await expect(inUse).toHaveAttribute("data-source", "org");
-  await expect(inUse).toContainText("Using the org's model (org-flash)");
+    // The org's model reads the project's builds: the stub calls the region noise, auto-pass accepts.
+    await uploadBuild(token, { branch: "main", commitSha: SHA_MAIN }, [
+      { name: "hero", png: WHITE },
+    ]);
+    const buildId = await uploadBuild(
+      token,
+      { branch: "work", commitSha: SHA_WORK, mergeBaseSha: SHA_MAIN, ancestorShas: [SHA_MAIN] },
+      [{ name: "hero", png: CHANGED }],
+    );
+    await open(page, `/projects/${projectId}/builds/${buildId}`);
+    await explained(page);
+    await expect(page.getByTestId("build-status")).toHaveText("passed");
+    await expect(page.getByTestId("group-ai-filtered")).toContainText("AI-filtered (1)");
+    await expect(page.getByTestId("summary-model")).toContainText("org-flash");
+  });
+
+  await test.step("a project's own model wins, and removing it falls back to the org's", async () => {
+    await open(page, settings);
+    const form = page.getByTestId("model-settings");
+    await form.getByTestId("model-base-url").fill(`${STUB}/v1`);
+    await form.getByTestId("model-name").fill("project-flash");
+    await form.getByTestId("model-key").fill("sk-e2e-project");
+    await form.getByTestId("model-save").click();
+    await expect(inUse).toHaveAttribute("data-source", "project");
+    await expect(inUse).toHaveText("This project's model");
+    await form.getByRole("button", { name: "Use the org's model instead" }).click();
+    await expect(inUse).toHaveAttribute("data-source", "org");
+    await expect(inUse).toContainText("Using the org's model (org-flash)");
+  });
 });
