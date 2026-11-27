@@ -466,7 +466,7 @@ deployments**) it runs the steps below in order: the production build, the D1 mi
 with `SENTRY_RELEASE`, `scripts/check-commit.ts` and `web:smoke`.
 
 While it waits on CI, a push's run stops with no deploy as soon as `main` moves past its commit (the newer
-push's run deploys), fails when no CI run for the commit has appeared after 10 minutes (`[skip ci]`, say), and
+push's run deploys), fails when no CI run for the commit has appeared after 10 minutes (CI disabled, say), and
 fails after five GitHub API errors in a row. A push's deploy whose commit is no longer `main`'s tip by the
 time it is approved fails without deploying.
 
@@ -478,7 +478,7 @@ includes a manual rollback: a newer push can cancel a rollback still waiting for
 a rollback shows cancelled, run it again.
 
 To deploy (or roll back to) a given commit on `main`, run it by hand with that sha. It must be the head of a
-push to `main` (every squash merge is), and it still needs that push's CI green and the same approval:
+push to `main` (every squash merge is), and it still needs that push's CI jobs above passed and the same approval:
 
 ```bash
 gh workflow run deploy.yml -f sha=<sha on main>    # -f sha=main for the tip

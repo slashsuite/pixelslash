@@ -5,10 +5,10 @@ name: Deploy
 # in its order: build, migrate, deploy, check the live commit, smoke.
 #
 # Two ways in:
-# - A push to main: `ci` waits for that commit's CI run (ci.yml, the push on main) and goes on only when it
-#   succeeded, then `deploy` deploys that head sha.
+# - A push to main: `ci` waits for that commit's CI run (ci.yml, the push on main) and goes on only when
+#   its jobs changes, gate, web and example passed (below), then `deploy` deploys that head sha.
 # - A manual run (workflow_dispatch) with a sha, `main` by default: the same, for a commit on main whose CI
-#   push run succeeded. That is how a deploy someone rejected is run again, or an older commit rolled back to.
+#   push run passed those jobs. That is how a deploy someone rejected is run again, or an older commit rolled back to.
 #
 # This waits on CI from inside a push run rather than triggering on `workflow_run`, which
 # scripts/check-workflows.ts refuses: a fork's pull request can drive a workflow_run with secrets.
@@ -76,7 +76,7 @@ jobs:
       # app) and example. visual uploads to pixelslash.dev itself, so a broken production would fail the CI
       # of the fix that restores it, and visual and self-host flakes would block every deploy. All passed:
       # deploy. Any of them ended otherwise (failed, cancelled, skipped, or missing from a finished run):
-      # fail. A push whose CI run has not appeared in 10 minutes ([skip ci], say) fails, and
+      # fail. A push whose CI run has not appeared in 10 minutes (CI disabled, say) fails, and
       # a manual run with none fails at once: a commit inside a push of several never had a run of its own.
       # Five API errors in a row fail.
       - name: Wait for CI on that commit
@@ -87,6 +87,17 @@ jobs:
           SHA: ${{ steps.sha.outputs.sha }}
         run: |
           required="changes gate web example"
+          # A push's run whose commit main has moved past ends with no deploy, not red: a newer push can
+          # cancel this commit's CI run between the tip check and the read of its jobs.
+          fail() {
+            if [ "$EVENT" = "push" ] && git fetch --quiet origin main && [ "$(git rev-parse origin/main)" != "$SHA" ]; then
+              echo "::notice::main has moved past $SHA; the newer push's run deploys"
+              echo "go=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "::error::$1"
+            exit 1
+          }
           errors=0
           misses=0
           while true; do
@@ -144,14 +155,12 @@ jobs:
               echo "CI $url: $name ${job_status:-not started} $conclusion"
               if [ -z "$line" ]; then
                 if [ "$status" = "completed" ]; then
-                  echo "::error::CI on $SHA finished without a $name job: $url"
-                  exit 1
+                  fail "CI on $SHA finished without a $name job: $url"
                 fi
               elif [ "$job_status" = "completed" ]; then
                 # web runs only when the push changed the app ("changes" decides, and must itself pass).
                 if [ "$conclusion" != "success" ] && ! { [ "$name" = "web" ] && [ "$conclusion" = "skipped" ]; }; then
-                  echo "::error::CI's $name job on $SHA ended $conclusion: $url"
-                  exit 1
+                  fail "CI's $name job on $SHA ended $conclusion: $url"
                 fi
                 passed=$((passed + 1))
               fi
