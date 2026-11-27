@@ -42,7 +42,7 @@ export function ModelSettings({
   source?: ModelSource;
   orgSettingsHref?: string;
   hydrated: boolean;
-  /** Why the viewer may only read the form (not an owner of the org): every field and button is off. */
+  /** Why the viewer may only read the form (not an owner of the org): every field is off, and Save and Remove are not shown. */
   lockedReason?: string | undefined;
 }) {
   const project = scope.kind === "project";
@@ -70,14 +70,16 @@ export function ModelSettings({
             hydrated={editable}
             owner={project ? "project" : "org"}
           />
-          <ModelActions
-            fields={fields}
-            saved={saved}
-            busy={busy}
-            hydrated={editable}
-            onRemove={remove}
-            label={removeLabel(scope, source)}
-          />
+          {!lockedReason && (
+            <ModelActions
+              fields={fields}
+              saved={saved}
+              busy={busy}
+              hydrated={editable}
+              onRemove={remove}
+              label={removeLabel(scope, source)}
+            />
+          )}
           {error && (
             <div role="alert">
               <Text tone="danger">{error}</Text>

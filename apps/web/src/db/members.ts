@@ -37,29 +37,41 @@ const memberRow = (orgId: string, userId: string) =>
 const notLastOwner = (orgId: string, userId: string) =>
   sql`(${members.role} != 'owner' or (select count(*) from members o where o.org_id = ${orgId} and o.role = 'owner' and o.user_id != ${userId}) > 0)`;
 
-/** Delete or demote the member unless they are the org's last owner; a missing member is a 404. */
-async function guarded(
+const isMember = async (db: Db, orgId: string, userId: string) =>
+  (await db.select({ userId: members.userId }).from(members).where(memberRow(orgId, userId)))
+    .length > 0;
+
+/** Step an owner down unless they are the org's last owner; a missing member is a 404. */
+async function demote(db: Db, orgId: string, userId: string): Promise<void> {
+  const done = await db
+    .update(members)
+    .set({ role: "member" })
+    .where(and(memberRow(orgId, userId), notLastOwner(orgId, userId)))
+    .returning({ userId: members.userId });
+  if (done.length > 0) return;
+  if (!(await isMember(db, orgId, userId))) throw new NotFoundError("member");
+  throw new LastOwnerError();
+}
+
+/**
+ * Delete the member unless they are the org's last owner, and their invites (`dropInvitesOf`) in
+ * the same batch: a sign-in cannot fall between the two and put them back, and a failure undoes
+ * both. A missing member is a 404.
+ */
+async function remove(
   db: Db,
   orgId: string,
   userId: string,
-  change: "remove" | "demote",
+  invitesToo: { sentByThem: boolean },
 ): Promise<void> {
-  const where = and(memberRow(orgId, userId), notLastOwner(orgId, userId));
-  const done =
-    change === "remove"
-      ? await db.delete(members).where(where).returning({ userId: members.userId })
-      : await db
-          .update(members)
-          .set({ role: "member" })
-          .where(where)
-          .returning({ userId: members.userId });
-  if (done.length > 0) return;
-  const [still] = await db
-    .select({ userId: members.userId })
-    .from(members)
-    .where(memberRow(orgId, userId));
-  if (!still) throw new NotFoundError("member");
-  throw new LastOwnerError();
+  if (!(await isMember(db, orgId, userId))) throw new NotFoundError("member");
+  const membership = db
+    .delete(members)
+    .where(and(memberRow(orgId, userId), notLastOwner(orgId, userId)));
+  const { drop } = await dropInvitesOf(db, orgId, userId, invitesToo);
+  if (drop) await db.batch([membership, drop]);
+  else await membership;
+  if (await isMember(db, orgId, userId)) throw new LastOwnerError();
 }
 
 /**
@@ -74,8 +86,7 @@ export async function removeMember(
   userId: string,
 ): Promise<void> {
   await requireOwner(db, ownerId, orgId);
-  await guarded(db, orgId, userId, "remove");
-  await dropInvitesOf(db, orgId, userId, { sentByThem: true });
+  await remove(db, orgId, userId, { sentByThem: true });
 }
 
 /** An owner makes a member an owner, or steps an owner (themselves included) down, unless the last. */
@@ -86,7 +97,7 @@ export async function setMemberRole(
   role: MemberRole,
 ): Promise<void> {
   await requireOwner(db, ownerId, orgId);
-  if (role === "member") return guarded(db, orgId, userId, "demote");
+  if (role === "member") return demote(db, orgId, userId);
   const done = await db
     .update(members)
     .set({ role })
@@ -98,6 +109,5 @@ export async function setMemberRole(
 /** Any member may leave, except the last owner. */
 export async function leaveOrg(db: Db, userId: string, orgId: string): Promise<void> {
   await requireMember(db, userId, orgId);
-  await guarded(db, orgId, userId, "remove");
-  await dropInvitesOf(db, orgId, userId, { sentByThem: false });
+  await remove(db, orgId, userId, { sentByThem: false });
 }

@@ -1,3 +1,4 @@
+import { sql } from "./d1";
 import { expect, expectHydrated, open, test } from "./fixtures";
 
 test("mint an org token in the org settings, see it is live, revoke it", async ({
@@ -32,7 +33,21 @@ test("mint an org token in the org settings, see it is live, revoke it", async (
   await expect(page.getByText(token)).toHaveCount(0);
   await expect(row).toContainText(token.slice(0, 8));
 
+  // Stepped down while the page is open: the Revoke is refused with a 403 the table shows.
   await expectHydrated(page);
+  const viewer = `org_id = '${orgId}' AND user_id = (SELECT id FROM users WHERE login = 'e2e-octocat')`;
+  sql(`UPDATE members SET role = 'member' WHERE ${viewer}`);
+  const refused = page.waitForResponse(
+    (res) => res.request().method() === "POST" && !!res.request().postData()?.includes("tokenId"),
+  );
+  await row.getByRole("button", { name: "Revoke monorepo CI" }).click();
+  expect((await refused).status()).toBe(403);
+  await expect(page.getByRole("alert")).toHaveText(
+    "Only an owner of this organization can do that.",
+  );
+  await expect(row).toContainText("active");
+  sql(`UPDATE members SET role = 'owner' WHERE ${viewer}`);
+
   await row.getByRole("button", { name: "Revoke monorepo CI" }).click();
   await expect(row).toContainText("revoked");
   await expect(row.getByRole("button", { name: "Revoke monorepo CI" })).toHaveCount(0);

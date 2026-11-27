@@ -135,8 +135,8 @@ async function acceptInvites(db: Db, user: User): Promise<void> {
   const matching = or(...names);
   const pending = await db.select().from(invites).where(matching);
   if (pending.length === 0) return;
-  // Two parameters a row; `createdAt` is a column default, not bound.
-  for (const part of chunk(pending, 0, 2))
+  // Three parameters a row (org, user, role); `createdAt` is a column default, not bound.
+  for (const part of chunk(pending, 0, 3))
     await db
       .insert(members)
       .values(part.map((i) => ({ orgId: i.orgId, userId: user.id, role: "member" as const })))

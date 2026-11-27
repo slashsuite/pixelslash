@@ -279,6 +279,7 @@ function OrgPanel({
       <OrgHeader org={org} tab={tab} hydrated={hydrated} onDialog={onDialog} />
       {tab === "tokens" && (
         <OrgTokensPanel
+          key={org.id}
           orgId={org.id}
           orgName={org.name}
           tokens={tokens}

@@ -1,4 +1,4 @@
-import { type SQL, and, eq, isNotNull, or, sql } from "drizzle-orm";
+import { type SQL, and, eq, isNotNull, notExists, or, sql } from "drizzle-orm";
 import { type Db, ForbiddenError, NotFoundError } from "./db";
 import { requireMember } from "./orgs";
 import { members, users } from "./schema";
@@ -33,16 +33,18 @@ async function refuseMemberInvite(db: Db, orgId: string, name: string): Promise<
 }
 
 /**
- * A member who left or was removed keeps no pending invite of the org naming them to rejoin by;
- * with `sentByThem` (a removal), the invites they sent go too, since one may name another account
- * of theirs.
+ * The delete that leaves a member who left or was removed no pending invite of the org naming them
+ * to rejoin by; with `sentByThem` (a removal), the invites they sent go too, since one may name
+ * another account of theirs. It deletes only once they are no longer a member: it runs in the same
+ * batch as the membership's delete, so a refused removal leaves the invites as they are. Held in
+ * an object: a bare query builder is a thenable, and the promise would run it.
  */
 export async function dropInvitesOf(
   db: Db,
   orgId: string,
   userId: string,
   { sentByThem }: { sentByThem: boolean },
-): Promise<void> {
+) {
   const [user] = await db
     .select({ githubId: users.githubId, login: users.login, email: users.email })
     .from(users)
@@ -51,11 +53,21 @@ export async function dropInvitesOf(
     ...(user ? namesOf(user) : []),
     ...(sentByThem ? [eq(invites.invitedBy, userId)] : []),
   ];
-  if (names.length === 0) return;
-  await db.delete(invites).where(and(eq(invites.orgId, orgId), or(...names)));
+  if (names.length === 0) return {};
+  const stillIn = db
+    .select({ one: sql`1` })
+    .from(members)
+    .where(and(eq(members.orgId, orgId), eq(members.userId, userId)));
+  return {
+    drop: db.delete(invites).where(and(eq(invites.orgId, orgId), or(...names), notExists(stillIn))),
+  };
 }
 
-/** `who` is a GitHub login, or an email when it holds an `@` (no GitHub login can, PS-274). */
+/**
+ * `who` is a GitHub login, or an email when it holds an `@` (no GitHub login can, PS-274). The
+ * invite is written only while the inviter is still a member, in the same statement, so one removed
+ * meanwhile cannot leave an invite behind.
+ */
 export async function inviteMember(
   db: Db,
   inviter: User,
@@ -65,14 +77,22 @@ export async function inviteMember(
   await requireMember(db, inviter.id, orgId);
   const name = who.trim().toLowerCase();
   await refuseMemberInvite(db, orgId, name);
+  const email = name.includes("@") ? name : null;
   await db
     .insert(invites)
-    .values({
-      id: crypto.randomUUID(),
-      orgId,
-      ...(name.includes("@") ? { email: name } : { githubLogin: name }),
-      invitedBy: inviter.id,
-    })
+    .select(
+      db
+        .select({
+          id: sql<string>`${crypto.randomUUID()}`.as("id"),
+          orgId: members.orgId,
+          githubLogin: sql<string | null>`${email ? null : name}`.as("github_login"),
+          email: sql<string | null>`${email}`.as("email"),
+          invitedBy: members.userId,
+          createdAt: sql<Date>`(unixepoch() * 1000)`.as("created_at"),
+        })
+        .from(members)
+        .where(and(eq(members.orgId, orgId), eq(members.userId, inviter.id))),
+    )
     .onConflictDoNothing();
 }
 

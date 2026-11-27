@@ -152,7 +152,10 @@ test("an owner removes a member, and a member sees no controls on anyone else's 
 
   // Stepped down by another owner while the page is open: the next click is a 403 that says why.
   sql(`UPDATE members SET role = 'member' WHERE org_id = '${orgId}' AND user_id = ${VIEWER}`);
-  const refused = page.waitForResponse((res) => res.request().method() === "POST");
+  const refused = page.waitForResponse(
+    (res) =>
+      res.request().method() === "POST" && !!res.request().postData()?.includes(people.owner),
+  );
   await row(people.owner)
     .getByRole("button", { name: `Remove ${people.owner}` })
     .click();
@@ -173,6 +176,7 @@ test("an owner removes a member, and a member sees no controls on anyone else's 
   await open(page, `/orgs?org=${orgId}&tab=model`);
   await expect(page.getByText("Only an owner sets the org's model.")).toBeVisible();
   await expect(page.getByTestId("model-base-url")).toBeDisabled();
+  await expect(page.getByTestId("model-save")).toHaveCount(0);
 });
 
 /** The settings page's diff location form: a save survives a reload. What a CI project's upload then does is `local-build/upload.local-build.test.ts`. */

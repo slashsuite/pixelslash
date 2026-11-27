@@ -163,7 +163,7 @@ export function MembersPanel({
   const viewerIsOwner = org.members.some((m) => m.login === viewerLogin && m.role === "owner");
   return (
     <Stack>
-      <InviteForm hydrated={hydrated} onInvite={onInvite} />
+      <InviteForm key={org.id} hydrated={hydrated} onInvite={onInvite} />
       <Card flush>
         <Stack divided>
           {org.members.map((member) => (
