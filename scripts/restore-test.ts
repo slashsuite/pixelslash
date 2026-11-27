@@ -212,21 +212,41 @@ async function restore(dir: string, d1: string, list: Check[]): Promise<(number 
   return parseCounts(out, list.length);
 }
 
-/** Creates the scratch database, restores into it and checks it; deletes it, pass or fail. */
-async function inScratch(dir: string, creds: Creds, key: string): Promise<number> {
-  let created = false;
+/**
+ * Creates the scratch database, runs `body` and deletes the database by name, pass or fail. The delete
+ * runs even when the create threw, since a create can fail after it made the database. If the create
+ * did not return, a failed delete is taken to mean there was nothing to delete, and the create's own
+ * error is the one thrown.
+ */
+export async function withScratch<T>(
+  run: (args: string[]) => Promise<string>,
+  body: () => Promise<T>,
+): Promise<T> {
+  const drop = async (): Promise<void> => {
+    await run(["d1", "delete", SCRATCH, "--skip-confirmation"]);
+    console.log(`deleted ${SCRATCH}`);
+  };
   try {
-    const expected = await fetchDump(dir, creds, key);
-    await wrangler(dir, creds.d1, ["d1", "create", SCRATCH, "--location", "weur"]);
-    created = true;
-    console.log(`created ${SCRATCH}`);
-    return report(expected, await restore(dir, creds.d1, expected)) ? 1 : 0;
-  } finally {
-    if (created) {
-      await wrangler(dir, creds.d1, ["d1", "delete", SCRATCH, "--skip-confirmation"]);
-      console.log(`deleted ${SCRATCH}`);
-    }
+    await run(["d1", "create", SCRATCH, "--location", "weur"]);
+  } catch (e) {
+    await drop().catch(() => console.log(`no ${SCRATCH} to delete`));
+    throw e;
   }
+  console.log(`created ${SCRATCH}`);
+  try {
+    return await body();
+  } finally {
+    await drop();
+  }
+}
+
+/** Fetches the dump, then restores it into the scratch database and checks it. */
+async function inScratch(dir: string, creds: Creds, key: string): Promise<number> {
+  const expected = await fetchDump(dir, creds, key);
+  return withScratch(
+    (args) => wrangler(dir, creds.d1, args),
+    async () => (report(expected, await restore(dir, creds.d1, expected)) ? 1 : 0),
+  );
 }
 
 async function restoreTest(creds: Creds, key: string): Promise<number> {

@@ -45,6 +45,28 @@ describe("check-workflows", () => {
     ["wrangler d1 export db --output x > /dev/null", 1],
     ["wrangler d1 export db --output x 2>&1", 1],
     ["wrangler d1 export db --output x 2> /dev/null", 1],
+    // Redirects apply left to right: `2>&1 > f` points stderr at the log before stdout moves.
+    ['wrangler d1 export db --output x 2>&1 > "$RUNNER_TEMP/log"', 1],
+    ["wrangler d1 export db --output x 2>&1 >/dev/null", 1],
+    ['wrangler d1 export db --output x 2>&1 1> "$RUNNER_TEMP/log"', 1],
+    ['wrangler d1 export db --output x >> "$RUNNER_TEMP/log" 2>&1', 0],
+    ['wrangler d1 export db --output x 1>"$RUNNER_TEMP/log" 2>&1', 0],
+    ['wrangler d1 export db --output x > "${RUNNER_TEMP}/o" 2> "$RUNNER_TEMP/e"', 0],
+    ["wrangler d1 export db --output x 2>/dev/null >/dev/null", 0],
+    ["wrangler d1 export db --output x >& /dev/null", 0],
+    ["wrangler d1 export db --output x &>> /dev/null", 0],
+    ['> "$RUNNER_TEMP/log" 2>&1 wrangler d1 export db --output x', 0],
+    // A later redirect undoes an earlier sink.
+    ["wrangler d1 export db --output x &> /dev/null 2>&1 2>&2 1>&2 >out.log", 1],
+    ['wrangler d1 export db --output x > "$RUNNER_TEMP/log" 2>&1 2> err.log', 1],
+    // Only the export's own redirects count, not the next command's.
+    ['wrangler d1 export db --output x && echo ok > "$RUNNER_TEMP/log" 2>&1', 1],
+    ["wrangler d1 export db --output x; echo ok &> /dev/null", 1],
+    // A pipe takes stdout to another command; `|&` takes stderr too.
+    ["wrangler d1 export db --output x 2> /dev/null | tee y", 1],
+    ["wrangler d1 export db --output x 2> /dev/null |& cat", 1],
+    ["wrangler d1 export db --output x &> /dev/null |& cat", 0],
+    ["wrangler d1 export db --output x > /dev/null 2> other.log", 1],
   ])("checks that %s keeps the export off the log", (run, n) => {
     const text = `on: push\njobs:\n  j:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          ${run.replaceAll("\n", "\n          ")}\n`;
     expect(checkWorkflow("a.yml", text)).toHaveLength(n);
