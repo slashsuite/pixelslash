@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { PNG } from "pngjs";
 import { afterAll, describe, expect, test } from "vitest";
-import { CaptureTimeout } from "../src/errors.ts";
+import { CaptureError, CaptureTimeout } from "../src/errors.ts";
 import { FRESH_ALONE } from "../src/flake-upload.ts";
 import { identity, readManifest } from "../src/manifest.ts";
 import type { Shoot, SnapshotEntry } from "../src/snapshot.ts";
@@ -224,7 +224,7 @@ describe("a fresh shot that times out beside the others is shot again alone", ()
     const asked: string[] = [];
     const recapture: Recapture = async (e) => {
       asked.push(e.name);
-      if (e.name === "real") throw new Error("the page crashed");
+      if (e.name === "real") throw new CaptureError("the page crashed");
       return freshShot(e);
     };
     await expect(upload({ recapture, retries: 0 })).rejects.toThrow("the page crashed");
