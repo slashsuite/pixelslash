@@ -227,16 +227,31 @@ const clock = (deps: StatusDeps) => ({
   now: deps.now ?? Date.now,
 });
 
-/** Read the build until it settles or `wait.timeoutMs` passes; without `wait`, once. */
+/** The error of an `errored` build; undefined for any other. */
+const erroredWith = (b: Record<string, unknown>) =>
+  outcomeOf(b) === "errored" ? str(b.error) : undefined;
+
+/** Settled, except an `errored` build not read `errored` with that error the time before. */
+const ended = (b: Record<string, unknown>, before: string | undefined) =>
+  settled(outcomeOf(b)) && (erroredWith(b) === undefined || erroredWith(b) === before);
+
+/**
+ * Read the build until it settles or `wait.timeoutMs` passes; without `wait`, once. An `errored`
+ * build is read once more, an interval later, before it is the end: the renderer finalises a build
+ * the diff stopped at its ceiling again at once, so between two of its runs the build reads
+ * `errored` for a moment and then `processing`. Read `errored` twice with the same error, it is.
+ */
 async function poll(watch: Watch, io: Io, deps: StatusDeps): Promise<Read> {
   const { remote, id, wait } = watch;
   const { sleep, now } = clock(deps);
   const deadline = now() + (wait?.timeoutMs ?? 0);
   let last = "";
+  let errored: string | undefined;
   for (;;) {
     const current = await read(remote, id);
     const left = deadline - now();
-    if (!wait || settled(outcomeOf(current.build)) || left <= 0) return current;
+    if (!wait || ended(current.build, errored) || left <= 0) return current;
+    errored = erroredWith(current.build);
     const line = summary(current.build);
     if (line !== last && !watch.json) io.stderr.write(`waiting on build ${id}: ${line}\n`);
     last = line;
