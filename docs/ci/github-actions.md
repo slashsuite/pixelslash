@@ -52,7 +52,7 @@ on:
   workflow_dispatch:
 
 env:
-  IMAGE: ghcr.io/madangryscientist/pixelslash-capture@sha256:d8b33a8e9fac68f41d04e5295cdf7b57ab22affca73f081f2b18241d2e633fff
+  IMAGE: ghcr.io/slashsuite/pixelslash-capture@sha256:845fc2e8788b0d88c6a138a35c71b8b817aee5821173b2be066f278d44bb70da
 
 jobs:
   visual:
@@ -115,7 +115,7 @@ Each capture step:
 ```text
 pixelslash: 1 snapshots
 timing: 1 shot, capture 0.8s, total 1.2s
-fingerprint: {"image":"ghcr.io/madangryscientist/pixelslash-capture@sha256:d8b33a8e9fac68f41d04e5295cdf7b57ab22affca73f081f2b18241d2e633fff","browser":"chromium 156.0.8078.4","fonts":"sha256:b94a854b9906469b346d4f39cae49b20342e1abc9501e597fed6b1c44d5a0bbb"}
+fingerprint: {"image":"ghcr.io/slashsuite/pixelslash-capture@sha256:845fc2e8788b0d88c6a138a35c71b8b817aee5821173b2be066f278d44bb70da","browser":"chromium 159.0.8154.6","fonts":"sha256:b94a854b9906469b346d4f39cae49b20342e1abc9501e597fed6b1c44d5a0bbb"}
 manifest: /work/snapshots/main/manifest.json
 ```
 

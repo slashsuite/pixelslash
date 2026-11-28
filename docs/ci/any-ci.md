@@ -56,7 +56,7 @@ exit 1
 # Needs: git with full history, docker that can use the host network, python3.
 set -eu
 
-IMAGE="ghcr.io/madangryscientist/pixelslash-capture@sha256:d8b33a8e9fac68f41d04e5295cdf7b57ab22affca73f081f2b18241d2e633fff"
+IMAGE="ghcr.io/slashsuite/pixelslash-capture@sha256:845fc2e8788b0d88c6a138a35c71b8b817aee5821173b2be066f278d44bb70da"
 BASE_REF="${BASE_REF:-origin/main}"
 
 docker pull "$IMAGE"

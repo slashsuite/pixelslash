@@ -27,12 +27,12 @@ Read the version from there. `npx pixelslash --version` prints the engine's vers
 A tag can be moved. A digest cannot. Get the digest once, from the tag:
 
 ```bash
-docker pull ghcr.io/madangryscientist/pixelslash-capture:0.7.0
-docker inspect --format '{{index .RepoDigests 0}}' ghcr.io/madangryscientist/pixelslash-capture:0.7.0
+docker pull ghcr.io/slashsuite/pixelslash-capture:0.10.0
+docker inspect --format '{{index .RepoDigests 0}}' ghcr.io/slashsuite/pixelslash-capture:0.10.0
 ```
 
 ```text
-ghcr.io/madangryscientist/pixelslash-capture@sha256:d8b33a8e9fac68f41d04e5295cdf7b57ab22affca73f081f2b18241d2e633fff
+ghcr.io/slashsuite/pixelslash-capture@sha256:845fc2e8788b0d88c6a138a35c71b8b817aee5821173b2be066f278d44bb70da
 ```
 
 Then name the image by that digest in your CI file. It only changes when you change it, in a commit. The image is for `linux/amd64`.
@@ -42,12 +42,12 @@ Then name the image by that digest in your CI file. It only changes when you cha
 Each manifest has a fingerprint of what rendered it. The image does not know its own digest, so you pass it in. Without it:
 
 ```bash
-IMAGE=ghcr.io/madangryscientist/pixelslash-capture@sha256:d8b33a8e9fac68f41d04e5295cdf7b57ab22affca73f081f2b18241d2e633fff
+IMAGE=ghcr.io/slashsuite/pixelslash-capture@sha256:845fc2e8788b0d88c6a138a35c71b8b817aee5821173b2be066f278d44bb70da
 docker run --rm --network host -v "$PWD:/work" "$IMAGE" capture --out snapshots/no-digest
 ```
 
 ```text
-fingerprint: {"image":"version:0.7.0","browser":"chromium 156.0.8078.4","fonts":"sha256:b94a854b9906469b346d4f39cae49b20342e1abc9501e597fed6b1c44d5a0bbb"}
+fingerprint: {"image":"version:0.10.0","browser":"chromium 159.0.8154.6","fonts":"sha256:b94a854b9906469b346d4f39cae49b20342e1abc9501e597fed6b1c44d5a0bbb"}
 ```
 
 With it:
@@ -57,7 +57,7 @@ docker run --rm --network host -v "$PWD:/work" -e PIXELSLASH_IMAGE_DIGEST="$IMAG
 ```
 
 ```text
-fingerprint: {"image":"ghcr.io/madangryscientist/pixelslash-capture@sha256:d8b33a8e9fac68f41d04e5295cdf7b57ab22affca73f081f2b18241d2e633fff","browser":"chromium 156.0.8078.4","fonts":"sha256:b94a854b9906469b346d4f39cae49b20342e1abc9501e597fed6b1c44d5a0bbb"}
+fingerprint: {"image":"ghcr.io/slashsuite/pixelslash-capture@sha256:845fc2e8788b0d88c6a138a35c71b8b817aee5821173b2be066f278d44bb70da","browser":"chromium 159.0.8154.6","fonts":"sha256:b94a854b9906469b346d4f39cae49b20342e1abc9501e597fed6b1c44d5a0bbb"}
 ```
 
 Pass it on both sides. Two runs with different values do not match, even from the same image:
