@@ -1,6 +1,6 @@
 import { mkdir, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { UsageError } from "./errors.ts";
+import { CaptureError, CaptureTimeout, UsageError } from "./errors.ts";
 import { type FlakeCheck, type FlakeRecord, checkFlake } from "./flake.ts";
 import { renderFlakeReport } from "./flake-report.ts";
 import { identity } from "./manifest.ts";
@@ -54,25 +54,42 @@ async function saveRuns(dir: string, rechecked: Rechecked[]): Promise<FlakyShot[
   return flaky;
 }
 
-/** `work` through at most `limit` slots at once (at least 1); the rest wait their turn. */
+/**
+ * `slot(work)` runs through at most `limit` slots at once (at least 1); `alone(work)` takes every
+ * slot, so it starts once the work before it has finished and nothing starts beside it. Waiters go
+ * in turn: work queued after an `alone` waits for it.
+ */
 function limiter(limit: number) {
   const max = Math.max(1, Math.floor(limit));
-  let inFlight = 0;
-  const waiting: (() => void)[] = [];
-  return async <T>(work: () => Promise<T>): Promise<T> => {
-    if (inFlight >= max) await new Promise<void>((resolve) => waiting.push(resolve));
-    else inFlight++;
-    try {
-      return await work();
-    } finally {
-      const next = waiting.shift();
-      if (next) next();
-      else inFlight--;
+  let used = 0;
+  const waiting: { need: number; go: () => void }[] = [];
+  const pump = () => {
+    for (let w = waiting[0]; w && used + w.need <= max; w = waiting[0]) {
+      waiting.shift();
+      used += w.need;
+      w.go();
     }
   };
+  const run =
+    (need: number) =>
+    async <T>(work: () => Promise<T>): Promise<T> => {
+      if (waiting.length > 0 || used + need > max)
+        await new Promise<void>((go) => waiting.push({ need, go }));
+      else used += need;
+      try {
+        return await work();
+      } finally {
+        used -= need;
+        pump();
+      }
+    };
+  return { slot: run(1), alone: run(max) };
 }
 
 type Recapture = (e: SnapshotEntry) => Promise<Shoot | undefined>;
+
+/** The note when a fresh shot that timed out timed out again, shot alone. */
+export const FRESH_ALONE = "; shot again alone on a fresh page and timed out again";
 
 /**
  * One upload's flaky-shot pass (ob 1737): a changed shot is captured `retries` more times as it goes
@@ -95,7 +112,7 @@ export function flakePass(opts: {
   let reshot = 0;
   // A session shoots up to `concurrency` shots at once, each in its own context, so the upload's
   // workers and one shot's retries share that many re-captures; without a limit, one at a time.
-  const slot = limiter(opts.concurrency ?? 1);
+  const { slot, alone } = limiter(opts.concurrency ?? 1);
   const again = (e: SnapshotEntry, png: Buffer) => {
     // Once one of a shot's captures fails the shot is skipped, so its other captures do not start.
     let failure: { err: unknown } | undefined;
@@ -120,10 +137,21 @@ export function flakePass(opts: {
     /**
      * The shot again on a fresh page (PS-445), for a shot first taken on a pooled preview page that
      * differs from its baseline or has none. It shares the re-captures' slots. A shot that cannot be
-     * shot fresh fails the upload: its pooled PNG is never sent in its place.
+     * shot fresh fails the upload: its pooled PNG is never sent in its place. A fresh shot that
+     * times out beside the others (a build that changed every story shoots them all fresh at once)
+     * is shot once more alone, as `captureInto` does, and only a second timeout fails the upload.
      */
     async fresh(e: SnapshotEntry): Promise<Shoot> {
-      const shot = await slot(() => (recapture ? recapture(e) : Promise.resolve(undefined)));
+      const shoot = () => (recapture ? recapture(e) : Promise.resolve(undefined));
+      const shot = await slot(shoot).catch((err: unknown) => {
+        if (!(err instanceof CaptureTimeout)) throw err;
+        warn(`retry: ${identity(e)} timed out under load on a fresh page; shot again alone`);
+        return alone(shoot).catch((second: unknown) => {
+          throw second instanceof CaptureTimeout
+            ? new CaptureError(`${second.message}${FRESH_ALONE}`)
+            : second;
+        });
+      });
       if (!shot) throw new UsageError(`${identity(e)}: the config has no such route or variant`);
       reshot++;
       return shot;
