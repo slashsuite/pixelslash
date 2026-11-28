@@ -12,6 +12,7 @@ import { type Held, type HeldImage, heldImages } from "./held-images";
 import { heldShot } from "./markers";
 import { arrival } from "./schema-columns";
 import { snapshotStem } from "./stem";
+import { decidedNow } from "./verdict";
 import {
   type BuildTimings,
   type DiffOptions,
@@ -102,7 +103,10 @@ export async function createBuild(
   status: "uploading" | "passed" = "uploading",
 ): Promise<string> {
   const id = crypto.randomUUID();
-  await db.insert(builds).values({ id, projectId, ...input, status, createdAt: arrival() });
+  const createdAt = arrival();
+  // A skipped build is decided as it is made.
+  const decidedAt = status === "passed" ? decidedNow(projectId) : null;
+  await db.insert(builds).values({ id, projectId, ...input, status, createdAt, decidedAt });
   return id;
 }
 

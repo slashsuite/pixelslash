@@ -1,4 +1,4 @@
-import { type SQL, and, eq, inArray, lte, ne, or } from "drizzle-orm";
+import { type SQL, and, eq, inArray, isNull, lte, ne, or } from "drizzle-orm";
 import type { Db } from "./db";
 import type { Build } from "./builds";
 import { pixelsOf } from "./approved-earlier";
@@ -147,7 +147,7 @@ const baselineOf = ({
 });
 
 /** Statement parameters besides the commit list in `queryCandidates`' WHERE (see `inChunks`). */
-const OTHER_PARAMS = 12;
+const OTHER_PARAMS = 13;
 
 /**
  * Every shot that may be a baseline: an accepted one (see `acceptedRow`; the default branch
@@ -155,7 +155,7 @@ const OTHER_PARAMS = 12;
  * build that was not rejected, and never one with no result (see `measuredRow`). The commit list can outgrow D1's parameter cap, so it is read in
  * parts and merged; `order` then puts the rows in the order the picks walk them.
  */
-async function queryCandidates(db: Db, build: PickFor): Promise<Candidate[]> {
+async function queryCandidates(db: Db, build: PickFor, options: PickOptions): Promise<Candidate[]> {
   const commits = [build.mergeBaseSha, ...build.ancestorShas].filter(
     (sha): sha is string => sha !== null,
   );
@@ -193,6 +193,8 @@ async function queryCandidates(db: Db, build: PickFor): Promise<Candidate[]> {
           // A build created after this one cannot be its baseline.
           lte(builds.createdAt, build.createdAt),
           inArray(builds.status, ["changes", "passed"]),
+          options.decidedBy &&
+            or(isNull(builds.decidedAt), lte(builds.decidedAt, options.decidedBy)),
           or(
             eq(builds.status, "passed"),
             eq(snapshots.reviewState, "accepted"),
@@ -370,12 +372,24 @@ export function baselineFor(
   return { shot: main, carry: null, accepted: main };
 }
 
+/**
+ * `decidedBy`: only builds decided by then (`decided_at`) are candidates. A `ci` project passes
+ * its build's `createdAt`, so the pick `POST /baselines` gave the CLI is the one finalise makes,
+ * even when a build it could pick reaches its verdict during the upload.
+ */
+export type PickOptions = { decidedBy?: Date };
+
+/** The options a build's pick takes: the `decidedBy` cutoff for a `ci` project, none for the server. */
+export const pickOptions = (build: PickFor, ci: boolean): PickOptions =>
+  ci ? { decidedBy: build.createdAt } : {};
+
 export async function selectBaselines(
   db: Db,
   build: PickFor,
   keys: Set<string>,
+  options: PickOptions = {},
 ): Promise<Baselines> {
-  const candidates = await queryCandidates(db, build);
+  const candidates = await queryCandidates(db, build, options);
   if (candidates.length === 0) return emptyBaselines();
   const baselineBuildId = primaryBuild(build, candidates);
   const main = pickMain(candidates, build);

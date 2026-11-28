@@ -188,7 +188,8 @@ describe("build status", () => {
       { db: store.db },
     );
     expect(branch.status).toBe("changes");
-    expect(store.writes).toEqual([{ status: "changes" }]);
+    // With the time it was first decided, which a `ci` build's pick reads.
+    expect(store.writes).toEqual([{ status: "changes", decidedAt: expect.anything() }]);
   });
 
   test("a status write that throws ends the build at errored, never processing", async () => {

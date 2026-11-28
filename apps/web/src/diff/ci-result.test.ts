@@ -1,7 +1,13 @@
 import { diffPngs, summarizeDiff } from "@slashsuite/pixelslash-engine/diff";
 import { describe, expect, test } from "vitest";
 import { parseCiInput, pngSize } from "#/api/validate";
-import { CiResultError, type CiUpload, checkCiResult } from "./ci-result";
+import {
+  CiResultError,
+  type CiUpload,
+  NAMED_REFUSALS,
+  checkCiResult,
+  refusedMessage,
+} from "./ci-result";
 import { RED, shot } from "./test-shots";
 
 /** The checks a CI result passes before it is stored (ob 1727), on a real engine result. */
@@ -104,5 +110,24 @@ describe("the upload's ci field", () => {
   test("the shot's size is read from its PNG header", () => {
     expect(pngSize(branch.buffer)).toEqual({ width: 64, height: 48 });
     expect(() => pngSize(new ArrayBuffer(8))).toThrow(/too short/);
+  });
+});
+
+const refused = (n: number) => Array.from({ length: n }, (_, i) => `shot ${i}: stale baseline`);
+
+describe("refusedMessage", () => {
+  test("names every refused shot when there are few", () => {
+    expect(refusedMessage(refused(2), 5)).toBe(
+      "this project diffs in CI and 2 of 5 shots have no usable result; re-run the CI job. " +
+        "shot 0: stale baseline; shot 1: stale baseline",
+    );
+  });
+
+  // A run whose every shot was refused printed all 706 reasons on one line (PS-812).
+  test("names the first few of many and counts the rest", () => {
+    const message = refusedMessage(refused(706), 752);
+    expect(message).toMatch(/^this project diffs in CI and 706 of 752 shots have no usable result/);
+    expect(message.match(/stale baseline/g)).toHaveLength(NAMED_REFUSALS);
+    expect(message).toMatch(/; and 703 more, each with its reason on the shot$/);
   });
 });

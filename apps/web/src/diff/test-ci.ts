@@ -42,6 +42,7 @@ export type Run = {
   branch: string;
   commit: string;
   mergeBase?: string;
+  ancestors?: string[];
   png: Uint8Array<ArrayBuffer>;
   /** What captured the shot, when not `META`'s environment. */
   fingerprint?: typeof META.fingerprint;
@@ -68,6 +69,7 @@ async function start(deps: ApiDeps, token: string, spec: Run): Promise<string> {
       commitSha: spec.commit,
       branch: spec.branch,
       mergeBaseSha: spec.mergeBase ?? null,
+      ancestorShas: spec.ancestors ?? [],
       clientDiff: true,
     }),
   );
@@ -109,12 +111,18 @@ function formOf(spec: Run, meta: typeof META, measured: CiResult[]): FormData {
   return form;
 }
 
-/** One build of one shot, as `pixelslash upload` makes it: start, pick, measure, send, finalise. */
-export async function run(held: Held, token: string, spec: Run, deps: ApiDeps = held.deps) {
+/** The first half of an upload: the build opened, its pick asked for and the shot measured. */
+export async function begin(held: Held, token: string, spec: Run, deps: ApiDeps = held.deps) {
   const id = await start(deps, token, spec);
   const meta = { ...META, fingerprint: spec.fingerprint ?? META.fingerprint };
   const pick: BaselinePick = await pickOf(deps, token, id, meta);
   const measured = await measureShot(meta, Buffer.from(spec.png), pick, fetcher(held));
+  return { held, token, spec, deps, id, meta, pick, measured };
+}
+
+/** The second half: what `begin` measured sent, and the build finalised. */
+export async function send(begun: Awaited<ReturnType<typeof begin>>) {
+  const { held, token, spec, deps, id, meta, pick, measured } = begun;
   const form = formOf(spec, meta, measured);
   const put = await call(deps, `PUT /api/v1/builds/${id}/snapshots`, token, form);
   expect(put.status).toBe(200);
@@ -128,6 +136,11 @@ export async function run(held: Held, token: string, spec: Run, deps: ApiDeps = 
   if (!row) throw new Error("no shot");
   const [build] = await held.db.select().from(builds).where(eq(builds.id, id));
   return { id, done, row, build, pick, measured };
+}
+
+/** One build of one shot, as `pixelslash upload` makes it: start, pick, measure, send, finalise. */
+export async function run(held: Held, token: string, spec: Run, deps: ApiDeps = held.deps) {
+  return send(await begin(held, token, spec, deps));
 }
 
 /** The `acme` project diffs in CI; `other` stays on the server. */
