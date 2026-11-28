@@ -1,12 +1,30 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import type { Browser } from "playwright";
+import { PNG } from "pngjs";
 import { launchBrowser } from "../src/capture.ts";
 import { openPage, type ShotProgress } from "../src/capture-open.ts";
 import { parseConfig } from "../src/config.ts";
 
 // The CLI's shot path (`openPage`) against real Chromium: a page whose content arrives from a slow fetch is
 // shot with it, a page that hydrates before it fetches is shot after the fetch, and a static page does not pay
-// a fixed network or idle window.
+// a fixed network or idle window, and an image the browser decodes off the main thread is shot painted.
+
+/** The red of the large image below. */
+const RED = [220, 20, 20] as const;
+
+/**
+ * A large solid red PNG: small on the wire, but tens of millions of pixels to decode, so with
+ * `decoding="async"` the image has loaded well before it is decoded, and a frame painted in between
+ * has a blank box where it goes.
+ */
+function largeRedPng(side: number): Buffer {
+  const png = new PNG({ width: side, height: side });
+  for (let i = 0; i < png.data.length; i += 4) png.data.set([...RED, 255], i);
+  return PNG.sync.write(png);
+}
+const LARGE_RED = largeRedPng(6_000);
+const ASYNC_IMAGE = `<!doctype html><body style="margin:0;background:#fff">
+  <img decoding="async" src="/large-red.png" style="display:block;width:400px;height:400px"></body>`;
 
 /**
  * A page that renders "Loading...", then works the main thread for about 200ms in small slices posted
@@ -35,6 +53,12 @@ const server = Bun.serve({
       return Response.json({ text: "arrived late" });
     }
     if (path === "/hydrated-data") return Response.json({ text: "hydrated and loaded" });
+    if (path === "/large-red.png")
+      return new Response(LARGE_RED, {
+        headers: { "content-type": "image/png", "cache-control": "no-store" },
+      });
+    if (path === "/async-image")
+      return new Response(ASYNC_IMAGE, { headers: { "content-type": "text/html" } });
     if (path === "/hydrating")
       return new Response(HYDRATING, { headers: { "content-type": "text/html" } });
     if (path === "/slow") {
@@ -71,7 +95,11 @@ async function settled(path: string) {
       timeoutMs: 8_000,
       progress,
     });
-    return { steps: opened.settle, text: await page.locator("body").innerText() };
+    return {
+      steps: opened.settle,
+      text: await page.locator("body").innerText(),
+      shot: PNG.sync.read(await page.screenshot({ fullPage: true })),
+    };
   } finally {
     await page.close();
   }
@@ -86,6 +114,13 @@ describe("the in-flight settle in Chromium", () => {
   test("a page that fetches its data only after 200ms of main-thread work is shot with that data", async () => {
     const { text } = await settled("/hydrating");
     expect(text).toContain("hydrated and loaded");
+  });
+
+  test("an image with decoding=async is shot decoded, not as a blank box", async () => {
+    const { shot } = await settled("/async-image");
+    // The middle of the 400px image.
+    const at = (200 * shot.width + 200) * 4;
+    expect([...shot.data.subarray(at, at + 3)]).toEqual([...RED]);
   });
 
   test("a static page's network and idle waits are each under 50ms", async () => {

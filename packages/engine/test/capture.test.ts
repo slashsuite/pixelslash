@@ -10,7 +10,7 @@ import {
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("settleCapture", () => {
-  test("with no tracker it waits fonts, images, networkidle, then two frames, in order", async () => {
+  test("with no tracker it waits fonts, images loaded then decoded, networkidle, then two frames, in order", async () => {
     const calls: string[] = [];
     const pending: Array<() => void> = [];
     const gated = (label: string) => {
@@ -31,10 +31,20 @@ describe("settleCapture", () => {
     expect(calls).toEqual(["evaluate", "waitForFunction"]);
     release();
     await tick();
-    expect(calls).toEqual(["evaluate", "waitForFunction", "loadState:networkidle"]);
+    // The decode runs once every image has loaded.
+    expect(calls).toEqual(["evaluate", "waitForFunction", "evaluate"]);
     release();
     await tick();
-    expect(calls).toEqual(["evaluate", "waitForFunction", "loadState:networkidle", "evaluate"]);
+    expect(calls).toEqual(["evaluate", "waitForFunction", "evaluate", "loadState:networkidle"]);
+    release();
+    await tick();
+    expect(calls).toEqual([
+      "evaluate",
+      "waitForFunction",
+      "evaluate",
+      "loadState:networkidle",
+      "evaluate",
+    ]);
     release();
     // Each condition is timed apart (PS-195).
     expect(await done).toEqual({
@@ -59,18 +69,19 @@ describe("settleCapture", () => {
 });
 
 /**
- * What an `evaluate` call is waiting on: the idle wait is the one called with a budget, the fonts are
- * the first call, and the rest are frames.
+ * What an `evaluate` call is waiting on: the idle wait is the one called with a budget, the decode is
+ * the one whose source decodes, the fonts are the first call, and the rest are frames.
  */
-function evaluated(calls: string[], arg: unknown): string {
+function evaluated(calls: string[], callback: unknown, arg: unknown): string {
   if (arg !== undefined) return "idle";
+  if (String(callback).includes(".decode(")) return "decode";
   return calls.includes("fonts") ? "frames" : "fonts";
 }
 
-/** A page that records its calls, with `evaluate` (fonts, frames, idle) and `waitForFunction` answering at once. */
+/** A page that records its calls, with `evaluate` (fonts, decode, frames, idle) and `waitForFunction` answering at once. */
 function recordingPage(calls: string[]): SettlePage {
   return {
-    evaluate: async (_callback, arg) => void calls.push(evaluated(calls, arg)),
+    evaluate: async (callback, arg) => void calls.push(evaluated(calls, callback, arg)),
     waitForFunction: async () => void calls.push("waitForFunction"),
     waitForLoadState: async (state) => void calls.push(`loadState:${state}`),
   };
@@ -98,10 +109,10 @@ describe("settleCapture with an in-flight tracker", () => {
     const done = settleCapture(recordingPage(calls), 5_000, inflight);
     await tick();
     // Fonts and images are done; the one request holds the network wait, so no frames yet.
-    expect(calls).toEqual(["fonts", "waitForFunction"]);
+    expect(calls).toEqual(["fonts", "waitForFunction", "decode"]);
     events.emit("requestfinished");
     const steps = await done;
-    expect(calls).toEqual(["fonts", "waitForFunction", "frames", "idle"]);
+    expect(calls).toEqual(["fonts", "waitForFunction", "decode", "frames", "idle"]);
     expect(steps.networkIdleMs).toBeGreaterThanOrEqual(0);
   });
 
@@ -124,8 +135,8 @@ describe("settleCapture with an in-flight tracker", () => {
     const inflight = trackInflight(events);
     const calls: string[] = [];
     const page: SettlePage = {
-      evaluate: async (_callback, arg) => {
-        const step = evaluated(calls, arg);
+      evaluate: async (callback, arg) => {
+        const step = evaluated(calls, callback, arg);
         calls.push(step);
         // A request starts inside the first frame pair.
         if (step === "frames" && calls.filter((c) => c === "frames").length === 1)
@@ -136,11 +147,19 @@ describe("settleCapture with an in-flight tracker", () => {
     };
     const done = settleCapture(page, 5_000, inflight);
     for (let i = 0; i < 5; i += 1) await tick();
-    expect(calls).toEqual(["fonts", "waitForFunction", "frames", "idle"]);
+    expect(calls).toEqual(["fonts", "waitForFunction", "decode", "frames", "idle"]);
     // Still waiting: the count is 1, so the frames have not run a second time.
     events.emit("requestfailed");
     await done;
-    expect(calls).toEqual(["fonts", "waitForFunction", "frames", "idle", "frames", "idle"]);
+    expect(calls).toEqual([
+      "fonts",
+      "waitForFunction",
+      "decode",
+      "frames",
+      "idle",
+      "frames",
+      "idle",
+    ]);
   });
 
   test("a request that starts during the idle wait makes it wait and run the frames and idle again", async () => {
@@ -148,8 +167,8 @@ describe("settleCapture with an in-flight tracker", () => {
     const inflight = trackInflight(events);
     const calls: string[] = [];
     const page: SettlePage = {
-      evaluate: async (_callback, arg) => {
-        const step = evaluated(calls, arg);
+      evaluate: async (callback, arg) => {
+        const step = evaluated(calls, callback, arg);
         calls.push(step);
         // The page goes idle, then starts its data fetch (a hydrated page's useQuery on mount).
         if (step === "idle" && calls.filter((c) => c === "idle").length === 1)
@@ -160,10 +179,10 @@ describe("settleCapture with an in-flight tracker", () => {
     };
     const done = settleCapture(page, 5_000, inflight);
     for (let i = 0; i < 5; i += 1) await tick();
-    expect(calls).toEqual(["fonts", "frames", "idle"]);
+    expect(calls).toEqual(["fonts", "decode", "frames", "idle"]);
     events.emit("requestfinished");
     await done;
-    expect(calls).toEqual(["fonts", "frames", "idle", "frames", "idle"]);
+    expect(calls).toEqual(["fonts", "decode", "frames", "idle", "frames", "idle"]);
   });
 
   test("a page that never goes idle fails at the timeout", async () => {
@@ -185,8 +204,8 @@ describe("settleCapture with an in-flight tracker", () => {
     let evaluates = 0;
     const page: SettlePage = {
       evaluate: async () => {
-        // The second evaluate is the first frame pair.
-        if (++evaluates === 2) {
+        // The third evaluate is the first frame pair (after the fonts and the image decode).
+        if (++evaluates === 3) {
           events.emit("request");
           events.emit("requestfinished");
         }
@@ -195,8 +214,8 @@ describe("settleCapture with an in-flight tracker", () => {
       waitForLoadState: async () => {},
     };
     await settleCapture(page, 5_000, inflight);
-    // fonts, then the frames and the idle wait twice.
-    expect(evaluates).toBe(5);
+    // fonts, the decode, then the frames and the idle wait twice.
+    expect(evaluates).toBe(6);
   });
 
   test("a request that never finishes fails at the timeout", async () => {
