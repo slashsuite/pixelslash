@@ -15,14 +15,15 @@ const RED = [220, 20, 20] as const;
 /**
  * A large solid red PNG: small on the wire, but tens of millions of pixels to decode, so with
  * `decoding="async"` the image has loaded well before it is decoded, and a frame painted in between
- * has a blank box where it goes.
+ * has a blank box where it goes. Built on its first request, so the other tests do not pay for it.
  */
-function largeRedPng(side: number): Buffer {
-  const png = new PNG({ width: side, height: side });
-  for (let i = 0; i < png.data.length; i += 4) png.data.set([...RED, 255], i);
-  return PNG.sync.write(png);
+let largeRed: Buffer | undefined;
+function largeRedPng(): Buffer {
+  if (largeRed) return largeRed;
+  const png = new PNG({ width: 6_000, height: 6_000 });
+  png.data.fill(Buffer.from([...RED, 255]));
+  return (largeRed = PNG.sync.write(png));
 }
-const LARGE_RED = largeRedPng(6_000);
 const ASYNC_IMAGE = `<!doctype html><body style="margin:0;background:#fff">
   <img decoding="async" src="/large-red.png" style="display:block;width:400px;height:400px"></body>`;
 
@@ -54,7 +55,7 @@ const server = Bun.serve({
     }
     if (path === "/hydrated-data") return Response.json({ text: "hydrated and loaded" });
     if (path === "/large-red.png")
-      return new Response(LARGE_RED, {
+      return new Response(largeRedPng(), {
         headers: { "content-type": "image/png", "cache-control": "no-store" },
       });
     if (path === "/async-image")
@@ -85,7 +86,7 @@ afterAll(async () => {
 });
 
 /** The CLI's own shot path: `openPage` attaches the tracker, navigates and settles. */
-async function settled(path: string) {
+async function settled(path: string, { shoot = false } = {}) {
   const route = parseConfig({ baseUrl: `http://127.0.0.1:${server.port}`, routes: [path] })
     .routes[0]!;
   const page = await browser.newPage();
@@ -98,7 +99,7 @@ async function settled(path: string) {
     return {
       steps: opened.settle,
       text: await page.locator("body").innerText(),
-      shot: PNG.sync.read(await page.screenshot({ fullPage: true })),
+      shot: shoot ? PNG.sync.read(await page.screenshot({ fullPage: true })) : undefined,
     };
   } finally {
     await page.close();
@@ -117,7 +118,8 @@ describe("the in-flight settle in Chromium", () => {
   });
 
   test("an image with decoding=async is shot decoded, not as a blank box", async () => {
-    const { shot } = await settled("/async-image");
+    const { shot } = await settled("/async-image", { shoot: true });
+    if (!shot) throw new Error("no shot");
     // The middle of the 400px image.
     const at = (200 * shot.width + 200) * 4;
     expect([...shot.data.subarray(at, at + 3)]).toEqual([...RED]);

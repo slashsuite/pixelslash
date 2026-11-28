@@ -128,11 +128,18 @@ const imagesLoaded = () => {
  * Decode every image on the page, run once `imagesLoaded` holds. A loaded image is not yet a decoded
  * one: with `decoding="async"` (or a lazy image just made eager) the browser paints the frame without
  * it until its decode finishes, so a shot taken in between has a blank box where it should be. A
- * decode that fails (a broken or replaced source) is no reason to hold the shot, so it is let go. Self
+ * decode that fails (a broken or replaced source) is no reason to hold the shot, so it is let go. An
+ * image the page added since `imagesLoaded` last looked is made eager as well, so a lazy one below the
+ * fold loads and decodes rather than leaving its decode waiting on a load that never starts. Self
  * contained: Playwright sends its source to the page.
  */
 const imagesDecoded = () =>
-  Promise.all(Array.from(document.images, (img) => img.decode().catch(() => {}))).then(() => {});
+  Promise.all(
+    Array.from(document.images, (img) => {
+      if (img.loading === "lazy") img.loading = "eager";
+      return img.decode().catch(() => {});
+    }),
+  ).then(() => {});
 
 /**
  * The browser's next idle callback: it runs only once the main thread has no task waiting, so a page
