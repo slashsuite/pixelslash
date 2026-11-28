@@ -1,6 +1,8 @@
 import { join } from "node:path";
 import { PNG } from "pngjs";
 import { afterAll, describe, expect, test } from "vitest";
+import { CaptureTimeout } from "../src/errors.ts";
+import { FRESH_ALONE } from "../src/flake-upload.ts";
 import { identity, readManifest } from "../src/manifest.ts";
 import type { Shoot, SnapshotEntry } from "../src/snapshot.ts";
 import { uploadSnapshots } from "../src/upload.ts";
@@ -70,7 +72,17 @@ const SHOTS: Record<string, { reused: Buffer; fresh: Buffer }> = {
   "fresh-story": { reused: png(16), fresh: png(4) },
 };
 
-async function upload(opts: { retries?: number; reused?: string[] } = {}) {
+type Recapture = (e: SnapshotEntry) => Promise<Shoot>;
+
+const freshShot = (e: SnapshotEntry): Shoot => ({
+  png: SHOTS[e.name]!.fresh,
+  ignore: [],
+  media: [],
+});
+
+async function upload(
+  opts: { retries?: number; reused?: string[]; recapture?: Recapture; concurrency?: number } = {},
+) {
   const { dir: cwd } = await repo(1, 1);
   const names = Object.keys(SHOTS);
   const dir = await snapshotDir(names.map((n) => entry(n)));
@@ -78,7 +90,7 @@ async function upload(opts: { retries?: number; reused?: string[] } = {}) {
   const asked: string[] = [];
   const recapture = async (e: SnapshotEntry): Promise<Shoot> => {
     asked.push(e.name);
-    return { png: SHOTS[e.name]!.fresh, ignore: [], media: [] };
+    return opts.recapture ? opts.recapture(e) : freshShot(e);
   };
   const keep = opts.reused ?? names;
   const pooled = (await readManifest(dir)).snapshots.filter((e) => keep.includes(e.name));
@@ -94,6 +106,7 @@ async function upload(opts: { retries?: number; reused?: string[] } = {}) {
     {
       fetch: fake.fetch,
       recapture,
+      ...(opts.concurrency !== undefined && { recaptureConcurrency: opts.concurrency }),
       reused: new Set(pooled.map(identity)),
     },
   );
@@ -155,5 +168,66 @@ describe("a shot from a reused preview page is kept only where it is its baselin
     expect(asked.toSorted()).toEqual(["artifact", "artifact", "real", "real"]);
     expect(sent.get("artifact")).toEqual(png(16));
     expect(result.reshot).toBe(0);
+  });
+});
+
+/**
+ * A recapture that counts how many shoot at once and times out the first `fails` shots of
+ * `real`. Its first try waits until another shot is in flight, which then holds a while, so
+ * that try is under load; `beside` is how many were shooting at each of `real`'s tries.
+ */
+function timingOut(fails: number) {
+  let now = 0;
+  const beside: number[] = [];
+  let left = fails;
+  const another = Promise.withResolvers<void>();
+  const recapture: Recapture = async (e) => {
+    now++;
+    try {
+      if (e.name !== "real") {
+        another.resolve();
+        await Bun.sleep(20);
+      } else if (left === fails) await another.promise;
+      if (e.name === "real" && left > 0) {
+        left--;
+        beside.push(now);
+        throw new CaptureTimeout("story real did not render within 8000ms");
+      }
+      if (e.name === "real") beside.push(now);
+      return freshShot(e);
+    } finally {
+      now--;
+    }
+  };
+  return { recapture, beside };
+}
+
+describe("a fresh shot that times out beside the others is shot again alone", () => {
+  test("one timeout: shot again with nothing else shooting, and the upload goes on", async () => {
+    const { recapture, beside } = timingOut(1);
+    const { sent, asked } = await upload({ recapture, concurrency: 4, retries: 0 });
+    expect(sent.get("real")).toEqual(png(4));
+    expect(asked.filter((n) => n === "real")).toHaveLength(2);
+    // The first try shot beside others; the retry ran alone, the only capture in flight its own.
+    expect(beside[0]).toBeGreaterThan(1);
+    expect(beside.at(-1)).toBe(1);
+  });
+
+  test("a second timeout, alone, fails the upload and says the shot was retried alone", async () => {
+    const { recapture } = timingOut(2);
+    await expect(upload({ recapture, concurrency: 4, retries: 0 })).rejects.toThrow(
+      `story real did not render within 8000ms${FRESH_ALONE}`,
+    );
+  });
+
+  test("a failure that is not a timeout fails at once, with no retry", async () => {
+    const asked: string[] = [];
+    const recapture: Recapture = async (e) => {
+      asked.push(e.name);
+      if (e.name === "real") throw new Error("the page crashed");
+      return freshShot(e);
+    };
+    await expect(upload({ recapture, retries: 0 })).rejects.toThrow("the page crashed");
+    expect(asked.filter((n) => n === "real")).toHaveLength(1);
   });
 });
