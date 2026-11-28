@@ -5,6 +5,7 @@ import {
   type Baselines,
   type BaselineSnapshot,
   baselineFor,
+  pickOptions,
   selectBaselines,
   snapshotKeyOf,
 } from "#/db/baselines";
@@ -16,7 +17,7 @@ import { SnapshotWrites } from "#/db/snapshot-writes";
 import { written } from "./written";
 import { type PartTimer, timeIf } from "#/server/server-timing";
 import type { BlobStore } from "#/storage/blobs";
-import { CiResultError } from "./ci-result";
+import { CiResultError, refusedMessage } from "./ci-result";
 import { NoRecoveryError, claim, dead } from "./claim";
 import { RunTimer } from "./run-timer";
 import {
@@ -292,7 +293,7 @@ async function diffOrRecord(
 /**
  * Store the results a CI run sent (ob 1727). No PNG is read and no budget applies: each shot is a
  * check of some JSON. A shot whose result is refused keeps the reason in `diff_error` and is left
- * unmeasured; the others are stored, and the build errors naming every refused shot.
+ * unmeasured; the others are stored, and the build errors with the count and the first few by name.
  */
 async function measureFromCi(deps: RunDeps, rows: SnapshotRow[], baselines: Baselines) {
   const refused: string[] = [];
@@ -309,11 +310,7 @@ async function measureFromCi(deps: RunDeps, rows: SnapshotRow[], baselines: Base
     }
     if (deps.writes.full) await deps.writes.flush();
   }
-  if (refused.length > 0)
-    throw new Error(
-      `this project diffs in CI and ${refused.length} of ${rows.length} shots have no usable result; ` +
-        `re-run the CI job. ${refused.join("; ")}`,
-    );
+  if (refused.length > 0) throw new Error(refusedMessage(refused, rows.length));
 }
 
 /**
@@ -408,7 +405,7 @@ export async function processBuild(deps: ProcessDeps, build: Build): Promise<Pro
     await clearMarkers(deps, build);
     const rows = await deps.db.select().from(snapshots).where(eq(snapshots.buildId, build.id));
     const baselines: Baselines = await timeIf(deps.timer, "baselines", () =>
-      selectBaselines(deps.db, build, new Set(rows.map(snapshotKeyOf))),
+      selectBaselines(deps.db, build, new Set(rows.map(snapshotKeyOf)), pickOptions(build, ci)),
     );
     await timeIf(deps.timer, "measure", () =>
       timer.diff(() => measureAll(deps, { build, project }, rows, baselines)),

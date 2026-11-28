@@ -30,6 +30,23 @@ export type CheckedResult = {
 /** Why a shot's CI result was refused; becomes the shot's `diff_error` and part of the build's error. */
 export class CiResultError extends Error {}
 
+/** How many refused shots the build's error names; each shot keeps its own reason in `diff_error`. */
+export const NAMED_REFUSALS = 3;
+
+/**
+ * The build's error when CI results were refused: the count and the first few shots by name, so
+ * the line the CLI prints stays readable when every shot of a large run was refused.
+ */
+export function refusedMessage(refused: string[], total: number): string {
+  const named = refused.slice(0, NAMED_REFUSALS).join("; ");
+  const rest = refused.length - NAMED_REFUSALS;
+  const more = rest > 0 ? `; and ${rest} more, each with its reason on the shot` : "";
+  return (
+    `this project diffs in CI and ${refused.length} of ${total} shots have no usable result; ` +
+    `re-run the CI job. ${named}${more}`
+  );
+}
+
 type Obj = Record<string, unknown>;
 
 function isObj(v: unknown): v is Obj {

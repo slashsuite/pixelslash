@@ -1,7 +1,8 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { type SQL, and, eq, inArray, sql } from "drizzle-orm";
 import { awaitsDecision } from "#/lib/snapshot-groups";
 import type { Db } from "./db";
 import { builds, snapshots } from "./schema";
+import { arrival } from "./schema-columns";
 
 /**
  * Build status after the diff (ob 1470, review model 1422). A changed shot blocks until it is
@@ -54,6 +55,15 @@ export async function refreshBuildStatus(db: Db, buildId: string): Promise<Verdi
 }
 
 /**
+ * When a build in `project` is decided: now, but never at or before the opening of a build already
+ * in the project. A `ci` build counts a candidate only when it was decided by its own `createdAt`,
+ * so a build that opened before a verdict was written never counts it, whatever clock either Worker
+ * read and however long the write took to land.
+ */
+export const decidedNow = (project: string | SQL): SQL =>
+  sql`max(${arrival().getTime()}, coalesce((select max(${builds.createdAt}) from ${builds} where ${builds.projectId} = ${project}), 0) + 1)`;
+
+/**
  * The end of a diff run: give the build its verdict, if this run still holds the claim. The write
  * is fenced on `processing` and on the run's own `startedAt`, which `claim` and `claimForRerun`
  * stored as `processingStartedAt`: a run that outlived its claim (`STALE_PROCESSING_MS`) and a
@@ -62,9 +72,12 @@ export async function refreshBuildStatus(db: Db, buildId: string): Promise<Verdi
  */
 export async function finishRun(db: Db, buildId: string, startedAt: Date): Promise<Verdict | null> {
   const status = await verdictOfBuild(db, buildId);
+  // The first verdict only: a re-run keeps the time its build was first decided.
+  const project = sql`(select ${builds.projectId} from ${builds} where ${builds.id} = ${buildId})`;
+  const decidedAt = sql`coalesce(${builds.decidedAt}, ${decidedNow(project)})`;
   const written = await db
     .update(builds)
-    .set({ status })
+    .set({ status, decidedAt })
     .where(
       and(
         eq(builds.id, buildId),

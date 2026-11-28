@@ -4,6 +4,7 @@ import {
   type PickFor,
   type SnapshotKey,
   baselineFor,
+  pickOptions,
   selectBaselines,
   snapshotKeyOf,
 } from "#/db/baselines";
@@ -70,7 +71,12 @@ async function reply(
   build: PickFor,
   keys: AskedKey[],
 ): Promise<Response> {
-  const picked = await selectBaselines(ctx.db, build, new Set(keys.map(snapshotKeyOf)));
+  const picked = await selectBaselines(
+    ctx.db,
+    build,
+    new Set(keys.map(snapshotKeyOf)),
+    pickOptions(build, owner.diffLocation === "ci"),
+  );
   const baselines = await Promise.all(
     keys.map(async ({ envFingerprint, ...key }) => {
       // The pick finalise makes for a shot from this environment (`measureFromCi`); a CLI that

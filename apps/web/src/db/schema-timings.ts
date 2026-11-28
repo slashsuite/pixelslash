@@ -11,6 +11,13 @@ import { integer } from "drizzle-orm/sqlite-core";
  * is not stored: it is `finished_at - processing_started_at`.
  */
 export const serverTimingColumns = {
+  /**
+   * When a diff run first gave the build its verdict; kept through a re-run or a review. A `ci`
+   * project picks baselines only from builds decided before its build opened, so the pick the CLI
+   * measured against is the one finalise makes, however long the upload takes. Null on a build
+   * decided before the column, which every pick counts as decided long ago.
+   */
+  decidedAt: integer("decided_at", { mode: "timestamp_ms" }),
   /** When the last server step ended: the verdict, or later the last explanation or the summary. */
   finishedAt: integer("finished_at", { mode: "timestamp_ms" }),
   /** Build created to the diff run claiming it; null on a re-run, whose build was created long before. */

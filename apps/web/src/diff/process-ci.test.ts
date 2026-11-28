@@ -1,4 +1,5 @@
 import { ENGINE_VERSION } from "@slashsuite/pixelslash-engine/ci-diff";
+import { eq } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
 import { call, setup } from "#/api/test-support";
 import { getBuild } from "#/db/builds";
@@ -6,7 +7,7 @@ import { reviewSnapshot } from "#/db/review";
 import { builds } from "#/db/schema";
 import { orgBlobs } from "#/storage/blobs";
 import { NoRecoveryError, processBuild } from "./process";
-import { type Run, branch, ciProject, noDiff, run } from "./test-ci";
+import { type Run, begin, branch, ciProject, noDiff, run, send } from "./test-ci";
 import { sha } from "./test-builds";
 import { RED, shot } from "./test-shots";
 
@@ -141,6 +142,48 @@ describe("a project that diffs in CI", () => {
       mainDiffResult: null,
     });
     expect(second.build?.status).not.toBe("errored");
+  });
+
+  // A pull request opened while main's build at its merge base is still being diffed (PS-812).
+  test("a build decided during the upload is not picked at finalise; the next build picks it", async () => {
+    const held = await ciProject();
+    const deps = { ...held.deps, diff: noDiff };
+    const token = held.acme.token;
+    const old = await run(held, token, { branch: "main", commit: sha(1), png: white }, deps);
+    const onBase = await begin(held, token, { branch: "main", commit: sha(2), png: red }, deps);
+    const spec = { ...branch(3, redder), mergeBase: sha(2), ancestors: [sha(1)] };
+    const pr = await begin(held, token, spec, deps);
+    // main at the merge base had no verdict when the CLI asked: the pick is its ancestor's.
+    expect(pr.pick.baseline?.id).toBe(old.row.id);
+    const based = await send(onBase);
+    expect(based.build?.status).toBe("passed");
+
+    // Finalise makes the pick the CLI measured against, so nothing is refused as stale.
+    const r = await send(pr);
+    expect(r.build).toMatchObject({ status: "changes", error: null });
+    expect(r.row).toMatchObject({ diffStatus: "changed", baselineKey: old.row.imageKey });
+    // A build opened after main's verdict picks main's shot.
+    const next = await run(held, token, { ...spec, branch: "feat/y", commit: sha(4) }, deps);
+    expect(next.pick.baseline?.id).toBe(based.row.id);
+    expect(next.build).toMatchObject({ status: "changes", error: null });
+  });
+
+  // The pull request's Worker read a clock ahead of the one that gave main its verdict.
+  test("a build opened before a verdict never counts it decided, whatever its clock read", async () => {
+    const held = await ciProject();
+    const deps = { ...held.deps, diff: noDiff };
+    const token = held.acme.token;
+    const old = await run(held, token, { branch: "main", commit: sha(1), png: white }, deps);
+    const onBase = await begin(held, token, { branch: "main", commit: sha(2), png: red }, deps);
+    const spec = { ...branch(3, redder), mergeBase: sha(2), ancestors: [sha(1)] };
+    const pr = await begin(held, token, spec, deps);
+    const ahead = new Date(Date.now() + 60_000);
+    await held.db.update(builds).set({ createdAt: ahead }).where(eq(builds.id, pr.id));
+    await send(onBase);
+
+    const r = await send(pr);
+    expect(r.build).toMatchObject({ status: "changes", error: null });
+    expect(r.row).toMatchObject({ baselineKey: old.row.imageKey });
   });
 
   test("an old CLI is refused by a ci project and accepted by a server one", async () => {
